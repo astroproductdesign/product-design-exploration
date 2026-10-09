@@ -1,0 +1,402 @@
+<title>Pixel Star Raid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+<style>
+  /* Layout: an arcade cabinet screen. A score marquee, the playfield at native 224×256 scaled by whole pixels, a control strip below. Single dark look, by choice. */
+  :root {
+    color-scheme: dark;
+    --cab: #07060d;        /* cabinet surround */
+    --screen: #000000;     /* the CRT */
+    --bezel: #1d1a2e;      /* screen frame */
+    --text: #f4f4f4;       /* score digits */
+    --dim: #6f6a8f;        /* labels */
+    --green: #39ff5a;      /* cannon, bunkers, ground */
+    --pink: #ff3fd2;       /* top row */
+    --cyan: #3ff2ff;       /* middle rows */
+    --red: #ff3b3b;        /* saucer, danger */
+    --pixel: "Press Start 2P", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--cab); color: var(--text); font-family: var(--pixel);
+    padding-inline: 16px; padding-block: 16px;
+    display: flex; justify-content: center; align-items: flex-start;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cab { width: 100%; max-width: 520px; display: grid; gap: 12px; justify-items: center; }
+  .screen {
+    position: relative; width: min(100%, calc((100dvh - 150px) * 0.875)); min-width: 224px; max-width: 100%;
+    background: var(--screen); border: 6px solid var(--bezel); border-radius: 18px; overflow: hidden;
+    box-shadow: 0 0 0 2px #000, 0 0 60px rgba(63, 242, 255, .08);
+  }
+  .hud {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 12px 12px 6px; gap: 6px;
+    font-size: clamp(7px, 2.2vw, 10px); line-height: 1.6; text-align: center;
+  }
+  .hud span { display: block; color: var(--dim); }
+  .hud b { font-weight: 400; color: var(--text); font-variant-numeric: tabular-nums; }
+  .hud .p1 span { color: var(--pink); }
+  canvas {
+    display: block; width: 100%; aspect-ratio: 224 / 240; max-width: 100%;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+  }
+  .scan {
+    position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px);
+    mix-blend-mode: screen;
+  }
+  .veil {
+    position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 18px; text-align: center;
+    background: rgba(0, 0, 0, .55); padding: 16px;
+  }
+  .veil h1 {
+    margin: 0; font-size: clamp(16px, 5.4vw, 26px); line-height: 1.5; color: var(--green); font-weight: 400;
+    text-shadow: 0 0 10px rgba(57, 255, 90, .6); text-wrap: balance;
+  }
+  .veil p { margin: 0; font-size: clamp(7px, 2.2vw, 10px); line-height: 2; color: var(--text); }
+  .table { font-size: clamp(7px, 2.2vw, 10px); display: grid; grid-template-columns: auto auto; gap: 8px 12px; align-items: center; }
+  .table canvas { width: 24px; height: auto; aspect-ratio: auto; }
+  .blink { animation: blink 1s steps(2, start) infinite; }
+  @keyframes blink { to { visibility: hidden; } }
+  button {
+    font-family: var(--pixel); font-size: 11px; color: #000; background: var(--green); border: 0; border-radius: 4px;
+    padding: 12px 18px; cursor: pointer; box-shadow: 0 4px 0 #1a8f2e; touch-action: manipulation;
+  }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 #1a8f2e; }
+  button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+  .keys { font-size: 8px; line-height: 2; color: var(--dim); text-align: center; }
+  .keys b { color: var(--text); font-weight: 400; }
+  .pad { display: none; width: 100%; grid-template-columns: 1fr 1fr 1.6fr; gap: 10px; }
+  .pad button { padding: 18px 0; font-size: 14px; background: var(--bezel); color: var(--text); box-shadow: 0 4px 0 #000; }
+  .pad button.fire { background: var(--red); color: #fff; box-shadow: 0 4px 0 #8a1717; }
+  @media (pointer: coarse) { .pad { display: grid; } .keys { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .blink { animation: none; } }
+</style>
+
+<div class="cab">
+  <div class="screen">
+    <div class="hud">
+      <div class="p1"><span>SCORE</span><b id="score">0000</b></div>
+      <div><span>HI-SCORE</span><b id="hi">0000</b></div>
+      <div><span>WAVE</span><b id="wave">1</b></div>
+    </div>
+    <canvas id="game" width="224" height="240" aria-label="Playfield"></canvas>
+    <div class="scan"></div>
+    <div class="veil" id="veil">
+      <h1 id="vTitle">PIXEL<br>STAR RAID</h1>
+      <div class="table" id="table"></div>
+      <p id="vText" class="blink">PRESS START</p>
+      <button id="start" type="button">START</button>
+    </div>
+  </div>
+  <div class="keys"><b>ARROWS</b> MOVE &nbsp; <b>SPACE</b> FIRE &nbsp; <b>P</b> PAUSE &nbsp; <b>M</b> SOUND</div>
+  <div class="pad">
+    <button type="button" data-k="left" aria-label="Move left">&lt;</button>
+    <button type="button" data-k="right" aria-label="Move right">&gt;</button>
+    <button type="button" data-k="fire" class="fire" aria-label="Fire">FIRE</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const W = 224, H = 240;
+  const C = { green: "#39ff5a", pink: "#ff3fd2", cyan: "#3ff2ff", yellow: "#ffe83f", red: "#ff3b3b", white: "#f4f4f4" };
+
+  // Sprites, one string per pixel row.
+  const S = {
+    squid: [["...##...", "..####..", ".######.", "##.##.##", "########", "..#..#..", ".#.##.#.", "#.#..#.#"],
+            ["...##...", "..####..", ".######.", "##.##.##", "########", ".#.##.#.", "#......#", ".#....#."]],
+    crab: [["..#.....#..", "...#...#...", "..#######..", ".##.###.##.", "###########", "#.#######.#", "#.#.....#.#", "...##.##..."],
+           ["..#.....#..", "#..#...#..#", "#.#######.#", "###.###.###", "###########", ".#########.", "..#.....#..", ".#.......#."]],
+    octo: [["....####....", ".##########.", "############", "###..##..###", "############", "...##..##...", "..##.##.##..", "##........##"],
+           ["....####....", ".##########.", "############", "###..##..###", "############", "..###..###..", ".##..##..##.", "..##....##.."]],
+    ship: [["......#......", ".....###.....", ".....###.....", ".###########.", "#############", "#############", "#############", "#############"]],
+    ufo: [[".....######.....", "...##########...", "..############..", ".##.##.##.##.##.", "################", "..###..##..###..", "...#........#..."]],
+    boom: [["#...#...#...#", ".#...#.#...#.", "..#.......#..", "...#.....#...", "##.........##", "...#.....#...", "..#..#.#..#..", ".#..#...#..#."]],
+    shipBoom: [["....#....#...", "#.....#......", "...#.##..#...", ".#.#####.#...", "..#######..#.", "#.#########..", ".###########.", "#############"],
+               ["..#......#...", "....#.#.....#", "#..#.#..#....", "...#..##.#...", ".#.######...#", "..#########..", ".###########.", "#############"]],
+    zig: [[".#.", "#..", ".#.", "..#", ".#.", "#..", ".#."], [".#.", "..#", ".#.", "#..", ".#.", "..#", ".#."]],
+  };
+  const sprite = (rows, color) => {
+    const c = document.createElement("canvas"); c.width = rows[0].length; c.height = rows.length;
+    const x = c.getContext("2d"); x.fillStyle = color;
+    rows.forEach((r, y) => [...r].forEach((ch, i) => { if (ch === "#") x.fillRect(i, y, 1, 1); }));
+    return c;
+  };
+  const IMG = {};
+  const make = (key, color) => (IMG[key + color] ||= S[key].map(f => sprite(f, color)));
+  const TYPES = [
+    { key: "squid", color: C.pink, pts: 30 }, { key: "crab", color: C.cyan, pts: 20 }, { key: "crab", color: C.cyan, pts: 20 },
+    { key: "octo", color: C.green, pts: 10 }, { key: "octo", color: C.yellow, pts: 10 },
+  ];
+  TYPES.forEach(t => make(t.key, t.color));
+
+  // Score table on the title screen.
+  const table = document.getElementById("table");
+  [["ufo", C.red, "= ? MYSTERY"], ["squid", C.pink, "= 30 POINTS"], ["crab", C.cyan, "= 20 POINTS"], ["octo", C.green, "= 10 POINTS"]].forEach(([k, col, t]) => {
+    const cv = make(k, col)[0], big = document.createElement("canvas");
+    big.width = cv.width * 2; big.height = cv.height * 2;
+    const g = big.getContext("2d"); g.imageSmoothingEnabled = false; g.drawImage(cv, 0, 0, big.width, big.height);
+    const p = document.createElement("span"); p.textContent = t; p.style.color = col === C.red ? C.red : "";
+    table.append(big, p);
+  });
+
+  const cv = document.getElementById("game"), ctx = cv.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  const $ = id => document.getElementById(id);
+  const ui = { score: $("score"), hi: $("hi"), wave: $("wave"), veil: $("veil"), title: $("vTitle"), text: $("vText"), btn: $("start"), table };
+
+  let hi = 0; try { hi = +localStorage.getItem("pixel-star-raid-hi") || 0; } catch (e) {}
+
+  // Stars
+  const stars = Array.from({ length: 46 }, () => ({ x: Math.random() * W, y: Math.random() * 200, p: Math.random() * 6, s: Math.random() < .2 }));
+
+  // Sound: tiny square-wave synth, started by the first key or tap.
+  let ac = null, muted = false;
+  function audio() { if (!ac) try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} if (ac && ac.state === "suspended") ac.resume(); }
+  function beep(f0, f1, dur, type = "square", vol = .06) {
+    if (!ac || muted) return;
+    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur);
+  }
+  function noise(dur, vol = .08) {
+    if (!ac || muted) return;
+    const b = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const s = ac.createBufferSource(), g = ac.createGain(); g.gain.value = vol;
+    s.buffer = b; s.connect(g).connect(ac.destination); s.start();
+  }
+  const MARCH = [98, 87, 78, 73]; let marchI = 0;
+
+  // Game state
+  const PY = 216, BY = 176;
+  let state = "title", score, lives, wave, inv, fx, fy, dir, stepT, frame, pl, shot, bombs, bombT, ufo, ufoT, booms, bunkers, deadT, flash;
+
+  function makeBunkers() {
+    const shape = ["....##############....", "...################...", "..##################..", ".####################.",
+      "######################", "######################", "######################", "######################",
+      "######################", "######################", "######################", "######################",
+      "#######........#######", "######..........######", "#####............#####", "#####............#####"];
+    return [32, 77, 125, 170].map(x => ({ x, y: BY, w: 22, h: 16, px: shape.map(r => [...r].map(c => c === "#")) }));
+  }
+  function newWave() {
+    inv = [];
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 11; c++) inv.push({ r, c, t: TYPES[r], alive: true });
+    fx = 18; fy = 40 + Math.min(wave - 1, 4) * 8; dir = 1; stepT = 0; frame = 0;
+    shot = null; bombs = []; bombT = 1.2; ufo = null; ufoT = 14 + Math.random() * 10;
+  }
+  function reset() {
+    score = 0; lives = 3; wave = 1; booms = []; bunkers = makeBunkers(); flash = 0;
+    pl = { x: 104, alive: true }; deadT = 0; newWave();
+  }
+  const alive = () => inv.filter(i => i.alive);
+  const invBox = i => { const w = S[i.t.key][0][0].length; return { x: fx + i.c * 16 + (12 - w) / 2, y: fy + i.r * 16, w, h: 8 }; };
+  const hitBox = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  function bunkerHit(x, y, w, h, blast) {
+    for (const b of bunkers) {
+      if (x + w <= b.x || x >= b.x + b.w || y + h <= b.y || y >= b.y + b.h) continue;
+      for (let py = Math.max(0, Math.floor(y - b.y)); py < Math.min(b.h, Math.ceil(y + h - b.y)); py++)
+        for (let px = Math.max(0, Math.floor(x - b.x)); px < Math.min(b.w, Math.ceil(x + w - b.x)); px++) {
+          if (!b.px[py][px]) continue;
+          if (blast) for (let dy = -3; dy <= 3; dy++) for (let dx = -2; dx <= 2; dx++) {
+            const qy = py + dy, qx = px + dx;
+            if (b.px[qy] && qx >= 0 && qx < b.w && Math.random() < 0.75 - Math.abs(dx) * .12 - Math.abs(dy) * .08) b.px[qy][qx] = false;
+          }
+          return true;
+        }
+    }
+    return false;
+  }
+
+  // Input
+  const keys = {};
+  function fire() {
+    if (state !== "play" || !pl.alive || shot) return;
+    shot = { x: pl.x + 6, y: PY - 4 }; beep(1200, 200, .12, "square", .04);
+  }
+  addEventListener("keydown", e => {
+    audio();
+    if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
+    else if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
+    else if (e.key === " " || e.key === "ArrowUp") { if (!e.repeat) fire(); keys.fire = true; }
+    else if (e.key === "p" || e.key === "P" || e.key === "Escape") togglePause();
+    else if (e.key === "m" || e.key === "M") muted = !muted;
+    else if (e.key === "Enter" && state !== "play" && state !== "pause" && document.activeElement !== ui.btn) start();
+    else return;
+    e.preventDefault();
+  });
+  addEventListener("keyup", e => {
+    if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
+    if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
+    if (e.key === " " || e.key === "ArrowUp") keys.fire = false;
+  });
+  addEventListener("blur", () => { keys.left = keys.right = keys.fire = false; if (state === "play") togglePause(); });
+  document.querySelectorAll(".pad button").forEach(b => {
+    const k = b.dataset.k;
+    b.addEventListener("pointerdown", e => { e.preventDefault(); audio(); if (state === "title" || state === "over") return start(); keys[k] = true; if (k === "fire") fire(); });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(ev => b.addEventListener(ev, () => { keys[k] = false; }));
+  });
+  ui.btn.addEventListener("click", () => { audio(); state === "pause" ? togglePause() : start(); });
+
+  function start() { reset(); state = "play"; ui.veil.hidden = true; }
+  function togglePause() {
+    if (state === "play") { state = "pause"; veil("PAUSED", "PRESS P", "RESUME", false); }
+    else if (state === "pause") { state = "play"; ui.veil.hidden = true; }
+  }
+  function veil(t, s, b, showTable) {
+    ui.title.innerHTML = t; ui.text.textContent = s; ui.btn.textContent = b; ui.table.hidden = !showTable; ui.veil.hidden = false;
+  }
+  function gameOver() {
+    state = "over";
+    if (score > hi) { hi = score; try { localStorage.setItem("pixel-star-raid-hi", hi); } catch (e) {} }
+    setTimeout(() => veil("GAME OVER", `SCORE ${String(score).padStart(4, "0")}`, "PLAY AGAIN", false), 900);
+  }
+
+  // Update
+  function update(dt) {
+    for (const s of stars) s.p += dt * (s.s ? 4 : 2);
+    booms = booms.filter(b => (b.t -= dt) > 0);
+    if (flash > 0) flash -= dt;
+    if (state === "title") { march(dt, false); return; }
+    if (state !== "play") return;
+
+    // Player
+    if (pl.alive) {
+      const v = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+      pl.x = Math.max(4, Math.min(W - 17, pl.x + v * 70 * dt));
+      if (keys.fire && !shot) fire();
+    } else if ((deadT -= dt) <= 0) {
+      if (lives <= 0) { gameOver(); return; }
+      pl = { x: 104, alive: true }; bombs = [];
+    }
+
+    // Player shot
+    if (shot) {
+      shot.y -= 260 * dt;
+      if (shot.y < 6) { booms.push({ x: shot.x - 4, y: 4, t: .2, k: "boom", col: C.red }); shot = null; }
+      else if (bunkerHit(shot.x, shot.y, 1, 4, true)) shot = null;
+      else {
+        for (const i of inv) if (i.alive && hitBox({ x: shot.x, y: shot.y, w: 1, h: 4 }, invBox(i))) {
+          i.alive = false; score += i.t.pts; const b = invBox(i);
+          booms.push({ x: b.x + b.w / 2 - 6.5, y: b.y, t: .25, k: "boom", col: i.t.color }); noise(.18, .06); shot = null; break;
+        }
+        if (shot && ufo && hitBox({ x: shot.x, y: shot.y, w: 1, h: 4 }, { x: ufo.x, y: 20, w: 16, h: 7 })) {
+          const pts = [50, 100, 150, 300][Math.floor(Math.random() * 4)];
+          score += pts; booms.push({ x: ufo.x, y: 20, t: 1, k: "text", txt: String(pts), col: C.red }); ufo = null; shot = null; noise(.4, .08);
+        }
+        if (shot) for (const b of bombs) if (Math.abs(b.x + 1 - shot.x) < 3 && Math.abs(b.y - shot.y) < 6) { b.dead = true; shot = null; booms.push({ x: b.x - 5, y: b.y, t: .15, k: "boom", col: C.white }); break; }
+      }
+    }
+
+    march(dt, true);
+
+    // Bombs
+    const living = alive();
+    bombT -= dt;
+    if (bombT <= 0 && pl.alive && bombs.length < Math.min(4, 1 + Math.ceil(wave / 2))) {
+      bombT = Math.max(.35, 1.1 - wave * .08) * (0.6 + Math.random() * .8);
+      const cols = [...new Set(living.map(i => i.c))];
+      const near = cols.reduce((a, c) => Math.abs(fx + c * 16 + 6 - pl.x - 6) < Math.abs(fx + a * 16 + 6 - pl.x - 6) ? c : a, cols[0]);
+      const col = Math.random() < .45 ? near : cols[Math.floor(Math.random() * cols.length)];
+      const shooter = living.filter(i => i.c === col).sort((a, b) => b.r - a.r)[0];
+      if (shooter) { const b = invBox(shooter); bombs.push({ x: b.x + b.w / 2 - 1, y: b.y + 8, f: 0 }); }
+    }
+    for (const b of bombs) {
+      b.y += (80 + wave * 6) * dt; b.f += dt * 10;
+      if (b.y > 230) { b.dead = true; booms.push({ x: b.x - 5, y: 228, t: .15, k: "boom", col: C.green }); }
+      else if (bunkerHit(b.x, b.y, 3, 7, true)) b.dead = true;
+      else if (pl.alive && hitBox({ x: b.x, y: b.y, w: 3, h: 7 }, { x: pl.x, y: PY, w: 13, h: 8 })) { b.dead = true; killPlayer(); }
+    }
+    bombs = bombs.filter(b => !b.dead);
+
+    // Saucer
+    if (!ufo && (ufoT -= dt) <= 0 && living.length > 6) { const l = Math.random() < .5; ufo = { x: l ? -16 : W, v: l ? 40 : -40, s: 0 }; ufoT = 18 + Math.random() * 12; }
+    if (ufo) {
+      ufo.x += ufo.v * dt; ufo.s += dt;
+      if (ufo.s > .12) { ufo.s = 0; beep(ufo.x % 2 ? 520 : 680, 600, .1, "sawtooth", .02); }
+      if (ufo.x < -20 || ufo.x > W + 4) ufo = null;
+    }
+
+    // Wave clear
+    if (!living.length) { wave++; flash = .3; newWave(); beep(400, 1200, .4, "square", .05); }
+  }
+
+  function killPlayer() {
+    pl.alive = false; lives--; deadT = 1.6; noise(.7, .12); beep(200, 40, .7, "sawtooth", .05);
+    booms.push({ x: pl.x, y: PY, t: 1.4, k: "shipBoom", col: C.green });
+  }
+
+  function march(dt, live) {
+    const living = alive(); if (!living.length) return;
+    stepT -= dt;
+    const interval = Math.max(.03, (living.length / 55) * .55 / (1 + (wave - 1) * .12));
+    if (stepT > 0) return;
+    stepT = interval; frame ^= 1;
+    const xs = living.map(invBox), minX = Math.min(...xs.map(b => b.x)), maxX = Math.max(...xs.map(b => b.x + b.w));
+    if ((dir > 0 && maxX + 3 > W - 4) || (dir < 0 && minX - 3 < 4)) { dir = -dir; if (live) fy += 8; }
+    else fx += dir * 3;
+    if (live) {
+      beep(MARCH[marchI = (marchI + 1) % 4], MARCH[marchI] * .9, .09, "square", .07);
+      for (const i of living) {
+        const b = invBox(i);
+        if (b.y + 8 >= BY) bunkerHit(b.x, b.y, b.w, 8, false) && clearBunker(b);
+        if (b.y + 8 >= PY) { lives = 0; if (pl.alive) killPlayer(); deadT = 1; }
+      }
+    }
+  }
+  function clearBunker(b) {
+    for (const k of bunkers) for (let y = 0; y < k.h; y++) for (let x = 0; x < k.w; x++)
+      if (k.x + x >= b.x && k.x + x < b.x + b.w && k.y + y >= b.y && k.y + y < b.y + 8) k.px[y][x] = false;
+  }
+
+  // Draw
+  function draw() {
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+    for (const s of stars) {
+      const tw = (Math.sin(s.p) + 1) / 2; if (tw < .25) continue;
+      ctx.fillStyle = s.s ? `rgba(255,232,63,${tw})` : `rgba(180,190,255,${tw * .7})`;
+      ctx.fillRect(Math.floor(s.x), Math.floor(s.y), 1, 1);
+      if (s.s && tw > .85) { ctx.fillRect(s.x - 1, s.y, 3, 1); ctx.fillRect(s.x, s.y - 1, 1, 3); }
+    }
+    if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash})`; ctx.fillRect(0, 0, W, H); }
+
+    for (const i of inv) if (i.alive) { const b = invBox(i); ctx.drawImage(make(i.t.key, i.t.color)[frame], Math.round(b.x), Math.round(b.y)); }
+    if (ufo) ctx.drawImage(make("ufo", C.red)[0], Math.round(ufo.x), 20);
+
+    ctx.fillStyle = C.green;
+    for (const b of bunkers) for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) if (b.px[y][x]) ctx.fillRect(b.x + x, b.y + y, 1, 1);
+
+    if (pl.alive && state !== "title") ctx.drawImage(make("ship", C.green)[0], Math.round(pl.x), PY);
+    if (shot) { ctx.fillStyle = C.white; ctx.fillRect(Math.round(shot.x), Math.round(shot.y), 1, 4); }
+    for (const b of bombs) ctx.drawImage(make("zig", C.white)[Math.floor(b.f) % 2], Math.round(b.x), Math.round(b.y));
+
+    for (const b of booms) {
+      if (b.k === "text") { ctx.fillStyle = b.col; ctx.font = "8px 'Press Start 2P', monospace"; ctx.fillText(b.txt, Math.round(b.x), b.y + 7); }
+      else { const fr = make(b.k, b.col); ctx.drawImage(fr[Math.floor(b.t * 10) % fr.length], Math.round(b.x), Math.round(b.y)); }
+    }
+
+    // Ground line and reserve cannons
+    ctx.fillStyle = C.green; ctx.fillRect(0, 229, W, 1);
+    if (state !== "title") for (let k = 0; k < lives - (pl.alive ? 1 : 0); k++) ctx.drawImage(make("ship", C.green)[0], 6 + k * 17, 232);
+
+    const pad = n => String(n).padStart(4, "0");
+    ui.score.textContent = pad(score || 0); ui.hi.textContent = pad(Math.max(hi, score || 0)); ui.wave.textContent = wave || 1;
+  }
+
+  // Fixed-step loop
+  let last = performance.now(), acc = 0; const STEP = 1 / 60;
+  function loop(now) {
+    acc += Math.min(.1, (now - last) / 1000); last = now;
+    while (acc >= STEP) { update(STEP); acc -= STEP; }
+    draw(); requestAnimationFrame(loop);
+  }
+  reset(); state = "title";
+  requestAnimationFrame(loop);
+})();
+</script>

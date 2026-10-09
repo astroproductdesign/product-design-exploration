@@ -1,0 +1,398 @@
+<title>Magenta Well</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: one dark arcade cabinet. The well sits centre stage, a narrow rail of readouts beside it; on phones the rail folds above and a pad appears below. */
+  :root {
+    color-scheme: dark;
+    --void: #0b0509;        /* page ground, a near-black pulled toward magenta */
+    --well: #120810;        /* inside of the well */
+    --rim: #3a1630;         /* well walls, dividers */
+    --dim: #8c6a80;         /* labels */
+    --ink: #f6e3ee;         /* numbers, text */
+    --mag: #e6007d;         /* the one accent */
+    --mag-hot: #ff4fa8;     /* glow core, highlights */
+    --font-display: "Chakra Petch", "Eurostile", "Arial Narrow", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--void); color: var(--ink);
+    font-family: var(--font-mono); font-size: 13px;
+    padding-inline: 16px; padding-block: 20px;
+    display: flex; justify-content: center; align-items: flex-start;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cab { width: 100%; max-width: 640px; display: grid; gap: 18px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 {
+    margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 30px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--mag-hot);
+    text-shadow: 0 0 6px var(--mag), 0 0 22px rgba(230, 0, 125, .55);
+  }
+  .keys { color: var(--dim); font-size: 11px; letter-spacing: .04em; }
+  .keys b { color: var(--ink); font-weight: 600; }
+
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 18px; align-items: start; }
+  .wellwrap { position: relative; justify-self: center; width: 100%; max-width: 340px; }
+  canvas#board {
+    display: block; width: 100%; aspect-ratio: 1 / 2; max-width: 100%;
+    background: var(--well); border: 1px solid var(--rim); border-radius: 14px;
+    box-shadow: 0 0 0 1px rgba(230, 0, 125, .08), 0 0 40px rgba(230, 0, 125, .12) inset;
+  }
+  .veil {
+    position: absolute; inset: 0; display: grid; place-content: center; gap: 14px; text-align: center;
+    background: rgba(11, 5, 9, .72); border-radius: 14px; padding: 20px;
+  }
+  .veil h2 {
+    margin: 0; font-family: var(--font-display); font-size: 26px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink); text-shadow: 0 0 14px rgba(230, 0, 125, .8); text-wrap: balance;
+  }
+  .veil p { margin: 0; color: var(--dim); line-height: 1.5; }
+  button {
+    font-family: var(--font-display); font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink); background: transparent; border: 1px solid var(--mag); border-radius: 10px;
+    padding: 10px 18px; cursor: pointer; font-size: 14px;
+    box-shadow: 0 0 12px rgba(230, 0, 125, .35), 0 0 0 1px rgba(230, 0, 125, .2) inset;
+    touch-action: manipulation;
+  }
+  button:hover { background: rgba(230, 0, 125, .14); }
+  button:focus-visible { outline: 2px solid var(--mag-hot); outline-offset: 3px; }
+
+  .rail { display: grid; gap: 14px; }
+  .box { border: 1px solid var(--rim); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; }
+  .lbl { color: var(--dim); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; }
+  .num { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .num.score { color: var(--mag-hot); text-shadow: 0 0 10px rgba(230, 0, 125, .6); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  canvas.mini { width: 100%; aspect-ratio: 2 / 1; display: block; max-width: 100%; }
+  canvas#next { aspect-ratio: 2 / 3; }
+
+  .pad { display: none; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .pad button { padding: 14px 0; font-size: 18px; letter-spacing: 0; font-family: var(--font-mono); }
+
+  @media (max-width: 560px) {
+    .stage { grid-template-columns: 1fr; }
+    .rail { order: -1; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
+    .rail .stats { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); }
+    canvas#next { aspect-ratio: 2 / 1; }
+    .wellwrap { max-width: min(300px, 100%); }
+    .keys { display: none; }
+    .pad { display: grid; }
+  }
+  @media (pointer: coarse) { .pad { display: grid; } }
+</style>
+
+<div class="cab">
+  <header>
+    <h1>Magenta Well</h1>
+    <div class="keys"><b>← →</b> move · <b>↑</b> rotate · <b>Z</b> rotate back · <b>↓</b> soft · <b>Space</b> drop · <b>C</b> hold · <b>P</b> pause</div>
+  </header>
+
+  <div class="stage">
+    <div class="wellwrap">
+      <canvas id="board" width="200" height="400" aria-label="Playing field, 10 columns by 20 rows"></canvas>
+      <div class="veil" id="veil">
+        <h2 id="veilTitle">Ready</h2>
+        <p id="veilText">Stack the falling blocks.<br>Fill a row to clear it.</p>
+        <div><button id="startBtn" type="button">Start</button></div>
+      </div>
+    </div>
+
+    <aside class="rail">
+      <div class="box"><span class="lbl">Hold</span><canvas class="mini" id="hold"></canvas></div>
+      <div class="box"><span class="lbl">Next</span><canvas class="mini" id="next"></canvas></div>
+      <div class="stats">
+        <div class="box"><span class="lbl">Score</span><span class="num score" id="score">0</span></div>
+        <div class="box"><span class="lbl">Lines</span><span class="num" id="lines">0</span></div>
+        <div class="box"><span class="lbl">Level</span><span class="num" id="level">1</span></div>
+        <div class="box"><span class="lbl">Best</span><span class="num" id="best">0</span></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="pad" id="pad">
+    <button type="button" data-k="left" aria-label="Move left">←</button>
+    <button type="button" data-k="rot" aria-label="Rotate">↻</button>
+    <button type="button" data-k="right" aria-label="Move right">→</button>
+    <button type="button" data-k="soft" aria-label="Soft drop">↓</button>
+    <button type="button" data-k="hard" aria-label="Hard drop">⤓</button>
+    <button type="button" data-k="hold" aria-label="Hold piece">◫</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const COLS = 10, ROWS = 20, HIDDEN = 2;
+  const MAG = "#e6007d", HOT = "#ff4fa8";
+  // One hue, seven weights: each piece a different tint of the same magenta.
+  const TINT = { I: "#ff7ac0", O: "#ff4fa8", T: "#e6007d", S: "#f0389a", Z: "#c7006c", J: "#ff95cf", L: "#d81b84" };
+  const SHAPES = {
+    I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+    O: [[1,1],[1,1]],
+    T: [[0,1,0],[1,1,1],[0,0,0]],
+    S: [[0,1,1],[1,1,0],[0,0,0]],
+    Z: [[1,1,0],[0,1,1],[0,0,0]],
+    J: [[1,0,0],[1,1,1],[0,0,0]],
+    L: [[0,0,1],[1,1,1],[0,0,0]],
+  };
+  // SRS wall kicks, y already flipped to screen-down.
+  const K = {
+    "01": [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]], "10": [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+    "12": [[0,0],[1,0],[1,1],[0,-2],[1,-2]],   "21": [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+    "23": [[0,0],[1,0],[1,-1],[0,2],[1,2]],    "32": [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+    "30": [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]], "03": [[0,0],[1,0],[1,-1],[0,2],[1,2]],
+  };
+  const KI = {
+    "01": [[0,0],[-2,0],[1,0],[-2,1],[1,-2]], "10": [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
+    "12": [[0,0],[-1,0],[2,0],[-1,-2],[2,1]], "21": [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
+    "23": [[0,0],[2,0],[-1,0],[2,-1],[-1,2]], "32": [[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
+    "30": [[0,0],[1,0],[-2,0],[1,2],[-2,-1]], "03": [[0,0],[-1,0],[2,0],[-1,-2],[2,1]],
+  };
+  const LINE_PTS = [0, 100, 300, 500, 800];
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const $ = id => document.getElementById(id);
+  const boardC = $("board"), holdC = $("hold"), nextC = $("next");
+  const ui = { score: $("score"), lines: $("lines"), level: $("level"), best: $("best"), veil: $("veil"),
+               title: $("veilTitle"), text: $("veilText"), btn: $("startBtn") };
+
+  let best = 0;
+  try { best = +localStorage.getItem("magenta-well-best") || 0; } catch (e) {}
+
+  let grid, cur, queue, held, canHold, score, lines, level, state, dropAcc, lockT, lockMoves, clearing, flashT;
+
+  const rot = m => m[0].map((_, i) => m.map(r => r[i]).reverse());
+  const rotCCW = m => m[0].map((_, i) => m.map(r => r[r.length - 1 - i]));
+  const empty = () => Array.from({ length: ROWS + HIDDEN }, () => Array(COLS).fill(null));
+
+  function bag() {
+    const b = Object.keys(SHAPES);
+    for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
+    return b;
+  }
+  function pull() { if (queue.length < 7) queue.push(...bag()); return queue.shift(); }
+  function spawn(type) {
+    const m = SHAPES[type].map(r => r.slice());
+    const p = { type, m, r: 0, x: Math.floor((COLS - m[0].length) / 2), y: type === "I" ? HIDDEN - 1 : HIDDEN };
+    if (hits(p, p.x, p.y, p.m)) { gameOver(); return null; }
+    return p;
+  }
+  function hits(p, x, y, m) {
+    for (let r = 0; r < m.length; r++) for (let c = 0; c < m[r].length; c++) {
+      if (!m[r][c]) continue;
+      const gx = x + c, gy = y + r;
+      if (gx < 0 || gx >= COLS || gy >= ROWS + HIDDEN) return true;
+      if (gy >= 0 && grid[gy][gx]) return true;
+    }
+    return false;
+  }
+  function grounded() { return hits(cur, cur.x, cur.y + 1, cur.m); }
+  function moved() { if (grounded() && lockMoves < 15) { lockT = 0; lockMoves++; } }
+
+  function shift(dx) {
+    if (!cur || hits(cur, cur.x + dx, cur.y, cur.m)) return false;
+    cur.x += dx; moved(); return true;
+  }
+  function turn(dir) {
+    if (!cur || cur.type === "O") return;
+    const m = dir > 0 ? rot(cur.m) : rotCCW(cur.m);
+    const to = (cur.r + (dir > 0 ? 1 : 3)) % 4;
+    for (const [kx, ky] of (cur.type === "I" ? KI : K)["" + cur.r + to]) {
+      if (!hits(cur, cur.x + kx, cur.y + ky, m)) { cur.x += kx; cur.y += ky; cur.m = m; cur.r = to; moved(); return; }
+    }
+  }
+  function ghostY() { let y = cur.y; while (!hits(cur, cur.x, y + 1, cur.m)) y++; return y; }
+  function soft() {
+    if (!cur) return;
+    if (!grounded()) { cur.y++; score += 1; dropAcc = 0; } else lockT = 999;
+  }
+  function hard() {
+    if (!cur) return;
+    const y = ghostY(); score += 2 * (y - cur.y); cur.y = y; lock();
+  }
+  function hold() {
+    if (!cur || !canHold) return;
+    const t = cur.type;
+    cur = held ? spawn(held) : spawn(pull());
+    held = t; canHold = false; dropAcc = 0; lockT = 0; lockMoves = 0;
+  }
+  function lock() {
+    cur.m.forEach((row, r) => row.forEach((v, c) => { if (v && cur.y + r >= 0) grid[cur.y + r][cur.x + c] = cur.type; }));
+    const full = [];
+    grid.forEach((row, y) => { if (row.every(Boolean)) full.push(y); });
+    cur = null;
+    if (full.length) { clearing = full; flashT = reduced ? 0 : 0.22; }
+    else next();
+  }
+  function finishClear() {
+    const n = clearing.length;
+    grid = grid.filter((_, y) => !clearing.includes(y));
+    while (grid.length < ROWS + HIDDEN) grid.unshift(Array(COLS).fill(null));
+    score += LINE_PTS[n] * level; lines += n;
+    level = Math.floor(lines / 10) + 1;
+    clearing = null; next();
+  }
+  function next() {
+    canHold = true; dropAcc = 0; lockT = 0; lockMoves = 0;
+    cur = spawn(pull());
+  }
+  const gravity = () => Math.pow(0.8 - (level - 1) * 0.007, level - 1);
+
+  function start() {
+    grid = empty(); queue = []; held = null; score = 0; lines = 0; level = 1; clearing = null;
+    state = "play"; ui.veil.hidden = true; next();
+  }
+  function gameOver() {
+    state = "over";
+    if (score > best) { best = score; try { localStorage.setItem("magenta-well-best", best); } catch (e) {} }
+    showVeil("Topped out", `${score.toLocaleString()} points · ${lines} lines`, "Play again");
+  }
+  function pause() {
+    if (state === "play") { state = "pause"; showVeil("Paused", "Press P or tap Resume.", "Resume"); }
+    else if (state === "pause") { state = "play"; ui.veil.hidden = true; }
+  }
+  function showVeil(t, s, b) { ui.title.textContent = t; ui.text.textContent = s; ui.btn.textContent = b; ui.veil.hidden = false; ui.btn.focus({ preventScroll: true }); }
+  ui.btn.addEventListener("click", () => state === "pause" ? pause() : start());
+
+  // The demo stack shown before the first game, so the well is never empty at rest.
+  function demo() {
+    grid = empty();
+    const rows = ["LLL.ZZ.JJJ", "LIIIIZZJTJ", "OOSS.TTTJJ", "OOSSZZSSLL"];
+    rows.forEach((s, i) => [...s].forEach((ch, x) => { if (ch !== ".") grid[ROWS + HIDDEN - rows.length + i][x] = ch; }));
+    cur = { type: "T", m: rot(SHAPES.T), r: 1, x: 3, y: 9 };
+    queue = ["I", "S", "L"]; held = "O"; score = 0; lines = 0; level = 1; clearing = null; state = "ready";
+  }
+
+  // Input with delayed auto-shift, so a held arrow slides the piece smoothly.
+  const held_ = {}; const DAS = 150, ARR = 45;
+  const ACT = { left: () => shift(-1), right: () => shift(1), soft, hard, rot: () => turn(1), ccw: () => turn(-1), hold };
+  const KEYMAP = { ArrowLeft: "left", ArrowRight: "right", ArrowDown: "soft", ArrowUp: "rot", x: "rot", X: "rot",
+                   z: "ccw", Z: "ccw", " ": "hard", c: "hold", C: "hold", Shift: "hold" };
+  const REPEAT = new Set(["left", "right", "soft"]);
+  function press(a) {
+    if (state !== "play" || clearing) return;
+    ACT[a]();
+    if (REPEAT.has(a)) held_[a] = { t: 0, armed: false };
+  }
+  function release(a) { delete held_[a]; }
+  addEventListener("keydown", e => {
+    if (e.key === "p" || e.key === "P" || e.key === "Escape") { if (state === "play" || state === "pause") pause(); e.preventDefault(); return; }
+    if (e.key === "Enter" && state !== "play" && document.activeElement !== ui.btn) { state === "pause" ? pause() : start(); return; }
+    const a = KEYMAP[e.key]; if (!a) return;
+    e.preventDefault(); if (e.repeat) return; press(a);
+  });
+  addEventListener("keyup", e => { const a = KEYMAP[e.key]; if (a) release(a); });
+  addEventListener("blur", () => { for (const k in held_) delete held_[k]; if (state === "play") pause(); });
+  $("pad").querySelectorAll("button").forEach(b => {
+    const a = b.dataset.k;
+    b.addEventListener("pointerdown", e => { e.preventDefault(); if (state !== "play" && state !== "pause") start(); else press(a); });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(ev => b.addEventListener(ev, () => release(a)));
+  });
+
+  // Drawing
+  function fitCanvas(c) {
+    const r = c.getBoundingClientRect(), d = devicePixelRatio || 1;
+    const w = Math.round(r.width * d), h = Math.round(r.height * d);
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    const ctx = c.getContext("2d"); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    return { ctx, w, h };
+  }
+  function rr(ctx, x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function cell(ctx, x, y, s, color, mode) {
+    const p = Math.max(1.5, s * 0.09), r = s * 0.22, lw = Math.max(1, s * 0.06);
+    rr(ctx, x + p, y + p, s - 2 * p, s - 2 * p, r);
+    ctx.lineWidth = lw;
+    if (mode === "ghost") {
+      ctx.setLineDash([s * 0.14, s * 0.12]); ctx.strokeStyle = "rgba(255, 79, 168, .55)"; ctx.shadowBlur = 0; ctx.stroke(); ctx.setLineDash([]);
+      return;
+    }
+    const flash = mode === "flash";
+    ctx.fillStyle = flash ? "rgba(255, 220, 240, .9)" : color + "2e";
+    ctx.shadowColor = MAG; ctx.shadowBlur = flash ? s * 0.9 : s * 0.45;
+    ctx.fill();
+    ctx.strokeStyle = flash ? "#fff" : color; ctx.stroke();
+    ctx.shadowBlur = 0;
+    // A small inner sheen on the top-left, the way a lit tube catches light.
+    ctx.beginPath(); ctx.moveTo(x + p + r, y + p + lw * 1.8); ctx.lineTo(x + s * 0.55, y + p + lw * 1.8);
+    ctx.strokeStyle = "rgba(255, 210, 235, .45)"; ctx.lineWidth = lw * 0.8; ctx.stroke();
+  }
+
+  function drawBoard() {
+    const { ctx, w } = fitCanvas(boardC), s = w / COLS;
+    ctx.clearRect(0, 0, boardC.width, boardC.height);
+    // Grid as faint points at the cell corners.
+    ctx.fillStyle = "rgba(230, 0, 125, .22)";
+    for (let y = 1; y < ROWS; y++) for (let x = 1; x < COLS; x++) { ctx.beginPath(); ctx.arc(x * s, y * s, Math.max(0.8, s * 0.04), 0, 7); ctx.fill(); }
+    for (let y = HIDDEN; y < ROWS + HIDDEN; y++) for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x]; if (!t) continue;
+      const flashing = clearing && clearing.includes(y);
+      cell(ctx, x * s, (y - HIDDEN) * s, s, TINT[t], flashing ? "flash" : null);
+    }
+    if (cur) {
+      const gy = ghostY();
+      if (state !== "ready") each(cur.m, (c, r) => { if (gy + r >= HIDDEN) cell(ctx, (cur.x + c) * s, (gy + r - HIDDEN) * s, s, null, "ghost"); });
+      each(cur.m, (c, r) => { if (cur.y + r >= HIDDEN) cell(ctx, (cur.x + c) * s, (cur.y + r - HIDDEN) * s, s, TINT[cur.type]); });
+    }
+  }
+  function each(m, f) { m.forEach((row, r) => row.forEach((v, c) => { if (v) f(c, r); })); }
+  function bounds(m) {
+    let x0 = 9, x1 = -1, y0 = 9, y1 = -1;
+    each(m, (c, r) => { x0 = Math.min(x0, c); x1 = Math.max(x1, c); y0 = Math.min(y0, r); y1 = Math.max(y1, r); });
+    return { x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  }
+  function drawPiece(ctx, type, cx, cy, s, dim) {
+    const m = SHAPES[type], b = bounds(m);
+    ctx.globalAlpha = dim ? 0.35 : 1;
+    each(m, (c, r) => cell(ctx, cx - b.w * s / 2 + (c - b.x0) * s, cy - b.h * s / 2 + (r - b.y0) * s, s, TINT[type]));
+    ctx.globalAlpha = 1;
+  }
+  function drawHold() {
+    const { ctx, w, h } = fitCanvas(holdC); ctx.clearRect(0, 0, w, h);
+    if (held) drawPiece(ctx, held, w / 2, h / 2, Math.min(w / 5, h / 2.6), !canHold && state === "play");
+  }
+  function drawNext() {
+    const { ctx, w, h } = fitCanvas(nextC); ctx.clearRect(0, 0, w, h);
+    const list = queue.slice(0, 3), wide = w > h;
+    const s = wide ? Math.min(w / 14, h / 2.6) : Math.min(w / 5, h / 9);
+    list.forEach((t, i) => {
+      if (wide) drawPiece(ctx, t, w * (i * 2 + 1) / 6, h / 2, s, i > 0);
+      else drawPiece(ctx, t, w / 2, h * (i * 2 + 1) / 6, s, i > 0);
+    });
+  }
+  let shown = {};
+  function drawStats() {
+    const v = { score: score.toLocaleString(), lines, level, best: Math.max(best, score).toLocaleString() };
+    for (const k in v) if (shown[k] !== v[k]) { ui[k].textContent = v[k]; shown[k] = v[k]; }
+  }
+
+  // Loop
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (state === "play") {
+      if (clearing) { flashT -= dt; if (flashT <= 0) finishClear(); }
+      else if (cur) {
+        for (const a in held_) {
+          const h = held_[a]; h.t += dt * 1000;
+          const wait = a === "soft" ? 0 : (h.armed ? ARR : DAS);
+          if (h.t >= (a === "soft" ? 40 : wait)) { h.t = 0; h.armed = true; ACT[a](); }
+        }
+        if (cur) {
+          if (grounded()) { lockT += dt; if (lockT >= 0.5) lock(); }
+          else { dropAcc += dt; const g = gravity(); while (dropAcc >= g && cur && !grounded()) { cur.y++; dropAcc -= g; } }
+        }
+      }
+    }
+    if (grid) { drawBoard(); drawHold(); drawNext(); drawStats(); }
+    requestAnimationFrame(frame);
+  }
+  demo();
+  requestAnimationFrame(frame);
+})();
+</script>
