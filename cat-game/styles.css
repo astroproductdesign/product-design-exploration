@@ -1240,3 +1240,266 @@ input:focus {
   touch-action: none;
   max-width: 100%;
 }
+
+/* ---- TV channels -------------------------------------------------------------------- */
+
+.tv-swim {
+  animation: tvSwim 7s linear infinite;
+}
+.tv-swim.back {
+  animation-direction: reverse;
+}
+.tv-swim.slow {
+  animation-duration: 11s;
+}
+.tv-swim.fast {
+  animation-duration: 3.2s;
+}
+@keyframes tvSwim {
+  from { transform: translateX(-36px); }
+  to { transform: translateX(156px); }
+}
+.tv-rise {
+  animation: tvRise 2.4s linear infinite;
+}
+@keyframes tvRise {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(-34px); opacity: 0; }
+}
+.tv-sway {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: tvSway 2.6s ease-in-out infinite;
+}
+@keyframes tvSway {
+  0%, 100% { transform: rotate(-7deg); }
+  50% { transform: rotate(7deg); }
+}
+.tv-hop {
+  animation: tvHop 1.8s ease-in-out infinite;
+}
+@keyframes tvHop {
+  0%, 60%, 100% { transform: translateY(0); }
+  70% { transform: translateY(-6px); }
+  80% { transform: translateY(0); }
+}
+.tv-spin {
+  animation: tvSpin 14s linear infinite;
+}
+@keyframes tvSpin {
+  to { transform: rotate(360deg); }
+}
+.tv-bounce {
+  animation: tvBounce 0.55s ease-in infinite alternate;
+}
+@keyframes tvBounce {
+  from { transform: translateY(-16px); }
+  to { transform: translateY(0); }
+}
+.tv-static {
+  animation: tvStatic 0.08s steps(2) infinite;
+}
+@keyframes tvStatic {
+  50% { transform: translateX(3px); }
+}
+.tv-badge {
+  animation: tvBadge 1.8s ease-in forwards;
+}
+@keyframes tvBadge {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---- Intro: the cat in its box ------------------------------------------------------ */
+/* The HUD and toolbar fold away so the room fills the screen; the stage stays
+   the same element, so nothing cuts — the camera just zooms. */
+
+.topbar,
+.bondbar,
+.status,
+.toolbar {
+  transition: max-height 0.6s ease, opacity 0.4s ease, margin 0.6s ease, padding 0.6s ease;
+  max-height: 220px;
+}
+body.intro-mode .topbar,
+body.intro-mode .bondbar,
+body.intro-mode .status,
+body.intro-mode .toolbar,
+body.look-mode .toolbar,
+body.look-mode .status,
+body.look-mode .topbar,
+body.look-mode .bondbar {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-width: 0;
+}
+body.no-anim *,
+body.no-anim *::before {
+  transition: none !important;
+}
+
+.intro-ui {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3% 16px 5%;
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  z-index: 5;
+}
+.intro-ui > * {
+  pointer-events: auto;
+}
+.intro-ui.hide {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+.intro-ui.hide > * {
+  pointer-events: none;
+}
+.intro-logo svg {
+  display: block;
+  width: min(78vw, 420px);
+  height: auto;
+  animation: introIn 0.8s ease-out both;
+}
+.btn.big {
+  font-size: 20px;
+  padding: 13px 34px;
+  animation: introIn 0.8s 0.25s ease-out both;
+}
+@keyframes introIn {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+/* The cat in the box: a slow tail curl. */
+.cat .tail-curl {
+  animation: tailCurl 5.5s ease-in-out infinite;
+}
+@keyframes tailCurl {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(14deg); }
+}
+.temp-box.fading {
+  animation: fadeAway 0.7s ease forwards;
+}
+@keyframes fadeAway {
+  to { opacity: 0; }
+}
+
+/* ---- Customisation panel: from the right (desktop) or the bottom (mobile) ---------- */
+
+.adopt {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border: var(--line);
+  box-shadow: var(--shadow);
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.35s ease;
+}
+@media (min-width: 760px) {
+  .adopt {
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: 390px;
+    border-radius: 18px;
+    transform: translateX(calc(100% + 40px));
+  }
+}
+@media (max-width: 759px) {
+  .adopt {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 58vh;
+    height: 58dvh;
+    border-radius: 20px 20px 0 0;
+    border-bottom: 0;
+    transform: translateY(105%);
+  }
+  .adopt.tall {
+    height: 92vh;
+    height: 92dvh;
+  }
+}
+.adopt.open {
+  transform: none;
+}
+.adopt-steps {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  padding: 12px 12px 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.adopt-steps span {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+}
+.adopt-steps .on {
+  color: var(--ink);
+  border-color: var(--ink);
+  background: var(--gold);
+}
+.adopt-steps .done {
+  color: var(--ink);
+}
+.adopt-body {
+  flex: 1;
+  overflow: auto;
+  padding: 10px 16px 16px;
+  text-align: center;
+}
+.adopt-body h2 {
+  margin: 6px 0 4px;
+  font-size: 22px;
+  font-weight: 900;
+}
+.adopt-body input {
+  width: 100%;
+  max-width: 300px;
+  margin-top: 10px;
+  text-align: center;
+}
+.adopt-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 2.5px solid var(--ink);
+}
+.sw.sw-none {
+  background: linear-gradient(135deg, transparent 44%, var(--ink) 44%, var(--ink) 56%, transparent 56%), #fcfcfc;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adopt,
+  .intro-ui,
+  .topbar,
+  .bondbar,
+  .status,
+  .toolbar {
+    transition: opacity 0.3s ease !important;
+  }
+  .intro-logo svg,
+  .btn.big {
+    animation: none;
+  }
+}

@@ -19,6 +19,7 @@
   const modalQueue = [];
   let toastTimer = 0;
   let resetting = false; // set while wiping the save, so nothing writes it back
+  let introActive = false; // the cat-in-the-box opening is on screen
 
   const nm = (tpl) => String(tpl || '').split('{name}').join(state.cat.name);
   const now = () => G.Clock.now(state);
@@ -50,7 +51,13 @@
     state = G.Storage.load();
     if (!state) state = G.State.createState(Date.now(), G.Profile.defaultName);
     G.CatArt.setCoat(state.cat.coat);
+    G.CatArt.setAccessory(state.cat.accessory);
     G.Sound.setMuted(state.settings.muted);
+    // The intro shows for new players, and for everyone once per browser session.
+    const newSession = isNewSession();
+    markSession();
+    const withIntro = !state.named || newSession;
+    if (withIntro) document.body.classList.add('intro-mode', 'no-anim');
 
     const t = now();
     const awayFrom = state.lastSeenAt;
@@ -69,11 +76,14 @@
     bindInput();
     updateHUD();
 
-    if (!state.named) showNaming();
-    else {
+    const welcomeBack = () => {
       showAway(awayFrom, t);
       if (res) celebrate(res);
-    }
+    };
+    if (withIntro) showIntro(!state.named, welcomeBack);
+    else welcomeBack();
+    // First paint without transitions, so the intro doesn't animate the HUD folding away.
+    setTimeout(() => document.body.classList.remove('no-anim'), 60);
     state.lastSeenAt = t;
     save(true);
 
@@ -312,11 +322,29 @@
     $('doneBtn').addEventListener('click', () => finishPlay(false));
   }
 
+  // Tap the TV: new channel. An awake cat perks up at fish, birds and mice.
+  function flipTv() {
+    const ch = scene.changeChannel();
+    sound('tvClick');
+    if (['fish', 'birds', 'mouse'].includes(ch) && !G.Sim.isSleeping(state) && Math.random() < 0.6) {
+      setTimeout(() => scene.react({ say: ch === 'birds' ? 'Ek ek ek!' : '!', eyes: 'wide' }), 450);
+    }
+  }
+
   function bindInput() {
     const svg = $('scene');
     svg.addEventListener('pointerdown', (e) => {
       G.Sound.unlock();
       const p = scene.toScene(e.clientX, e.clientY);
+      // In the box: the eyes follow taps, and a tap on the cat gets a purr.
+      if (introActive) {
+        scene.lookAtPoint(p);
+        if (e.target.closest('#cat')) {
+          scene.react({ eyes: 'happy', hearts: 1 });
+          sound('purr');
+        }
+        return;
+      }
       if (play) {
         scene.moveToy(p);
         svg.setPointerCapture(e.pointerId);
@@ -329,6 +357,7 @@
         scene.renderRoom(true, now());
         return;
       }
+      if (e.target.closest('.tv')) return flipTv();
       if (e.target.closest('#cat')) {
         petting = { x: e.clientX, y: e.clientY, dist: 0, last: 0 };
         svg.setPointerCapture(e.pointerId);
@@ -336,12 +365,13 @@
       }
     });
     svg.addEventListener('pointermove', (e) => {
+      if (introActive) return scene.lookAtPoint(scene.toScene(e.clientX, e.clientY));
       if (play) {
         if (e.pointerType === 'mouse' || e.buttons) scene.moveToy(scene.toScene(e.clientX, e.clientY));
         return;
       }
       if (!petting) {
-        svg.style.cursor = e.target.closest('#cat') ? 'grab' : '';
+        svg.style.cursor = e.target.closest('#cat') ? 'grab' : e.target.closest('.tv') ? 'pointer' : '';
         return;
       }
       petting.dist += Math.hypot(e.clientX - petting.x, e.clientY - petting.y);
@@ -743,7 +773,7 @@
             openSettings();
           })
         );
-        box.querySelector('#lookBtn').addEventListener('click', openLook);
+        box.querySelector('#lookBtn').addEventListener('click', openLookPanel);
         box.querySelector('#resetBtn').addEventListener('click', confirmReset);
       },
       true
@@ -791,7 +821,8 @@
   // The look picker: breed presets, mix-your-own, or colours matched from a
   // photo. It edits a working copy; `onChange` gets every new coat.
   let pickN = 0;
-  function lookPicker(box, start, onChange) {
+  function lookPicker(box, start, onChange, opts) {
+    opts = opts || {};
     const K = G.Coats;
     let coat = K.normalize(start);
     let tab = 'breeds';
@@ -835,6 +866,7 @@
           <p class="small" id="photoMsg">${ph.msg || ''}</p>
           <p class="small muted">The dimmed part is what the game ignores. The photo stays on your device and isn't saved.</p>`,
       }[tab];
+      if (opts.onTab) opts.onTab(tab);
       host.innerHTML =
         `<div class="seg">${[['breeds', 'Breeds'], ['mix', 'Mix your own'], ['photo', 'From a photo']].map(([k, l]) => `<button type="button" class="${tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>` +
         `<div class="look-pane">${pane}</div><p class="small look-name">${esc(K.describe(coat))}</p>`;
@@ -944,13 +976,14 @@
     draw();
   }
 
-  // Use a new coat everywhere: the cat, the wall portrait and the HUD face.
-  function applyCoat(coat) {
+  // Use a new look everywhere: the cat, the wall portrait and the HUD face.
+  function applyCoat(coat, accessory) {
     state.cat.coat = G.Coats.normalize(coat);
+    if (accessory) state.cat.accessory = G.Coats.normalizeAccessory(accessory);
     G.CatArt.setCoat(state.cat.coat);
-    scene.cv.artKey = null;
+    G.CatArt.setAccessory(state.cat.accessory);
     scene.renderRoom(true, now());
-    scene.setArt(...scene.artFor(state.activity));
+    scene.refreshCat();
     lastMood = '';
     updateHUD();
     save(true);
@@ -961,81 +994,225 @@
     return c.preset === 'mochi' ? G.Profile.looks : G.Coats.describe(c);
   }
 
-  function openLook() {
-    let coat = state.cat.coat;
-    openModal(
-      `<div class="naming"><div class="portrait big"><svg id="lookPreview" viewBox="-80 -150 160 156"></svg></div>
-        <h2>${esc(state.cat.name)}'s look</h2><div id="look"></div>
-        <div class="row center"><button class="btn" id="lookCancel">Cancel</button><button class="btn primary" id="lookSave">Save look</button></div></div>`,
-      (box) => {
-        lookPicker(box, coat, (c) => (coat = c));
-        box.querySelector('#lookCancel').addEventListener('click', openSettings);
-        box.querySelector('#lookSave').addEventListener('click', () => {
-          applyCoat(coat);
-          closeModal();
-          scene.react({ say: 'Mrrp?', eyes: 'happy', hearts: 1 });
-        });
+  // ---- Intro: the cat in its box -------------------------------------------------------
+  // Shown to new players, and once per browser session to returning ones
+  // (a session cookie, with sessionStorage as a fallback for file:// pages).
+
+  function isNewSession() {
+    let seen = false;
+    try {
+      seen = sessionStorage.getItem('mp.session') === '1';
+    } catch {
+      /* storage blocked */
+    }
+    return !seen && !document.cookie.split('; ').includes('mp_session=1');
+  }
+  function markSession() {
+    try {
+      sessionStorage.setItem('mp.session', '1');
+    } catch {
+      /* storage blocked */
+    }
+    document.cookie = 'mp_session=1; path=/; SameSite=Lax';
+  }
+
+  // The logo sits in the top ~30% and the button in the bottom ~20%.
+  const INTRO_SAFE = { l: 0.06, r: 0.06, t: 0.3, b: 0.2 };
+
+  function showIntro(isNew, onContinue) {
+    introActive = true;
+    document.body.classList.add('intro-mode');
+    const ui = document.createElement('div');
+    ui.className = 'intro-ui';
+    ui.id = 'introUi';
+    ui.innerHTML = `<div class="intro-logo">${G.Logo.wordmark()}</div><button class="btn primary big" id="introGo">${isNew ? 'Start adoption' : 'Continue'}</button>`;
+    $('stage').append(ui);
+    scene.startIntro(INTRO_SAFE);
+    ui.querySelector('#introGo').addEventListener(
+      'click',
+      () => {
+        G.Sound.unlock();
+        sound('purr');
+        ui.classList.add('hide');
+        setTimeout(() => ui.remove(), 450);
+        if (isNew) openPanel('adopt');
+        else leaveIntro(onContinue);
       },
-      true
+      { once: true }
     );
   }
 
-  // New game: pick a look, then a name.
-  function showNaming() {
-    let coat = state.cat.coat;
-    const C = G.CatArt;
-    const lookStep = () =>
-      openModal(
-        `<div class="naming"><div class="portrait big"><svg id="lookPreview" viewBox="-80 -150 160 156"></svg></div>
-          <h2>A new friend moved in!</h2><p>What do they look like?</p><div id="look"></div>
-          <button class="btn primary" id="lookNext">Next</button></div>`,
-        (box) => {
-          lookPicker(box, coat, (c) => (coat = c));
-          box.querySelector('#lookNext').addEventListener('click', nameStep);
-        },
-        true,
-        true
-      );
-    const nameStep = () =>
-      openModal(
-        `<div class="naming"><div class="portrait big"><svg viewBox="-80 -150 160 156">${C.withCoat(coat, () => C.render('sit', 'naming' + pickN++))}</svg></div>
-        <h2>A new friend moved in!</h2><p>What is your cat called?</p>
-        <form id="nameForm"><input id="nameInput" maxlength="40" autocomplete="off" value="${esc(state.cat.name)}" aria-label="Cat name"><p class="error" id="nameErr"></p>
-        <button class="btn primary" type="submit">That's my cat!</button></form>
-        <button class="btn link" type="button" id="lookBack">← Change the look</button>
-        <p class="small muted">You can rename them or change their look any time from Me.</p></div>`,
-        (box) => {
-          const input = box.querySelector('#nameInput');
-          setTimeout(() => {
-            input.focus();
-            input.select();
-          }, 50);
-          box.querySelector('#lookBack').addEventListener('click', lookStep);
-          box.querySelector('#nameForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const v = G.Interactions.validateName(input.value);
-            if (!v.ok) {
-              box.querySelector('#nameErr').textContent = v.error;
-              return;
-            }
-            // First naming isn't a "rename" — the cat has always been called this.
-            state.cat.name = v.name;
-            state.cat.nameHistory = [{ name: v.name, from: state.createdAt }];
-            state.named = true;
-            applyCoat(coat);
-            closeModal();
-            G.Sound.unlock();
-            sound('meow');
-            scene.react({ say: 'Mrrp!', eyes: 'happy', hearts: 2 });
-            toast(`Welcome home, ${v.name}! Tap ${v.name} to pet them — try the head, chin… and the belly, if you dare.`, 7000);
-            updateHUD();
-            save(true);
-          });
-        },
-        true,
-        true
-      );
-    lookStep();
+  // Zoom out to the room; the cat hops out of the box.
+  function leaveIntro(after) {
+    introActive = false;
+    document.body.classList.remove('intro-mode');
+    scene.endIntro();
+    lastMood = '';
+    updateHUD();
+    if (after) setTimeout(after, 1100);
+  }
+
+  // ---- The customisation panel ------------------------------------------------------------
+  // 'adopt': name → look → collar & extras → Adopt! (new players, cat in its box)
+  // 'look':  look → collar & extras → Save (Me → Change look, over the room)
+  // Every change shows on the real cat straight away.
+
+  let panel = null;
+  const STEP_LABEL = { name: 'Name', look: 'Look', extras: 'Collar' };
+
+  // The part of the scene the panel leaves free, for the camera.
+  function panelSafe() {
+    const sr = $('scene').getBoundingClientRect();
+    if (!sr.width || !sr.height) return { l: 0.05, r: 0.05, t: 0.05, b: 0.05 };
+    if (window.innerWidth >= 760) {
+      const left = window.innerWidth - 16 - 390 - 16;
+      return { l: 0.04, r: Math.max(0, (sr.right - left) / sr.width) + 0.03, t: 0.08, b: 0.08 };
+    }
+    const tall = panel && panel.el.classList.contains('tall');
+    const top = window.innerHeight * (1 - (tall ? 0.92 : 0.58));
+    return { l: 0.05, r: 0.05, t: 0.05, b: Math.max(0, (sr.bottom - top) / sr.height) + 0.03 };
+  }
+  function refocus() {
+    if (scene.focus) scene.focus.safe = panelSafe();
+  }
+
+  function openPanel(mode) {
+    const draft = {
+      name: mode === 'adopt' ? '' : state.cat.name,
+      coat: G.Coats.normalize(state.cat.coat),
+      accessory: G.Coats.normalizeAccessory(state.cat.accessory),
+    };
+    const steps = mode === 'adopt' ? ['name', 'look', 'extras'] : ['look', 'extras'];
+    let i = 0;
+    const el = document.createElement('aside');
+    el.className = 'adopt';
+    el.setAttribute('aria-label', mode === 'adopt' ? 'Adopt your cat' : 'Change look');
+    document.body.append(el);
+    panel = { el, mode };
+    if (mode === 'look') {
+      document.body.classList.add('look-mode');
+      scene.focus = { follow: true, lift: 56, spanW: 220, spanH: 170, safe: { l: 0.05, r: 0.05, t: 0.05, b: 0.05 } };
+    } else scene.frameBox('custom');
+    requestAnimationFrame(() => {
+      el.classList.add('open');
+      refocus();
+    });
+    // The stage grows while the bars fold away, so measure again once it settles.
+    setTimeout(refocus, 650);
+
+    // Show the draft on the real cat.
+    const live = () => {
+      G.CatArt.setCoat(draft.coat);
+      G.CatArt.setAccessory(draft.accessory);
+      scene.refreshCat();
+    };
+
+    function close() {
+      el.classList.remove('open');
+      setTimeout(() => el.remove(), 450);
+      panel = null;
+      document.body.classList.remove('look-mode');
+      window.removeEventListener('resize', refocus);
+    }
+    window.addEventListener('resize', refocus);
+
+    function finish() {
+      if (mode === 'adopt') {
+        const v = G.Interactions.validateName(draft.name);
+        // First naming isn't a "rename": the cat has always been called this.
+        state.cat.name = v.name;
+        state.cat.nameHistory = [{ name: v.name, from: state.createdAt }];
+        state.named = true;
+        applyCoat(draft.coat, draft.accessory);
+        close();
+        leaveIntro(() => {
+          sound('meow');
+          scene.react({ say: 'Mrrp!', eyes: 'happy', hearts: 2 });
+          toast(`Welcome home, ${v.name}! Tap ${v.name} to pet them — try the head, chin… and the belly, if you dare.`, 7000);
+        });
+      } else {
+        applyCoat(draft.coat, draft.accessory);
+        close();
+        scene.focus = null;
+        scene.react({ say: 'Mrrp?', eyes: 'happy', hearts: 1 });
+      }
+    }
+    function cancel() {
+      G.CatArt.setCoat(state.cat.coat);
+      G.CatArt.setAccessory(state.cat.accessory);
+      scene.refreshCat();
+      close();
+      scene.focus = null;
+    }
+
+    function render() {
+      const k = steps[i];
+      const last = i === steps.length - 1;
+      const head = `<div class="adopt-steps">${steps.map((s, j) => `<span class="${j === i ? 'on' : j < i ? 'done' : ''}">${j + 1}. ${STEP_LABEL[s]}</span>`).join('')}</div>`;
+      let body = '';
+      if (k === 'name') {
+        body = `<h2>Name your new friend</h2><p class="small muted">It goes on their box. You can rename them any time.</p>
+          <input id="adoptName" maxlength="40" autocomplete="off" value="${esc(draft.name)}" placeholder="${esc(G.Profile.defaultName)}" aria-label="Cat name"><p class="error" id="adoptErr"></p>`;
+      } else if (k === 'look') {
+        body = `<h2>What do they look like?</h2><div id="look"></div>`;
+      } else {
+        const A = draft.accessory;
+        body =
+          `<h2>Collar &amp; extras</h2><p class="small muted">Optional, and you can change them later.</p>` +
+          `<p class="look-label">Collar</p><div class="swatches">${G.Coats.COLLARS.map((c) => `<button type="button" class="sw ${c.hex ? '' : 'sw-none'} ${A.collar === c.id ? 'on' : ''}" data-collar="${c.id}" style="--c:${c.hex || '#fcfcfc'}" title="${c.name}" aria-label="${c.name}"></button>`).join('')}</div>` +
+          `<p class="look-label">Extra</p><div class="row center">${G.Coats.EXTRAS.map((x) => `<button type="button" class="chip ${A.extra === x.id ? 'on' : ''}" data-extra="${x.id}">${esc(x.name)}</button>`).join('')}</div>`;
+      }
+      const back = i > 0 ? '<button type="button" class="btn" id="pBack">Back</button>' : mode === 'look' ? '<button type="button" class="btn" id="pCancel">Cancel</button>' : '<span></span>';
+      const next = last ? `<button type="button" class="btn primary" id="pNext">${mode === 'adopt' ? 'Adopt!' : 'Save look'}</button>` : '<button type="button" class="btn primary" id="pNext">Next</button>';
+      el.innerHTML = `${head}<div class="adopt-body">${body}</div><div class="adopt-foot">${back}${next}</div>`;
+      el.classList.toggle('tall', false);
+
+      if (k === 'name') {
+        const input = el.querySelector('#adoptName');
+        input.addEventListener('input', () => {
+          draft.name = input.value;
+          scene.setLabel(input.value.trim());
+        });
+        input.addEventListener('keydown', (e) => e.key === 'Enter' && el.querySelector('#pNext').click());
+        setTimeout(() => input.focus(), 350);
+      } else if (k === 'look') {
+        lookPicker(el, draft.coat, (c) => ((draft.coat = c), live()), {
+          onTab: (tab) => {
+            el.classList.toggle('tall', tab === 'photo');
+            refocus();
+          },
+        });
+      } else {
+        el.querySelectorAll('[data-collar]').forEach((b) => b.addEventListener('click', () => ((draft.accessory = Object.assign({}, draft.accessory, { collar: b.dataset.collar })), live(), render())));
+        el.querySelectorAll('[data-extra]').forEach((b) => b.addEventListener('click', () => ((draft.accessory = Object.assign({}, draft.accessory, { extra: b.dataset.extra })), live(), render())));
+      }
+      const bb = el.querySelector('#pBack');
+      if (bb) bb.addEventListener('click', () => ((i -= 1), render()));
+      const cb = el.querySelector('#pCancel');
+      if (cb) cb.addEventListener('click', cancel);
+      el.querySelector('#pNext').addEventListener('click', () => {
+        if (k === 'name') {
+          if (!draft.name.trim()) draft.name = G.Profile.defaultName;
+          const v = G.Interactions.validateName(draft.name);
+          if (!v.ok) {
+            el.querySelector('#adoptErr').textContent = v.error;
+            return;
+          }
+          draft.name = v.name;
+          scene.setLabel(v.name);
+        }
+        if (last) return finish();
+        i += 1;
+        render();
+      });
+      refocus();
+    }
+    render();
+  }
+
+  function openLookPanel() {
+    closeModal();
+    openPanel('look');
   }
 
   function showAway(from, to, force) {

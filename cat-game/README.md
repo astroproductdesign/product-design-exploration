@@ -1,4 +1,4 @@
-# Cat Companion 🐾
+# My Purrfriend 🐾
 
 A cosy, real-time cat game based on a real brown-tabby-and-white cat. The cat lives on its own schedule using your device's clock. Check in, feed, pet and play whenever you like. The game never punishes you for being away.
 
@@ -11,7 +11,9 @@ Your save stays in the browser on that device, so there's no login and no server
 
 ## How to play
 
-When a new game starts you choose how your cat looks: pick a breed (Tabby & white, Calico, Tuxedo, Siamese, Ragdoll…), mix your own colour, pattern and white markings, or upload a photo, tap your cat's fur (and a stripe or patch, if it has one), and the game reads the coat for you. The photo is read on your device and isn't saved. Then you name your cat.
+The game opens on your cat curled up in a cardboard box, grooming and watching your pointer. New players press **Start adoption**: the camera pulls back and a panel slides in where you name your cat, choose how it looks and pick a collar and extra (bell, bow tie, bandana or flower). Every change shows on the cat in the box. Returning players see the box once per browser session, then press **Continue**.
+
+When choosing a look, pick a breed (Tabby & white, Calico, Tuxedo, Siamese, Ragdoll…), mix your own colour, pattern and white markings, or upload a photo, tap your cat's fur (and a stripe or patch, if it has one), and the game reads the coat for you. The photo is read on your device and isn't saved. Then you name your cat.
 
 | Do this | What happens |
 | --- | --- |
@@ -21,6 +23,7 @@ When a new game starts you choose how your cat looks: pick a breed (Tabby & whit
 | **Play** | Pick the feather wand or the laser, then drag it around (or move your mouse). Wiggle it fast to make the cat pounce. |
 | **Call** | Sometimes the cat comes. Sometimes it slow-blinks. Sometimes it ignores you. |
 | **Room** | Place a box, beds and toys. The cat may or may not use them. |
+| Tap the **TV** | Flips to a random channel: fish, birds, a cooking show, the weather, space, football, a cartoon mouse, or your own cat. It also changes channel by itself now and then, and your cat may perk up at the fish, birds and mice. |
 | **Photo** | Snaps the cat into your album (it's in the Diary). |
 | **Diary** | The cat's own diary, your photo album, treasures (gifts) and unlocks. |
 | **Me** (or tap the name) | Profile, favourites, rename, **change look**, sound, **start a new game**, and testing tools. |
@@ -67,7 +70,8 @@ cat-game/
     roomArt.js          the room, furniture, items, decor, lighting
     scene.js            movement, idle animations, toys, bubbles, photos
     sound.js            synthesised sounds (no audio files)
-    app.js              start-up, live loop, menus, input
+    app.js              start-up, intro, adoption panel, live loop, menus, input
+    logo.js             the My Purrfriend logo, wordmark and app icon
   tests/core-check.mjs
 ```
 

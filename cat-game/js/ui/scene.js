@@ -12,6 +12,9 @@
   const WIDE = new Set(['hunt', 'zoomies', 'play', 'toy']);
   const HAPPY = new Set(['eat', 'roll', 'scratch', 'come', 'beg']);
 
+  // With "reduce motion" on, the camera cuts instead of zooming and the eyes stay put.
+  const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   function el(tag, attrs, html) {
     const e = document.createElementNS(NS, tag);
     for (const k in attrs || {}) e.setAttribute(k, attrs[k]);
@@ -24,7 +27,9 @@
     this.getState = getState;
     this.hooks = hooks || {};
     this.cv = null; // cat view
-    this.cam = { x: 0, w: A.W };
+    this.cam = { x: 0, y: 0, w: A.W, h: A.H };
+    this.focus = null; // camera framing a point (intro, change look)
+    this.intro = null; // the cat-in-the-box opening
     this.overrides = {}; // temporary eyes/mouth/pose from reactions
     this.roomSig = '';
     this.seasons = [];
@@ -86,7 +91,15 @@
     }
     this.mid.innerHTML = '';
     const items = A.midLayer(s, seasons).sort((a, b) => a.z - b.z);
+    // A box borrowed for the intro when the room doesn't have one.
+    const tb = this.tempBox;
+    if (tb) {
+      const [back, front] = A.itemArt('box', tb.x, tb.y);
+      items.push({ z: tb.y - 1, svg: `<g class="${tb.fading ? 'temp-box fading' : 'temp-box'}">${back}</g>` }, { z: tb.y + 1, svg: `<g class="${tb.fading ? 'temp-box fading' : 'temp-box'}">${front}</g>` });
+      items.sort((a, b) => a.z - b.z);
+    }
     for (const it of items) this.mid.append(el('g', { 'data-z': it.z }, it.svg));
+    this.paintTv();
     this.placeCatInZ();
     this.updateLighting(t, true);
   };
@@ -127,6 +140,7 @@
   };
 
   Scene.prototype.baseEyes = function () {
+    if (this.intro) return 'open'; // awake in the box, whatever the simulation says
     const a = this.getState().activity;
     if (this.cv.moving) return this.cv.zoom ? 'wide' : 'open';
     if (SLEEP_EYES.has(a.id)) return 'closed';
@@ -138,6 +152,7 @@
   };
 
   Scene.prototype.baseMouth = function () {
+    if (this.intro) return 'normal';
     const a = this.getState().activity;
     if (a.rare || a.id === 'groom') return 'tongue';
     return 'normal';
@@ -188,6 +203,7 @@
   };
 
   Scene.prototype.teleport = function (a) {
+    if (this.intro) return; // the cat stays in its box until the intro ends
     const p = this.posFor(a);
     this.cv = { x: p.x, y: p.y, z: p.z, fy: p.floor.y, high: p.high, facing: p.face || a.facing, path: [], moving: false, act: a.id + a.start };
     this.setArt(...this.artFor(a));
@@ -212,6 +228,7 @@
 
   // Called whenever the simulation picks a new activity.
   Scene.prototype.onActivity = function (a, opts) {
+    if (this.intro) return; // picked up when the intro ends
     if (!this.cv) return this.teleport(a);
     this.cv.act = a.id + a.start;
     this.cv.zoom = a.id === 'zoomies';
@@ -259,12 +276,40 @@
     this.applyFace(true);
   };
 
+  // ---- TV ---------------------------------------------------------------------------
+  // A random channel on every visit; tap the TV (or wait a minute or two) to flip.
+
+  Scene.prototype.paintTv = function (number) {
+    const host = this.mid.querySelector('#tv-show');
+    if (!host) return;
+    if (!this.tv) this.tv = { ch: Math.floor(Math.random() * A.TV.CHANNELS.length), next: performance.now() + 60000 + Math.random() * 60000 };
+    host.innerHTML = this.tv.static ? A.TV.static() : A.TV.show(A.TV.CHANNELS[this.tv.ch], number);
+  };
+
+  // Flip to a different random channel. Returns the new channel's id.
+  Scene.prototype.changeChannel = function () {
+    const n = A.TV.CHANNELS.length;
+    const tv = this.tv;
+    tv.ch = (tv.ch + 1 + Math.floor(Math.random() * (n - 1))) % n;
+    tv.next = performance.now() + 60000 + Math.random() * 60000;
+    tv.static = true;
+    this.paintTv();
+    clearTimeout(tv.timer);
+    tv.timer = setTimeout(() => {
+      tv.static = false;
+      this.paintTv(tv.ch + 1);
+    }, 260);
+    return A.TV.CHANNELS[tv.ch];
+  };
+
   // ---- Per-frame update -------------------------------------------------------------
 
   Scene.prototype.frame = function (dt, nowMs) {
     const cv = this.cv;
     if (!cv) return;
-    if (this.play) this.updatePlay(dt, nowMs);
+    if (this.tv && nowMs > this.tv.next) this.changeChannel();
+    if (this.intro) this.introIdle(nowMs);
+    else if (this.play) this.updatePlay(dt, nowMs);
     else if (cv.moving) this.stepPath(dt);
     else this.idle(nowMs);
 
@@ -272,7 +317,7 @@
     this.catG.setAttribute('transform', `translate(${cv.x.toFixed(1)} ${cv.y.toFixed(1)}) scale(${s.toFixed(3)})`);
     this.catFlip.setAttribute('transform', `scale(${cv.facing < 0 ? -1 : 1} 1)`);
     this.catHop.setAttribute('transform', `translate(0 ${(-(cv.hopY || 0)).toFixed(1)})`);
-    this.catShadow.setAttribute('opacity', cv.hopY ? 0.06 : 0.12);
+    this.catShadow.setAttribute('opacity', this.intro ? 0 : cv.hopY ? 0.06 : 0.12);
     this.catShadow.setAttribute('rx', cv.pose === 'sit' || cv.pose === 'back' || cv.pose === 'groom' || cv.pose === 'swipe' ? 34 : 50);
 
     // blinking
@@ -652,17 +697,217 @@
 
   // ---- Camera ----------------------------------------------------------------------------
 
+  // Where the camera wants to be. Normally the full room height, panning
+  // sideways on narrow screens. With a focus, it frames a point so that
+  // span W × H fits inside the "safe" part of the screen (the part not
+  // covered by the logo, buttons or the customisation panel).
+  Scene.prototype.cameraTarget = function (r) {
+    const f = this.focus;
+    if (f) {
+      const cx = f.follow ? this.cv.x : f.cx;
+      const cy = f.follow ? this.cv.y - f.lift : f.cy;
+      const sf = f.safe;
+      const safeW = (1 - sf.l - sf.r) * r.width;
+      const safeH = (1 - sf.t - sf.b) * r.height;
+      const k = Math.min(safeW / f.spanW, safeH / f.spanH); // px per scene unit
+      const w = r.width / k;
+      const h = r.height / k;
+      return { x: cx - ((sf.l + (1 - sf.l - sf.r) / 2) * r.width) / k, y: cy - ((sf.t + (1 - sf.t - sf.b) / 2) * r.height) / k, w, h };
+    }
+    const aspect = r.width / r.height;
+    const w = Math.max(340, Math.min(A.W, A.H * aspect));
+    const focus = this.play && this.play.joined ? (this.cv.x + this.play.x) / 2 : this.cv.x;
+    const x = w >= A.W - 1 ? 0 : Math.max(0, Math.min(A.W - w, focus - w / 2));
+    return { x, y: 0, w, h: A.H };
+  };
+
   Scene.prototype.updateCamera = function (dt) {
     const r = this.svg.getBoundingClientRect();
     if (!r.width || !r.height) return;
-    const aspect = r.width / r.height;
-    const w = Math.max(340, Math.min(A.W, A.H * aspect));
-    this.cam.w = w;
-    const focus = this.play && this.play.joined ? (this.cv.x + this.play.x) / 2 : this.cv.x;
-    const target = Math.max(0, Math.min(A.W - w, focus - w / 2));
-    this.cam.x += (target - this.cam.x) * Math.min(1, dt * 2.5);
-    if (w >= A.W - 1) this.cam.x = 0;
-    this.svg.setAttribute('viewBox', `${this.cam.x.toFixed(1)} 0 ${w.toFixed(1)} ${A.H}`);
+    const t = this.cameraTarget(r);
+    const c = this.cam;
+    if (this.camSnap || (reduceMotion() && (this.focus || this.zoomingOut))) {
+      Object.assign(c, t);
+      this.zoomingOut = false;
+      this.camSnap = false;
+    } else {
+      // Ease towards the target; zoom eases in log space so it feels even.
+      const f = 1 - Math.exp(-dt * (this.focus || this.zoomingOut ? 2.6 : 2.5));
+      c.x += (t.x - c.x) * f;
+      c.y += (t.y - c.y) * f;
+      c.w = Math.exp(Math.log(c.w) + (Math.log(t.w) - Math.log(c.w)) * f);
+      c.h = Math.exp(Math.log(c.h) + (Math.log(t.h) - Math.log(c.h)) * f);
+      if (this.zoomingOut && Math.abs(c.h - t.h) < 1) this.zoomingOut = false;
+    }
+    this.svg.setAttribute('viewBox', `${c.x.toFixed(1)} ${c.y.toFixed(1)} ${c.w.toFixed(1)} ${c.h.toFixed(1)}`);
+  };
+
+  // ---- Intro: the cat in its box ------------------------------------------------------
+  // The opening is the real room, zoomed in on the cardboard box. The cat
+  // grooms in a loop, glances at you and follows the pointer with its eyes.
+
+  // Where the box is: the room's own box if there is one, else a borrowed one.
+  Scene.prototype.introBox = function () {
+    const i = this.getState().room.slots.indexOf('box');
+    if (i >= 0 && A.SLOTS[i]) return { x: A.SLOTS[i].x, y: A.SLOTS[i].y, temp: false };
+    return { x: 742, y: 530, temp: true };
+  };
+
+  // safe: the screen fractions left free by the logo/buttons ({ l, t, r, b }).
+  Scene.prototype.startIntro = function (safe) {
+    const box = this.introBox();
+    this.tempBox = box.temp ? { x: box.x, y: box.y } : null;
+    this.intro = { box, t0: performance.now(), look: { x: 0, y: 0, tx: 0, ty: 0, at: 0 }, nextGlance: 0 };
+    const y = box.y - 6;
+    this.cv = { x: box.x, y, z: box.y + 0.5, fy: y, high: false, facing: 1, path: [], moving: false, act: 'intro' };
+    this.renderRoom(true, G.Clock.now(this.getState()));
+    this.refreshCat();
+    this.placeCatInZ();
+    this.setLabel('');
+    this.frameBox('close', safe);
+    this.camSnap = true;
+  };
+
+  // 'close': the cat fills the screen; 'custom': pulled back beside the panel.
+  Scene.prototype.frameBox = function (shot, safe) {
+    const b = this.intro ? this.intro.box : this.introBox();
+    const close = shot === 'close';
+    this.focus = { cx: b.x, cy: b.y - (close ? 70 : 72), spanW: close ? 190 : 270, spanH: close ? 170 : 220, safe: safe || { l: 0.05, r: 0.05, t: 0.05, b: 0.05 } };
+  };
+
+  // Redraw the cat in its current pose (after a look change).
+  Scene.prototype.refreshCat = function () {
+    if (!this.cv) return;
+    this.cv.artKey = null;
+    if (this.intro) this.setArt('boxgroom');
+    else if (this.cv.moving) this.setArt('walk');
+    else this.setArt(...this.artFor(this.getState().activity));
+  };
+
+  // The name written on the box while choosing it.
+  Scene.prototype.setLabel = function (text) {
+    let lab = this.top.querySelector('#box-label');
+    if (!this.intro) {
+      if (lab) lab.remove();
+      return;
+    }
+    if (!lab) {
+      lab = el('text', { id: 'box-label', 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 900, fill: '#1b1714', 'font-family': "'M PLUS Rounded 1c', Nunito, sans-serif", 'pointer-events': 'none' });
+      this.top.prepend(lab);
+    }
+    const b = this.intro.box;
+    lab.setAttribute('x', b.x);
+    lab.setAttribute('y', b.y - 16);
+    lab.textContent = [...(text || '')].length > 12 ? [...text].slice(0, 11).join('') + '…' : text || '';
+  };
+
+  // Pointer position in scene coordinates; the eyes turn towards it.
+  Scene.prototype.lookAtPoint = function (p) {
+    if (!this.intro || reduceMotion()) return;
+    const hp = this.headPoint();
+    const dx = p.x - hp.x;
+    const dy = p.y - hp.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const k = Math.min(1, d / (90 * hp.s));
+    this.intro.look.tx = (dx / d) * 3.2 * k;
+    this.intro.look.ty = (dy / d) * 2.6 * k;
+    this.intro.look.at = performance.now();
+  };
+
+  // One grooming loop, ~10 s: rest, lick the paw, wash the face, rest and look at you.
+  Scene.prototype.introIdle = function (nowMs) {
+    const it = this.intro;
+    const ph = ((nowMs - it.t0) % 10000) / 10000;
+    const lerp = (a, b, f) => a + (b - a) * Math.max(0, Math.min(1, f));
+    const ease = (f) => 0.5 - Math.cos(Math.PI * Math.max(0, Math.min(1, f))) / 2;
+    const MOUTH = [-9, -15];
+    const CHEEK = [10, -34];
+    let px = 0;
+    let py = 0;
+    let eyes = null;
+    let mouth = null;
+    if (ph < 0.18) {
+      // resting
+    } else if (ph < 0.24) {
+      const f = ease((ph - 0.18) / 0.06);
+      px = lerp(0, MOUTH[0], f);
+      py = lerp(0, MOUTH[1], f);
+    } else if (ph < 0.46) {
+      px = MOUTH[0];
+      py = MOUTH[1] + Math.sin(nowMs / 90) * 2;
+      eyes = 'closed';
+      mouth = 'tongue';
+    } else if (ph < 0.52) {
+      const f = ease((ph - 0.46) / 0.06);
+      px = lerp(MOUTH[0], CHEEK[0], f);
+      py = lerp(MOUTH[1], CHEEK[1], f);
+      eyes = 'closed';
+    } else if (ph < 0.68) {
+      // washing: two strokes up over the ear and back
+      const f = ((ph - 0.52) / 0.16) * 2;
+      const w = Math.sin((f % 1) * Math.PI);
+      px = CHEEK[0] + w * 6;
+      py = CHEEK[1] - w * 16;
+      eyes = 'closed';
+    } else if (ph < 0.74) {
+      const f = ease((ph - 0.68) / 0.06);
+      px = lerp(CHEEK[0], 0, f);
+      py = lerp(CHEEK[1], 0, f);
+    } else if (ph > 0.8 && ph < 0.86) {
+      eyes = 'wide'; // a little look at you
+      it.look.tx = it.look.ty = 0;
+    }
+    const paw = this.catBody.querySelector('.groom-paw');
+    if (paw) paw.setAttribute('transform', `translate(${px.toFixed(1)} ${py.toFixed(1)})`);
+    const now = performance.now();
+    if (eyes) {
+      this.overrides.eyes = eyes;
+      this.overrides.eyesUntil = now + 120;
+    }
+    if (mouth) {
+      this.overrides.mouth = mouth;
+      this.overrides.mouthUntil = now + 120;
+    }
+
+    // Without a pointer for a while, glance around now and then.
+    if (!reduceMotion() && now - it.look.at > 4000 && now > it.nextGlance) {
+      it.nextGlance = now + 1800 + Math.random() * 2600;
+      const a = Math.random() * Math.PI * 2;
+      const k = Math.random() < 0.4 ? 0 : 1;
+      it.look.tx = Math.cos(a) * 3 * k;
+      it.look.ty = Math.sin(a) * 2 * k;
+    }
+    it.look.x += (it.look.tx - it.look.x) * 0.15;
+    it.look.y += (it.look.ty - it.look.y) * 0.15;
+    const tf = `translate(${it.look.x.toFixed(2)} ${it.look.y.toFixed(2)})`;
+    for (const g of this.catBody.querySelectorAll('.eyes-open, .eyes-wide, .eyes-half')) g.setAttribute('transform', tf);
+  };
+
+  // Leave the box: the cat hops out and the camera settles on the room.
+  Scene.prototype.endIntro = function () {
+    if (!this.intro) return;
+    const b = this.intro.box;
+    this.intro = null;
+    this.focus = null;
+    this.zoomingOut = true;
+    this.overrides = {};
+    this.setLabel('');
+    const cv = this.cv;
+    cv.high = true; // hop out over the front of the box
+    cv.fy = b.y + 10;
+    cv.act = null;
+    this.onActivity(this.getState().activity);
+    if (this.tempBox) {
+      setTimeout(() => {
+        if (!this.tempBox) return;
+        this.tempBox.fading = true;
+        this.renderRoom(true, G.Clock.now(this.getState()));
+        setTimeout(() => {
+          this.tempBox = null;
+          this.renderRoom(true, G.Clock.now(this.getState()));
+        }, 700);
+      }, 1800);
+    }
   };
 
   // ---- Photo ----------------------------------------------------------------------------

@@ -57,15 +57,24 @@
   }
 
   // Draw with another coat (menu previews) without touching the cat's own.
-  function withCoat(coat, fn) {
-    const keep = [Object.assign({}, C), PAT, WH];
+  // Collar and extra (see js/core/coats.js).
+  let ACC = { collar: 'mint', extra: 'bell' };
+  function setAccessory(a) {
+    ACC = G.Coats.normalizeAccessory(a);
+  }
+
+  // Draw with another coat (and accessory) for menu previews, without touching the cat's own.
+  function withCoat(coat, fn, acc) {
+    const keep = [Object.assign({}, C), PAT, WH, ACC];
     setCoat(coat);
+    if (acc) setAccessory(acc);
     try {
       return fn();
     } finally {
       Object.assign(C, keep[0]);
       PAT = keep[1];
       WH = keep[2];
+      ACC = keep[3];
     }
   }
   const LW = 5; // body outline
@@ -140,11 +149,31 @@
   const COAT_TOP = 'M -70 -70 L 70 -70 L 70 8 C 52 6 36 2 24 -2 C 14 -5 8 -12 0 -12 C -8 -12 -14 -5 -24 -2 C -36 2 -52 6 -70 8 Z';
   const FOREHEAD = ['M -8 -36 L -7 -27', 'M 8 -36 L 7 -27'];
 
-  // Thin mint band under the chin, drawn before the head so the head hides its ends.
+  // Thin band under the chin (and the neck extras), drawn before the head so
+  // the head hides the band's ends.
   const COLLAR = 'M -23 23 Q 0 44 23 23';
-  const collar = () =>
-    `<g class="collar">${line(COLLAR, 11)}${line(COLLAR, 5.5, C.collar)}` +
-    `<g class="bell"><circle cx="0" cy="40.5" r="4" fill="${C.bell}" stroke="${C.line}" stroke-width="2.4"/></g></g>`;
+  function collar() {
+    const hex = G.Coats.collarHex(ACC.collar);
+    let s = '';
+    if (ACC.extra === 'bandana') {
+      s +=
+        shape('M -27 24 Q 0 34 27 24 L 2 54 Q 0 56 -2 54 Z', hex || '#d44c34', 4) +
+        `<circle cx="-9" cy="34" r="2.2" fill="#fcfcfc"/><circle cx="8" cy="36" r="2.2" fill="#fcfcfc"/><circle cx="0" cy="45" r="2.2" fill="#fcfcfc"/>`;
+    }
+    if (hex) s += line(COLLAR, 11) + line(COLLAR, 5.5, hex);
+    if (ACC.extra === 'bell') s += `<g class="bell"><circle cx="0" cy="40.5" r="4" fill="${C.bell}" stroke="${C.line}" stroke-width="2.4"/></g>`;
+    if (ACC.extra === 'bow') {
+      const bow = ACC.collar === 'red' ? '#6ca4e4' : '#d44c34';
+      s += shape('M -15 31 L -2 38 L -15 45 Z M 15 31 L 2 38 L 15 45 Z', bow, 3.4) + `<circle cx="0" cy="38" r="4" fill="${bow}" stroke="${C.line}" stroke-width="3"/>`;
+    }
+    return `<g class="collar">${s}</g>`;
+  }
+  // A little flower tucked behind the right ear.
+  function flower() {
+    if (ACC.extra !== 'flower') return '';
+    const petals = [0, 72, 144, 216, 288].map((a) => `<circle cx="${(36 + 6 * Math.cos((a * Math.PI) / 180)).toFixed(1)}" cy="${(-36 + 6 * Math.sin((a * Math.PI) / 180)).toFixed(1)}" r="5" fill="#f4accc" stroke="${C.line}" stroke-width="2.2"/>`).join('');
+    return `<g class="flower">${petals}<circle cx="36" cy="-36" r="3.6" fill="#ecbc44" stroke="${C.line}" stroke-width="2"/></g>`;
+  }
 
   function eyeSet(x) {
     const y = 2;
@@ -176,11 +205,25 @@
     return '';
   }
 
+  // For the ear twitch: the head without its left ear, plus that ear as its
+  // own piece drawn on top. At rest the two look exactly like HEAD.
+  const HEAD_NO_LEFT_EAR =
+    'M 0 30 C -30 30 -50 22 -50 0 C -50 -10 -49 -16 -48 -22 Q -46 -32 -34 -35 L -22 -34 Q 0 -38 22 -34 L 39 -46 Q 45 -50 46 -43 L 48 -22 C 49 -16 50 -10 50 0 C 50 22 30 30 0 30 Z';
+  function leftEar() {
+    const fill = PAT === 'points' ? C.point : PAT === 'patches' ? C.patch : C.tabby;
+    return pivot(
+      -34,
+      -28,
+      'ear ear-l',
+      fillPath('M -50 -16 L -46 -43 Q -45 -50 -39 -46 L -18 -32 Z', fill) + line('M -48 -20 L -46 -43 Q -45 -50 -39 -46 L -20 -33.5', LW)
+    );
+  }
+
   function head(uid, o) {
     o = o || {};
     const band = o.noCollar ? '' : collar();
     if (o.back) {
-      return `<g class="cat-head">${band}${part(uid, 'head', HEAD, C.tabby, headMarks(true))}</g>`;
+      return `<g class="cat-head">${band}${part(uid, 'head', HEAD, C.tabby, headMarks(true))}${flower()}</g>`;
     }
     const L = eyeSet(-22);
     const R = eyeSet(22);
@@ -194,7 +237,8 @@
     // "Face" white: coat on top, white lower face. Otherwise the head is all coat.
     const faceWhite = WH === 'face';
     const coat = (faceWhite ? fillPath(COAT_TOP, C.tabby) : '') + headMarks(false);
-    return `<g class="cat-head">${band}${part(uid, 'head', HEAD, faceWhite ? C.white : C.tabby, coat)}${eyes}${mouths}${nose()}</g>`;
+    const shapeD = o.earFlick ? HEAD_NO_LEFT_EAR : HEAD;
+    return `<g class="cat-head">${band}${part(uid, 'head', shapeD, faceWhite ? C.white : C.tabby, coat)}${o.earFlick ? leftEar() : ''}${eyes}${mouths}${nose()}${flower()}</g>`;
   }
 
   function placeHead(uid, x, y, o) {
@@ -353,14 +397,30 @@
     },
   };
 
+  // In the cardboard box (intro): curled up with the head raised. The box
+  // front hides everything below about y = -51. The scene moves .groom-paw
+  // (licking, washing) and twitches the ear.
+  POSES.boxgroom = function (uid) {
+    const body = 'M -40 -8 C -46 -40 -26 -66 0 -66 C 26 -66 46 -40 40 -8 Z';
+    return (
+      `<g class="breathe">` +
+      pivot(30, -40, 'tail-curl', tail('M 30 -40 C 52 -50 58 -70 46 -82', 10)) +
+      part(uid, 'body', body, C.tabby, marks(['M -40 -54 L -30 -52', 'M 40 -54 L 30 -52']) + `<ellipse cx="0" cy="-46" rx="16" ry="20" fill="${C.belly}"/>`) +
+      placeHead(uid, 0, -90, { earFlick: true }) +
+      nub(-15, -56, 8, 5.5) +
+      `<g class="groom-paw">${nub(15, -56, 8, 5.5)}</g>` +
+      `</g>`
+    );
+  };
+
   // Where each pose's head sits (for petting zones, speech bubbles, hearts).
   const HEAD_AT = {
     sit: [0, -86], back: [0, -86], groom: [-2, -86], swipe: [2, -86], loaf: [28, -46], lie: [30, -40],
-    curl: [22, -26], walk: [32, -58], stretch: [40, -24], belly: [56, -28], crouch: [40, -34],
+    curl: [22, -26], walk: [32, -58], stretch: [40, -24], belly: [56, -28], crouch: [40, -34], boxgroom: [0, -90],
   };
 
   // Rough height of each pose (for bubbles above the head).
-  const TOP = { sit: -136, back: -136, groom: -136, swipe: -136, loaf: -90, lie: -82, curl: -66, walk: -100, stretch: -64, belly: -68, crouch: -76 };
+  const TOP = { sit: -136, back: -136, groom: -136, swipe: -136, loaf: -90, lie: -82, curl: -66, walk: -100, stretch: -64, belly: -68, crouch: -76, boxgroom: -140 };
 
   function render(pose, uid, opts) {
     const fn = POSES[pose] || POSES.sit;
@@ -377,5 +437,5 @@
 
   setCoat(G.Coats.DEFAULT);
 
-  G.CatArt = { render, renderHead, setCoat, withCoat, HEAD_AT, TOP, COLORS: C, POSES: Object.keys(POSES) };
+  G.CatArt = { render, renderHead, setCoat, setAccessory, withCoat, HEAD_AT, TOP, COLORS: C, POSES: Object.keys(POSES) };
 })(globalThis.CatGame = globalThis.CatGame || {});

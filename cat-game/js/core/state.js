@@ -16,7 +16,7 @@
       lastSeenAt: t, // last time you were looking at the game
       lastVisitDay: today,
       named: false,
-      cat: { name, nameHistory: [{ name, from: t }], coat: Object.assign({}, G.Coats.DEFAULT) },
+      cat: { name, nameHistory: [{ name, from: t }], coat: Object.assign({}, G.Coats.DEFAULT), accessory: Object.assign({}, G.Coats.DEFAULT_ACCESSORY) },
       stats: { fullness: 75, energy: 70, happiness: 65, bond: 0 },
       activity: { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t, end: t + 20000, facing: 1 },
       bowl: { food: 'kibble', portions: 2 },
@@ -42,6 +42,7 @@
       for (const kk of Object.keys(fresh[k])) if (s[k][kk] === undefined) s[k][kk] = fresh[k][kk];
     }
     s.cat.coat = G.Coats.normalize(s.cat.coat);
+    s.cat.accessory = G.Coats.normalizeAccessory(s.cat.accessory);
     s.version = VERSION;
     return s;
   }

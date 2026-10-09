@@ -163,6 +163,14 @@
     tone(990, 0.05, 0.08, 'triangle', 0.08);
   }
 
+  // The TV changing channel: a click and a burst of static.
+  function tvClick() {
+    const c = ac();
+    if (!c) return;
+    tone(180, 0, 0.04, 'square', 0.05);
+    burst(c, c.currentTime + 0.02, 0.18, 4500, 0.09);
+  }
+
   function chime() {
     [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.09, 0.3, 'triangle', 0.12));
   }
@@ -184,5 +192,5 @@
     ac();
   }
 
-  G.Sound = { meow, purr, stopPurr, crunch, hiss, chirp, bell, pop, chime, shutter, setMuted, unlock };
+  G.Sound = { meow, purr, stopPurr, crunch, hiss, chirp, bell, pop, chime, shutter, tvClick, setMuted, unlock };
 })(globalThis.CatGame = globalThis.CatGame || {});

@@ -50,6 +50,33 @@
 
   const DEFAULT = Object.assign({ preset: 'mochi' }, PRESETS[0].coat);
 
+  // Collar and one optional extra. Head/neck only, so they work in every pose.
+  const COLLARS = [
+    { id: 'none', name: 'No collar', hex: null },
+    { id: 'mint', name: 'Mint', hex: '#8fd3c6' },
+    { id: 'red', name: 'Red', hex: '#d44c34' },
+    { id: 'yellow', name: 'Yellow', hex: '#ecbc44' },
+    { id: 'blue', name: 'Blue', hex: '#6ca4e4' },
+    { id: 'pink', name: 'Pink', hex: '#f4accc' },
+    { id: 'black', name: 'Black', hex: '#3a3330' },
+  ];
+  const EXTRAS = [
+    { id: 'none', name: 'None' },
+    { id: 'bell', name: 'Bell' },
+    { id: 'bow', name: 'Bow tie' },
+    { id: 'bandana', name: 'Bandana' },
+    { id: 'flower', name: 'Flower' },
+  ];
+  const DEFAULT_ACCESSORY = { collar: 'mint', extra: 'bell' };
+
+  function normalizeAccessory(a) {
+    const out = Object.assign({}, DEFAULT_ACCESSORY, a || {});
+    if (!COLLARS.some((c) => c.id === out.collar)) out.collar = DEFAULT_ACCESSORY.collar;
+    if (!EXTRAS.some((e) => e.id === out.extra)) out.extra = DEFAULT_ACCESSORY.extra;
+    return out;
+  }
+  const collarHex = (id) => (COLLARS.find((c) => c.id === id) || {}).hex || null;
+
   // ---- colour maths ------------------------------------------------------------------
 
   const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -114,5 +141,5 @@
     return G.PhotoRead.analyze(data, w, h, taps, opts).coat;
   }
 
-  G.Coats = { SWATCHES, PATTERNS, WHITES, PRESETS, DEFAULT, colors, normalize, fromPreset, matchPreset, describe, fromPhoto };
+  G.Coats = { SWATCHES, PATTERNS, WHITES, PRESETS, DEFAULT, COLLARS, EXTRAS, DEFAULT_ACCESSORY, colors, normalize, normalizeAccessory, collarHex, fromPreset, matchPreset, describe, fromPhoto };
 })(globalThis.CatGame = globalThis.CatGame || {});

@@ -139,6 +139,9 @@ test('coats: presets, old saves and photo matching', () => {
   assert.equal(s.cat.coat.preset, 'mochi');
   delete s.cat.coat;
   assert.equal(G.State.migrate(s).cat.coat.preset, 'mochi', 'old saves get the default coat');
+  delete s.cat.accessory;
+  assert.equal(JSON.stringify(G.State.migrate(s).cat.accessory), JSON.stringify({ collar: 'mint', extra: 'bell' }), 'old saves keep the mint collar and bell');
+  assert.equal(G.Coats.normalizeAccessory({ collar: 'rainbow', extra: 'hat' }).extra, 'bell', 'bad accessories fall back');
   assert.equal(G.Coats.normalize({ base: '#123456', pattern: 'zebra' }).pattern, 'stripes', 'bad values fall back');
   for (const p of G.Coats.PRESETS) assert.ok(G.Coats.describe(G.Coats.fromPreset(p.id)).length > 0);
 });

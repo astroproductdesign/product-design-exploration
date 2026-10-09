@@ -226,12 +226,14 @@
 
   function desk() {
     return (
-      // TV
+      // TV: tap it to change the channel (the scene fills #tv-show).
+      `<g class="tv" style="cursor:pointer">` +
       `<rect x="96" y="314" width="56" height="10" rx="2" fill="${K.frame}" stroke="${K.line}" stroke-width="2.5"/>` +
       `<rect x="116" y="300" width="16" height="16" fill="${K.frame}"/>` +
       R(56, 206, 136, 98, K.frame, 6, 3) +
-      `<rect x="64" y="214" width="120" height="82" rx="3" fill="#33414d"/>` +
-      L('M 76 226 L 100 226 M 76 236 L 92 236', '#5d7283', 3) +
+      `<clipPath id="tv-clip"><rect x="64" y="214" width="120" height="82" rx="3"/></clipPath>` +
+      `<g clip-path="url(#tv-clip)"><rect x="64" y="214" width="120" height="82" fill="#33414d"/><g id="tv-show" transform="translate(64 214)"></g></g>` +
+      `</g>` +
       // desk
       R(40, 324, 196, 16, K.woodLight, 4) +
       R(48, 338, 180, 112, K.wood, 3) +
@@ -310,6 +312,133 @@
     s += S('M 314 536 Q 316 550 334 550 Q 352 550 354 536 Z', '#7fb4d9', 2.6);
     s += `<ellipse cx="334" cy="536" rx="20" ry="5" fill="#bfe2f5" stroke="${K.line}" stroke-width="2.6"/>`;
     return s;
+  }
+
+  // ---- TV channels ------------------------------------------------------------------
+  // Each show is drawn in screen space (120 × 82) in the same flat, inked
+  // style, with small CSS loops (tv-swim, tv-rise, tv-sway, tv-hop, tv-spin,
+  // tv-bounce) so the TV feels alive without any video.
+
+  const TW = 120;
+  const TH = 82;
+  const ink = (d, w) => L(d, K.line, w || 2);
+  const box = (fill) => `<rect width="${TW}" height="${TH}" fill="${fill}"/>`;
+  const delay = (s) => `style="animation-delay:${s}s"`;
+
+  function fish(color, flip) {
+    return (
+      `<g transform="scale(${flip ? -1 : 1} 1)">` +
+      S('M -18 0 L -26 -7 L -25 7 Z', color, 1.4) +
+      E(-6, 0, 13, 8, color, 1.4) +
+      `<circle cx="1" cy="-2" r="1.8" fill="${K.line}"/>` +
+      ink('M -9 -6 Q -6 0 -9 6', 1.6) +
+      `</g>`
+    );
+  }
+
+  function tvBird(color) {
+    return (
+      S('M -10 0 Q -8 -12 2 -12 Q 10 -12 11 -5 L 16 -4 L 11 -1 Q 8 6 -2 5 Q -8 5 -10 0 Z', color, 1.5) +
+      `<circle cx="5" cy="-7" r="1.6" fill="${K.line}"/>` +
+      ink('M -2 5 L -2 10 M 2 5 L 2 10', 1.6)
+    );
+  }
+
+  const SHOWS = {
+    fish: () =>
+      box('#6ca4e4') +
+      S('M -2 70 Q 30 63 60 70 T 122 67 L 122 84 L -2 84 Z', '#dcbc84', 1.6) +
+      `<g class="tv-sway">${L('M 16 72 Q 10 60 16 50 Q 22 40 16 30', K.line, 6)}${L('M 16 72 Q 10 60 16 50 Q 22 40 16 30', '#8cac64', 3)}</g>` +
+      `<g class="tv-sway" ${delay(-1.2)}>${L('M 100 70 Q 106 60 100 52 Q 94 44 100 38', K.line, 6)}${L('M 100 70 Q 106 60 100 52 Q 94 44 100 38', '#4c8444', 3)}</g>` +
+      `<g class="tv-swim"><g transform="translate(0 30)">${fish('#e8a35a')}</g></g>` +
+      `<g class="tv-swim back slow"><g transform="translate(0 52)">${fish('#ecbc44', true)}</g></g>` +
+      [[40, 0], [46, -0.8], [43, -1.6]].map(([x, d]) => `<circle class="tv-rise" ${delay(d)} cx="${x}" cy="66" r="2.6" fill="#bfe0f4" stroke="${K.line}" stroke-width="1.2"/>`).join(''),
+
+    birds: () =>
+      box('#bfe0f4') +
+      E(100, 16, 9, 9, '#ffe08a', 1.4) +
+      L('M -4 60 Q 40 52 70 58 T 124 54', K.line, 8) +
+      L('M -4 60 Q 40 52 70 58 T 124 54', '#8a5636', 4.5) +
+      E(84, 50, 6, 3.5, '#8cac64', 1.2) +
+      E(20, 52, 6, 3.5, '#8cac64', 1.2) +
+      `<g transform="translate(40 45)"><g class="tv-hop">${tvBird('#7fb4d9')}</g></g>` +
+      `<g transform="translate(70 47) scale(-1 1)"><g class="tv-hop" ${delay(-0.9)}>${tvBird('#f4accc')}</g></g>`,
+
+    cooking: () =>
+      box('#fcf4ec') +
+      L('M 0 20 L 120 20 M 0 40 L 120 40 M 30 0 L 30 60 M 60 0 L 60 60 M 90 0 L 90 60', '#e2d6c2', 1.5) +
+      S('M -2 60 L 122 60 L 122 84 L -2 84 Z', '#bc7c4c', 1.6) +
+      S('M 30 38 L 66 38 L 64 60 L 32 60 Z', '#d44c34', 1.6) +
+      S('M 28 34 Q 48 26 68 34 L 68 38 L 28 38 Z', '#843424', 1.4) +
+      ink('M 26 44 L 32 44 M 64 44 L 70 44', 2.4) +
+      [36, 48, 60].map((x, i) => `<path class="tv-rise" ${delay(-i * 0.7)} d="M ${x} 24 q -4 -5 0 -10 q 4 -5 0 -10" fill="none" stroke="#c9bfb6" stroke-width="2.5" stroke-linecap="round"/>`).join('') +
+      E(94, 58, 18, 5, '#fcfcfc', 1.4) +
+      `<g transform="translate(97 53) scale(.55)">${fish('#e8a35a')}</g>`,
+
+    weather: () =>
+      box('#8cc4ec') +
+      S('M 8 70 Q 4 50 22 46 Q 30 30 52 38 Q 70 30 86 44 Q 110 44 112 64 Q 114 80 90 80 L 20 80 Q 6 80 8 70 Z', '#8cac64', 1.6) +
+      `<g transform="translate(34 24)"><g class="tv-spin">${[0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<path d="M 0 -15 L 0 -19" transform="rotate(${a})" stroke="${K.line}" stroke-width="2.4" stroke-linecap="round"/>`).join('')}${E(0, 0, 10, 10, '#ffe08a', 1.5)}</g></g>` +
+      S('M 66 32 Q 66 22 76 23 Q 80 14 90 18 Q 100 16 100 26 Q 108 28 104 34 Z', '#fcfcfc', 1.5) +
+      `<text x="98" y="70" text-anchor="middle" font-size="15" font-weight="900" fill="#fcfcfc" stroke="${K.line}" stroke-width="3" paint-order="stroke" font-family="'M PLUS Rounded 1c', Nunito, sans-serif">31°</text>`,
+
+    space: () =>
+      box('#1f2650') +
+      [[12, 14], [30, 40], [52, 10], [70, 50], [96, 66], [108, 12], [20, 66], [60, 30]]
+        .map(([x, y], i) => `<circle class="twinkle t${i % 3}" cx="${x}" cy="${y}" r="1.5" fill="#fff6c8"/>`)
+        .join('') +
+      E(86, 30, 13, 13, '#e8a35a', 1.5) +
+      `<ellipse cx="86" cy="30" rx="22" ry="5" fill="none" stroke="${K.line}" stroke-width="4" transform="rotate(-15 86 30)"/><ellipse cx="86" cy="30" rx="22" ry="5" fill="none" stroke="#f4accc" stroke-width="2" transform="rotate(-15 86 30)"/>` +
+      `<g class="tv-swim slow"><g transform="translate(0 60) rotate(90)">` +
+      `<path d="M -3 10 L 0 18 L 3 10 Z" fill="#ecbc44"/>` +
+      S('M 0 -12 Q 7 -4 6 10 L -6 10 Q -7 -4 0 -12 Z', '#fcfcfc', 1.4) +
+      S('M -6 4 L -10 12 L -6 10 Z M 6 4 L 10 12 L 6 10 Z', '#d44c34', 1.2) +
+      `<circle cx="0" cy="-1" r="2.5" fill="#6ca4e4" stroke="${K.line}" stroke-width="1.2"/></g></g>`,
+
+    football: () =>
+      box('#8cac64') +
+      [0, 40, 80].map((x) => `<rect x="${x}" width="20" height="${TH}" fill="#9cbc74"/>`).join('') +
+      L('M 60 0 L 60 82', '#fcfcfc', 2.2) +
+      `<circle cx="60" cy="41" r="14" fill="none" stroke="#fcfcfc" stroke-width="2.2"/>` +
+      L('M 120 24 L 108 24 L 108 58 L 120 58', '#fcfcfc', 2.2) +
+      `<g class="tv-swim fast"><g transform="translate(0 62)"><g class="tv-bounce">${E(0, 0, 6, 6, '#fcfcfc', 1.4)}<circle r="2" fill="${K.line}"/></g></g></g>`,
+
+    mouse: () =>
+      box('#f8e7a8') +
+      S('M -2 64 L 122 64 L 122 84 L -2 84 Z', '#dcbc84', 1.6) +
+      `<path d="M 96 64 L 96 50 Q 104 40 112 50 L 112 64 Z" fill="${K.line}"/>` +
+      S('M 78 64 L 90 64 L 90 56 Z', '#ecbc44', 1.3) +
+      `<g class="tv-swim fast"><g transform="translate(0 58)">` +
+      L('M -12 2 Q -20 -2 -24 4', K.line, 1.8) +
+      E(0, 0, 12, 7, '#b9b4ad', 1.4) +
+      E(6, -7, 4, 4, '#f4accc', 1.2) +
+      `<circle cx="9" cy="-1" r="1.5" fill="${K.line}"/><circle cx="12.5" cy="1" r="1.3" fill="#f4accc"/>` +
+      `</g></g>`,
+
+    // Your own cat, in whatever look you chose.
+    catshow: () =>
+      box('#f9d6de') +
+      [[18, 30], [100, 20], [92, 56]].map(([x, y], i) => `<path class="tv-rise" ${delay(-i * 0.8)} d="M ${x} ${y + 4} C ${x - 8} ${y - 2} ${x - 5} ${y - 9} ${x} ${y - 5} C ${x + 5} ${y - 9} ${x + 8} ${y - 2} ${x} ${y + 4} Z" fill="#f28ba0" stroke="${K.line}" stroke-width="1.2"/>`).join('') +
+      `<g transform="translate(60 80) scale(.5)"><g class="cat">${G.CatArt.render('sit', 'tvcat')}</g></g>`,
+  };
+  const CHANNELS = Object.keys(SHOWS);
+
+  function tvShow(id, number) {
+    const badge =
+      number != null
+        ? `<g class="tv-badge"><text x="${TW - 6}" y="14" text-anchor="end" font-size="11" font-weight="900" fill="#fcfcfc" stroke="${K.line}" stroke-width="3" paint-order="stroke" font-family="'M PLUS Rounded 1c', Nunito, sans-serif">CH ${number}</text></g>`
+        : '';
+    return (SHOWS[id] || SHOWS.fish)() + badge;
+  }
+
+  // A flicker of static between channels.
+  function tvStatic() {
+    let s = box('#5a6070');
+    for (let i = 0; i < 70; i++) {
+      const v = 120 + Math.floor(Math.random() * 135);
+      s += `<rect x="${Math.floor(Math.random() * TW)}" y="${Math.floor(Math.random() * TH)}" width="${2 + Math.floor(Math.random() * 6)}" height="2" fill="rgb(${v},${v},${v})"/>`;
+    }
+    return `<g class="tv-static">${s}</g>`;
   }
 
   // ---- Placeable items: [back, front] (front is drawn over the cat) ---------------
@@ -607,5 +736,9 @@
     );
   }
 
-  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
+  const TV = { CHANNELS, show: tvShow, static: tvStatic };
+  // [back, front] art for one placeable item (the intro borrows a box).
+  const itemArt = (id, x, y) => ITEM_ART[id](x, y);
+
+  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, itemArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
 })(globalThis.CatGame = globalThis.CatGame || {});
