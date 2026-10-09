@@ -112,6 +112,25 @@
     return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
   }
 
+  /* ---------- CNY food icons hidden under the teeth (compact, small-size legible) ---------- */
+  var FOOD = {
+    tart: { label: 'Pineapple tart', svg: '<circle cx="20" cy="21" r="14" fill="#EEBF6A" stroke="#463020" stroke-width="1.7"/><circle cx="20" cy="21" r="9" fill="#E2882C" stroke="#463020" stroke-width="1.3"/><g fill="#F3D08A" stroke="#463020" stroke-width="1"><rect x="8" y="19.3" width="24" height="3.4" rx="1.7" transform="rotate(-32 20 21)"/><rect x="8" y="19.3" width="24" height="3.4" rx="1.7" transform="rotate(32 20 21)"/></g>' },
+    bangkit: { label: 'Kuih bangkit', svg: '<g fill="#F9F2E2" stroke="#463020" stroke-width="1.5"><circle cx="20" cy="11" r="6.6"/><circle cx="28.6" cy="17.3" r="6.6"/><circle cx="25.3" cy="27.5" r="6.6"/><circle cx="14.7" cy="27.5" r="6.6"/><circle cx="11.4" cy="17.3" r="6.6"/></g><circle cx="20" cy="20" r="7.4" fill="#F4EAD2" stroke="#463020" stroke-width="1.5"/><circle cx="20" cy="20" r="2.6" fill="#C8102E"/>' },
+    letters: { label: 'Love letters', svg: '<g transform="rotate(-14 20 20)"><rect x="6" y="14" width="28" height="12" rx="6" fill="#F7E4B4" stroke="#463020" stroke-width="1.6"/><circle cx="12" cy="20" r="6" fill="#EDD094" stroke="#463020" stroke-width="1.5"/><path d="M12,16.6 A3.4,3.4 0 1 1 8.8,21" fill="none" stroke="#463020" stroke-width="1.2"/><g fill="#DCB871"><circle cx="22" cy="18" r="1.5"/><circle cx="26" cy="22" r="1.5"/><circle cx="30" cy="18" r="1.3"/></g></g>' },
+    peanut: { label: 'Peanut cookie', svg: '<circle cx="20" cy="21" r="13.5" fill="#E3B172" stroke="#463020" stroke-width="1.7"/><g stroke="#B98442" stroke-width="1.2" fill="none"><path d="M12,16 q4,3 2,7"/><path d="M27,15 q-3,4 -1,8"/></g><g transform="translate(20,20) rotate(-20)"><path d="M-6,0 a3.4,3.7 0 1 1 6,0 a3.4,3.7 0 1 1 6,0 a3.4,3.7 0 1 1 -6,0 a3.4,3.7 0 1 1 -6,0Z" fill="#D79E58" stroke="#463020" stroke-width="1.3"/></g>' },
+    honeycomb: { label: 'Honeycomb cookie', svg: '<g fill="#D9974A" stroke="#463020" stroke-width="1.4"><ellipse cx="30.4" cy="21.0" rx="5.4" ry="3.2" transform="rotate(0 30.4 21.0)"/><ellipse cx="27.4" cy="28.4" rx="5.4" ry="3.2" transform="rotate(45 27.4 28.4)"/><ellipse cx="20.0" cy="31.4" rx="5.4" ry="3.2" transform="rotate(90 20.0 31.4)"/><ellipse cx="12.6" cy="28.4" rx="5.4" ry="3.2" transform="rotate(135 12.6 28.4)"/><ellipse cx="9.6" cy="21.0" rx="5.4" ry="3.2" transform="rotate(180 9.6 21.0)"/><ellipse cx="12.6" cy="13.6" rx="5.4" ry="3.2" transform="rotate(225 12.6 13.6)"/><ellipse cx="20.0" cy="10.6" rx="5.4" ry="3.2" transform="rotate(270 20.0 10.6)"/><ellipse cx="27.4" cy="13.6" rx="5.4" ry="3.2" transform="rotate(315 27.4 13.6)"/></g><circle cx="20" cy="21" r="7.6" fill="#E8B060" stroke="#463020" stroke-width="1.5"/><g fill="none" stroke="#B37A34" stroke-width="1"><circle cx="20" cy="21" r="4.6"/><circle cx="20" cy="21" r="2"/></g>' },
+    lapis: { label: 'Kuih lapis', svg: '<g stroke="#463020" stroke-width="1.4"><rect x="6" y="10" width="28" height="4.4" fill="#F3D9DF"/><rect x="6" y="14.4" width="28" height="4.4" fill="#E0839B"/><rect x="6" y="18.8" width="28" height="4.4" fill="#F9EFE0"/><rect x="6" y="23.2" width="28" height="4.4" fill="#E0839B"/><rect x="6" y="27.6" width="28" height="4.4" fill="#F3D9DF"/></g><rect x="6" y="10" width="28" height="22" rx="2" fill="none" stroke="#463020" stroke-width="1.7"/>' },
+    bahulu: { label: 'Kuih bahulu', svg: '<g fill="#EFC066" stroke="#463020" stroke-width="1.5"><circle cx="20" cy="10.6" r="5.6"/><circle cx="28.2" cy="16.6" r="5.6"/><circle cx="25.1" cy="26.2" r="5.6"/><circle cx="14.9" cy="26.2" r="5.6"/><circle cx="11.8" cy="16.6" r="5.6"/></g><circle cx="20" cy="19.6" r="8.4" fill="#E8B04E" stroke="#463020" stroke-width="1.5"/><circle cx="20" cy="19.6" r="3.4" fill="#C98B3B" stroke="#463020" stroke-width="1"/>' },
+    mandarin: { label: 'Mandarin orange', svg: '<circle cx="20" cy="22" r="13" fill="#F0A03C" stroke="#463020" stroke-width="1.7"/><path d="M12.5,16.5 A13,13 0 0 1 17.5,13" stroke="#FFE2B0" stroke-width="2.4" fill="none" stroke-linecap="round"/><path d="M20,10 q4.4,-5 9.4,-3.4 Q28,12 21,11.6 Z" fill="#4E8A5C" stroke="#463020" stroke-width="1.3"/><path d="M20,10 v-3" stroke="#463020" stroke-width="1.6" stroke-linecap="round"/>' },
+  };
+  function food(key, size) {
+    var f = FOOD[key] || FOOD.tart;
+    return '<svg viewBox="0 0 40 40" width="' + (size || 28) + '" height="' + (size || 28) + '" role="img" aria-label="' + f.label + '">' + f.svg + '</svg>';
+  }
+  function foodLabel(key) { return (FOOD[key] || {}).label || key; }
+  function foodKeys() { return Object.keys(FOOD); }
+  function brushCursor() { return inst(SVG_BRUSH); }
+
   /* ---------- game 1 mouth parts ---------- */
   function lip(which) {
     var d = which === 'upper'
@@ -124,6 +143,7 @@
     uid: uid, inst: inst,
     lantern: lantern, coupletTag: coupletTag, avatar: avatar, star: star, logo: logo, qr: qr,
     waveBg: waveBg, lip: lip,
+    food: food, foodLabel: foodLabel, foodKeys: foodKeys, brushCursor: brushCursor,
     tart: function () { return inst(SVG_TART); },
     letters: function () { return inst(SVG_LETTERS); },
     bangkit: function () { return inst(SVG_BANGKIT); },

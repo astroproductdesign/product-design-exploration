@@ -111,26 +111,34 @@
   /* =======================================================  LEADERBOARD  */
   var lbState = { game: 'smile', mode: 'daily' };
 
-  function fmtScore(game, v) {
-    return S.LEADER_META[game].unit === 'time' ? U.fmtTime(v, true) : v + '%';
-  }
-  function playerScore(game) {
-    var b = S.Store.best(game);
-    if (!b) return null;
-    if (game === 'gathering') return b.cleanliness;
-    if (b.whiteness != null && b.whiteness < 100) return null;   // only a completed run ranks on the time board
-    return b.timeMs;
-  }
-  function buildBoard(game, mode) {
-    var rows = S.LEADERS[game][mode].map(function (r) { return { name: r[0], score: r[1], me: false }; });
-    var mine = playerScore(game);
-    var me = S.Store.get().profile.nickname || 'You';
-    if (mine != null) rows.push({ name: me + ' (you)', score: mine, me: true });
-    var lower = S.LEADER_META[game].better === 'lower';
-    rows.sort(function (a, b) { return lower ? a.score - b.score : b.score - a.score; });
-    rows.forEach(function (r, i) { r.rank = i + 1; });
-    return rows;
-  }
+  /* shared with the results screen */
+  S.Board = {
+    fmt: function (game, v) { return S.LEADER_META[game].unit === 'time' ? U.fmtTime(v, true) : v + '%'; },
+    playerScore: function (game) {
+      var b = S.Store.best(game);
+      if (!b) return null;
+      if (game === 'gathering') return b.cleanliness;
+      if (b.cleanliness != null && b.cleanliness < 100) return null;  // only a completed run ranks on a time board
+      return b.timeMs;
+    },
+    rows: function (game, mode) {
+      var rows = S.LEADERS[game][mode].map(function (r) { return { name: r[0], score: r[1], me: false }; });
+      var mine = S.Board.playerScore(game);
+      var me = S.Store.get().profile.nickname || 'You';
+      if (mine != null) rows.push({ name: me + ' (you)', score: mine, me: true });
+      var lower = S.LEADER_META[game].better === 'lower';
+      rows.sort(function (a, b) { return lower ? a.score - b.score : b.score - a.score; });
+      rows.forEach(function (r, i) { r.rank = i + 1; });
+      return rows;
+    },
+    rowHtml: function (game, r) {
+      var cls = r.me ? 'me' : (r.rank === 1 ? 'rank1' : r.rank === 2 ? 'rank2' : r.rank === 3 ? 'rank3' : '');
+      var rk = r.rank <= 3 ? '<div class="rk">' + r.rank + '</div>' : '<div class="rk plain">' + r.rank + '</div>';
+      return '<div class="lrow ' + cls + '">' + rk + '<div class="nm">' + U.esc(r.name) + '</div>' +
+        '<div class="sc">' + S.Board.fmt(game, r.score) + '</div></div>';
+    }
+  };
+  var fmtScore = S.Board.fmt, buildBoard = S.Board.rows;
 
   S.Screens.leaderboard = function () {
     var el = U.node('<section class="screen"><div class="pad" style="display:flex;flex-direction:column;flex:1"></div></section>');
@@ -155,12 +163,7 @@
           '<button data-mode="festival" class="' + (lbState.mode === 'festival' ? 'on' : '') + '">Festival Period</button>' +
         '</div>' +
         '<div style="margin-top:14px;display:grid;gap:6px">' +
-          visible.map(function (r) {
-            var cls = r.me ? 'me' : (r.rank === 1 ? 'rank1' : r.rank === 2 ? 'rank2' : r.rank === 3 ? 'rank3' : '');
-            var rk = r.rank <= 3 ? '<div class="rk">' + r.rank + '</div>' : '<div class="rk plain">' + r.rank + '</div>';
-            return '<div class="lrow ' + cls + '">' + rk + '<div class="nm">' + U.esc(r.name) + '</div>' +
-              '<div class="sc">' + fmtScore(lbState.game, r.score) + '</div></div>';
-          }).join('') +
+          visible.map(function (r) { return S.Board.rowHtml(lbState.game, r); }).join('') +
         '</div>' +
         '<div class="grow"></div>' +
         (mineRow && !mineVisible
@@ -298,7 +301,7 @@
         rows.slice(0, 4).map(function (h) {
           var main = game === 'gathering' ? h.cleanliness + '% clean'
                    : game === 'fresh' ? (h.passes || 0) + '/3 passed · ' + U.fmtTime(h.timeMs, true)
-                   : U.fmtTime(h.timeMs, true) + ' · ' + (h.whiteness || 0) + '% shine';
+                   : U.fmtTime(h.timeMs, true) + ' · ' + (h.cleanliness || 0) + '% clean';
           return '<button class="rowbtn" data-entry="' + h.id + '" data-game="' + game + '" style="margin-top:6px">' +
             '<span><b style="font-size:12.5px">' + U.esc(main) + '</b>' +
             '<span class="tiny" style="display:block">' + U.esc(U.fmtDate(h.date)) + (h.badge ? ' · ' + U.esc(h.badge) : '') + '</span></span>' +

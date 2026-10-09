@@ -166,7 +166,8 @@
         else if (result.game === 'gathering') better = (result.cleanliness || 0) > (prev.cleanliness || 0);
         else if (result.game === 'smile') {
           var a = result.timeMs || Infinity, b = prev.timeMs || Infinity;
-          better = (result.whiteness || 0) > (prev.whiteness || 0) || ((result.whiteness || 0) === (prev.whiteness || 0) && a < b);
+          var rc = result.cleanliness || 0, pc = prev.cleanliness || 0;
+          better = rc > pc || (rc === pc && a < b);
         } else if (result.game === 'fresh') {
           better = (result.passes || 0) > (prev.passes || 0) || ((result.passes || 0) === (prev.passes || 0) && (result.timeMs || Infinity) < (prev.timeMs || Infinity));
         }
@@ -246,7 +247,7 @@
         d.profile = { nickname: 'AhBoy88', avatar: 'lantern', lang: 'EN', notifications: true, createdAt: addDays(t, -2) };
         d.festival = { start: addDays(t, -2), end: addDays(t, S.CFG.FESTIVAL_DAYS - 3) };
         d.history = [
-          { id:'seed1', game:'smile', date:addDays(t,-2), ts:Date.now()-172800000, timeMs:52400, whiteness:100, combo:6 },
+          { id:'seed1', game:'smile', date:addDays(t,-2), ts:Date.now()-172800000, timeMs:52400, cleanliness:100, combo:6, discoveries:['tart','bangkit','mandarin'] },
           { id:'seed2', game:'gathering', date:addDays(t,-1), ts:Date.now()-86400000, cleanliness:88, sugar:12, durationMs:180000 }
         ];
         d.best = {

@@ -17,6 +17,20 @@ S.CFG = {
   ]
 };
 
+/* ---- Game 1 · Smile Swipe tuning ----------------------------------------
+   One "swipe" = one entry of the brush across a tooth. STAIN values are how many
+   swipes that tooth type needs before its surface is clear; ITEM_CLEAR is the extra
+   passes needed to brush a revealed food item away. All tunable, none hardcoded
+   per individual tooth. */
+S.SMILE = {
+  ROW_LAYOUT: ['molar','premolar','canine','lateral','incisor','incisor','lateral','canine','premolar','molar'],
+  STAIN:  { incisor: 3.5, lateral: 3, canine: 1.5, premolar: 2.5, molar: 4 },
+  WIDTH:  { incisor: 1.15, lateral: 1,  canine: .85, premolar: 1,  molar: 1.3 },
+  ITEM_CLEAR: 2,
+  HIDDEN_ITEMS: 8,
+  COMBO_WINDOW: 1700
+};
+
 S.GAMES = {
   smile:      { id:'smile',      name:'Smile Swipe',          hook:'60 sec · reach 100% shine',      route:'#/game/smile',      accent:'#3d9da1' },
   gathering:  { id:'gathering',  name:'Gathering Readiness',  hook:'3 rounds · defend after the treats', route:'#/game/gathering', accent:'#C8102E' },
@@ -26,7 +40,7 @@ S.GAME_ORDER = ['smile','gathering','fresh'];
 
 /* 春联 badges — char shows on the tag, phrase + meaning show on reveal and share */
 S.BADGES = [
-  { id:'perfectShine', game:'smile',     char:'皓', phrase:'齿如皓月', pinyin:'chǐ rú hào yuè', meaning:'Teeth like a bright moon', name:'Perfect Shine',     how:'Reach 100% whiteness' },
+  { id:'perfectShine', game:'smile',     char:'皓', phrase:'齿如皓月', pinyin:'chǐ rú hào yuè', meaning:'Teeth like a bright moon', name:'Perfect Shine',     how:'Reach 100% cleanliness' },
   { id:'streakKeeper', game:'smile',     char:'財', phrase:'恭喜发财', pinyin:'gōng xǐ fā cái', meaning:'Wishing you prosperity',   name:'Streak Keeper',     how:'Play 3 days in a row' },
   { id:'zeroSugar',    game:'gathering', char:'順', phrase:'万事如意', pinyin:'wàn shì rú yì',  meaning:'May all go as you wish',   name:'Zero Sugar Round',  how:'Finish with Sugar at 20% or less' },
   { id:'perfectDodge', game:'gathering', char:'昇', phrase:'步步高升', pinyin:'bù bù gāo shēng',meaning:'Rising step by step',      name:'Perfect Dodge',     how:'Clear a full round without catching a snack' },
@@ -46,6 +60,35 @@ S.AVATARS = [
   { id:'brush',      label:'Systema toothbrush' },
   { id:'tube',       label:'Systema toothpaste' }
 ];
+
+/* Recommended product on the results screen — matched to how the session actually went */
+S.PRODUCTS = {
+  clean3d:   { name:'Systema 3D Clean',        line:'Enhanced Clean',  why:'You cleared every surface and kept the streak going. A 3D head is built to hold that coverage at speed.' },
+  charcoal:  { name:'Systema Active Charcoal', line:'Essential Clean', why:'You found every treat hiding on your teeth. Charcoal bristles are made for what festive snacking leaves behind.' },
+  ultraWhite:{ name:'Systema 3D Ultra White',  line:'Enhanced Clean',  why:'Full marks on shine. The whitening head keeps a smile camera-ready through fifteen days of photos.' },
+  gum:       { name:'Systema Ultra Dense Gum', line:'Enhanced Clean',  why:'The clock beat you this round. Ultra-dense filaments do more per stroke, especially along the gumline.' },
+  sensitive: { name:'Systema Sensitive',       line:'Special Needs',   why:'Start gentle and build the habit back up — soft tapered bristles make a daily routine easy to keep.' }
+};
+S.recommend = function (game, best, discoveries) {
+  var P = S.PRODUCTS;
+  if (!best) return P.sensitive;
+  if (game === 'smile') {
+    var clean = best.cleanliness || 0, combo = best.combo || 0;
+    var found = (discoveries || best.discoveries || []).length;
+    if (found >= 8) return P.charcoal;
+    if (clean >= 100 && combo >= 10) return P.clean3d;
+    if (clean >= 100) return P.ultraWhite;
+    if (clean >= 70) return P.gum;
+    return P.sensitive;
+  }
+  if (game === 'gathering') {
+    var c = best.cleanliness || 0;
+    if (c >= 80) return P.clean3d;
+    if (c >= 50) return P.charcoal;
+    return P.gum;
+  }
+  return (best.passes || 0) >= 3 ? P.ultraWhite : P.sensitive;
+};
 
 S.PHRASES = [
   { zh:'恭喜发财', py:'gōng xǐ fā cái', en:'Wishing you prosperity', ms:'Semoga murah rezeki', hold:1.2 },

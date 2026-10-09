@@ -19,7 +19,7 @@
     if (game === 'fresh') {
       return { value: U.fmtTime(best.timeMs, true), sub: (best.passes || 0) + ' of 3 rounds passed' };
     }
-    return { value: U.fmtTime(best.timeMs, true), sub: (best.whiteness || 0) + '% shine · combo x' + (best.combo || 0) };
+    return { value: U.fmtTime(best.timeMs, true), sub: (best.cleanliness || 0) + '% cleanliness · combo x' + (best.combo || 0) };
   }
 
   function cardBg() {
@@ -101,35 +101,103 @@
     }
   };
 
-  /* ---------- the screen ---------- */
+  /* ---------- the results screen ---------- */
   S.Screens = S.Screens || {};
   S.Screens.share = function (params) {
     var game = params.game;
     if (!S.GAMES[game]) game = 'smile';
+    var best = S.Store.best(game);
+    var rec = S.recommend(game, best);
+    var rows = S.Board.rows(game, 'daily');
+    var top = rows.slice(0, 5);
+    var mine = rows.filter(function (r) { return r.me; })[0];
+    var mineShown = top.some(function (r) { return r.me; });
+    var brushArt = game === 'gathering' ? S.ART.tube() : S.ART.brush();
+
     var el = U.node(
-      '<section class="screen" style="background:linear-gradient(180deg,#FBF3E4,#FFFFFF 46%)">' +
-        '<div class="topbar">' +
-          '<button class="iconbtn" data-act="back" aria-label="Back">' +
-            '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 L7 12 L15 20" stroke="#666" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-          '</button>' +
-          '<div><div class="eyebrow">Share your result</div>' +
-          '<div style="font-size:16px;font-weight:800;color:var(--blue)">' + U.esc(S.GAMES[game].name) + '</div></div>' +
+      '<section class="screen results">' +
+        '<div class="res-bg" aria-hidden="true">' +
+          '<span class="wavefill" style="background-image:' + S.ART.waveBg('#C9A24A', .14) + '"></span>' +
+          '<span class="scrollband left"></span><span class="scrollband right"></span>' +
         '</div>' +
-        '<div class="pad" style="padding-top:10px">' + S.Share.card(game) + '</div>' +
-        '<div class="pad" style="padding-top:0;display:grid;gap:9px">' +
-          '<button class="btn block" data-act="share">Share now</button>' +
-          '<button class="btn ghost block" data-act="again">Play ' + U.esc(S.GAMES[game].name) + ' again</button>' +
-          '<button class="btn ghost block" data-act="home">Back to home</button>' +
-          '<p class="tiny" style="text-align:center;margin-top:2px">Always shows your current personal best — reopen it any time from Profile.</p>' +
+        '<div class="res-content">' +
+          '<div class="topbar">' +
+            '<button class="iconbtn" data-act="back" aria-label="Back">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 L7 12 L15 20" stroke="#666" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+            '</button>' +
+            '<div><div class="eyebrow">Your result</div>' +
+            '<div style="font-size:16px;font-weight:800;color:var(--blue)">' + U.esc(S.GAMES[game].name) + '</div></div>' +
+          '</div>' +
+
+          '<div class="pad" style="padding-top:10px">' + S.Share.card(game) + '</div>' +
+
+          '<div class="pad" style="padding-top:2px">' +
+            '<div class="eyebrow" style="margin-bottom:8px">Recommended product for your smile</div>' +
+            '<div class="rec">' +
+              '<div class="art">' + brushArt + '</div>' +
+              '<div style="min-width:0">' +
+                '<div class="ln">' + U.esc(rec.line) + '</div>' +
+                '<div class="nm">' + U.esc(rec.name) + '</div>' +
+                '<div class="why">' + U.esc(rec.why) + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="res-actions">' +
+              '<button class="btn block" data-act="share">Share my smile</button>' +
+              '<button class="btn solid2 block" data-act="again">Play again</button>' +
+            '</div>' +
+            '<button class="btn block" data-act="home" style="background:none;color:var(--grey-d);font-size:12.5px;padding:10px">Back to home</button>' +
+          '</div>' +
+
+          '<div class="scrollhint"><span>Scroll for the leaderboard</span>' +
+            '<svg class="chev" width="16" height="10" viewBox="0 0 16 10" aria-hidden="true"><path d="M1 1 L8 8 L15 1" stroke="#999" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</div>' +
+
+          '<div class="pad lb-reveal" id="lbBlock">' +
+            '<div style="display:flex;align-items:baseline;justify-content:space-between">' +
+              '<h2 style="font-size:17px;color:var(--blue)">Today\u2019s leaderboard</h2>' +
+              '<span class="tiny">' + U.esc(S.GAMES[game].name) + '</span>' +
+            '</div>' +
+            '<div style="display:grid;gap:6px;margin-top:12px">' +
+              top.map(function (r) { return S.Board.rowHtml(game, r); }).join('') +
+              (mine && !mineShown ? '<div class="lbgap">· · ·</div>' + S.Board.rowHtml(game, mine) : '') +
+              (!mine ? '<div class="lrow" style="background:var(--surface)"><div class="rk plain">–</div>' +
+                '<div class="nm" style="color:var(--grey-m)">Finish a full run to take a place</div></div>' : '') +
+            '</div>' +
+            '<button class="btn ghost block" data-act="fullboard" style="margin-top:14px">See the full leaderboard</button>' +
+            '<p class="tiny" style="text-align:center;margin-top:10px">Other players are sample data for this prototype — your score is live from this device.</p>' +
+          '</div>' +
+          '<div style="height:24px"></div>' +
         '</div>' +
       '</section>');
 
     U.on(el, '[data-act]', 'click', function (e, b) {
       var a = b.dataset.act;
       if (a === 'share') S.Share.doShare(game);
-      if (a === 'again') S.Router.go(S.GAMES[game].route);
+      if (a === 'again') S.Router.go(S.GAMES[game].route, { force: true });
       if (a === 'home' || a === 'back') S.Router.go('#/home');
+      if (a === 'fullboard') S.Router.go('#/leaderboard');
     });
+
+    // the board slides in as it scrolls into view — with belt and braces so it can
+    // never stay hidden if the observer or the scroll event does not fire
+    var block = el.querySelector('#lbBlock');
+    var shown = false;
+    function showBoard() {
+      if (shown) return;
+      shown = true;
+      block.classList.add('in');
+      el.removeEventListener('scroll', onScroll);
+    }
+    function onScroll() { if (el.scrollTop > 40) showBoard(); }
+    el.addEventListener('scroll', onScroll, { passive: true });
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { if (en.isIntersecting) { showBoard(); io.disconnect(); } });
+      }, { root: el, threshold: 0.2 });
+      setTimeout(function () { io.observe(block); }, 60);
+    }
+    setTimeout(showBoard, 3000);
+
     return { el: el, tab: null };
   };
 })();

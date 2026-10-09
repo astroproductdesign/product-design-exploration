@@ -31,7 +31,7 @@ Deploying: it is a static folder, so any static host serves it as-is.
 | `js/components.js` | Shared UI: toast, bottom sheet, tab bar, 春联 reveal, identity form, frame ticker |
 | `js/share.js` | The share card and the share screen |
 | `js/screens.js` | Onboarding, Home, Leaderboard, Rewards, Profile |
-| `js/game1.js` | Smile Swipe |
+| `js/game1.js` | Smile Swipe — per-tooth stains, 8 hidden CNY foods, brush cursor |
 | `js/game2.js` | Gathering Readiness |
 | `js/game3.js` | Say It Fresh |
 | `js/router.js` | Hash router with enter/exit transitions |
@@ -63,6 +63,9 @@ nothing is stored twice.
 `js/config.js`:
 
 - `SMILE_MS` — Game 1 session length (60000)
+- `S.SMILE` — Game 1 mouth: `ROW_LAYOUT` (tooth types across one row), `STAIN` (swipes each tooth
+  type needs), `WIDTH` (relative tooth widths), `ITEM_CLEAR` (extra passes to brush a revealed food
+  item away), `HIDDEN_ITEMS` (how many teeth hide one), `COMBO_WINDOW`
 - `ROUND_MS` / `ROUND_SPEEDS` — Game 2 round length and per-round speed multipliers
 - `FESTIVAL_DAYS` — length of the CNY window
 - `FESTIVAL_FIXED` — **set this for production**, e.g. `{ start: '2027-02-06', end: '2027-02-20' }`.
@@ -86,3 +89,6 @@ Profile → **Reset demo data** gives two options:
 - Game 3 does no speech recognition. A round passes when the mic registers sound above a volume
   threshold for roughly the phrase's duration — or, with no mic, when the button is held that long.
 - The voucher code is a static string with a working copy button; nothing is redeemed for real.
+- Game 1 stores `cleanliness`, `timeMs`, `combo` and the `discoveries` found that session. The
+  results screen always rebuilds from the player's current best, so an old session reopened from
+  Profile shows today's numbers, not the historical ones.

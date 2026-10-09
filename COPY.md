@@ -25,10 +25,9 @@ roughly the same length. Everything else can grow or shrink freely.
 • **Pill 2** `[tight]`: Mini-game campaign pitch
 • **Pill 3 (gold)** `[tight]`: Chinese New Year
 
-• **Headline:** Bleeding gums are **not** normal.
-  *(the word "not" is set in a lighter tone — keep it as one word if you reword)*
+• **Headline:** One routine. Every season of life.
 
-• **Sub-paragraph:** That single belief is the reason Systema's gum protection formulas exist — and it is where this campaign starts. Everything that follows, including two Chinese New Year mini-games, is built on that expertise. **Festive is the skin. Expert care is the substance.**
+• **Sub-paragraph:** Oral care isn't a one-time habit — it's something that travels with you through every stage, every celebration, every year. This campaign zooms in on one season in particular: Chinese New Year, when indulgence and connection both peak at once, and your smile is doing more work than usual. **The season changes. The routine doesn't have to.**
   *(the bold closing sentence is set in gold)*
 
 • **Scroll cue** `[tight]`: Scroll — the story builds section by section
@@ -40,21 +39,21 @@ roughly the same length. Everything else can grow or shrink freely.
 • **Chapter number:** 01
 • **Chapter label** `[tight]`: Brand foundation
 
-• **Headline:** Before the games, the reason they exist.
+• **Headline:** Oral care is lifelong. Festive season just raises the stakes.
 
-• **Lead paragraph:** Most people see pink in the sink and treat it as ordinary — a hard brush, a busy week, nothing to act on. Systema's position has always been the opposite: bleeding is a signal, not a side effect.
+• **Lead paragraph:** Most people treat oral care as background maintenance — brush, rinse, forget about it until something hurts. Systema's position is that it's closer to a daily companion: it should adapt with you, not sit in the same routine your whole life.
 
-• **Body paragraph:** That conviction is what a gum protection formula is for. It is also the credibility this campaign borrows from — before a single game mechanic is introduced, the audience is standing on real oral care expertise, not a seasonal gimmick.
+• **Body paragraph:** Festive season is where that idea gets tested hardest, in two directions at once. It's a season of indulgence — more sweet treats than any ordinary week. And it's a season of closeness — more conversations, more greetings, more photos, all at close range. Oral hygiene doesn't just protect your teeth here; it's part of what lets you feel confident in the room.
 
-• **Pull quote:** “Bleeding gums are not normal” is not a campaign line. It is the belief the product was built to answer.
+• **Pull quote:** The routine doesn't pause for celebration. If anything, celebration is exactly when it matters most.
 
 **Three-fact row**
-• **Fact 1 label** `[tight]`: The signal
-• **Fact 1 text:** Bleeding on brushing is an early warning
-• **Fact 2 label** `[tight]`: The answer
-• **Fact 2 text:** Gum protection built into daily care
-• **Fact 3 label** `[tight]`: The habit
-• **Fact 3 text:** Expertise that shows up every single day
+• **Fact 1 label** `[tight]`: Every stage
+• **Fact 1 text:** A routine that grows with you, not a fixed habit
+• **Fact 2 label** `[tight]`: Every season
+• **Fact 2 text:** Adapts to what each moment in the year demands
+• **Fact 3 label** `[tight]`: Every person
+• **Fact 3 text:** A product line matched to your actual routine
 
 **Platform block (blue panel)**
 • **Eyebrow** `[tight]`: The current brand platform
@@ -283,27 +282,6 @@ roughly the same length. Everything else can grow or shrink freely.
 • **Step 6 title / body:** Redeem / Score tiers unlock vouchers, redeemable in-store or at retail partners.
 
 • **Closing note:** Daily leaderboard reset gives a reason to return through all fifteen days; the festival-period board gives the campaign a finish line. Shareable results turn the reward into a CNY greeting people actually want to send — distribution that comes from the culture, not from paid media.
-
----
-
-## 07 · CLOSING — BRAND CONSISTENCY
-
-• **Chapter number:** 07
-• **Chapter label** `[tight]`: Brand consistency
-
-• **Eyebrow** `[tight]`: Back to where we started
-• **Headline:** A seasonal expression of Expert Care, Every Day.
-• **Lead paragraph:** This is not a standalone festive gimmick bolted onto the brand. It is the everyday platform, told in the language of one season. Systema blue and teal stay dominant across every screen; red and gold decorate the edges — badges, scrolls, festive trim — and never take over the identity.
-
-• **Skin 1 title:** Chinese New Year skin
-• **Skin 1 body:** 春联 badge scrolls, lanterns, tray of togetherness, reunion table payoff.
-• **Skin 1 swatch label** `[tight]`: Base + CNY accent
-
-• **Skin 2 title:** Raya skin — same shell
-• **Skin 2 body:** Ketupat badges, pelita lamps, kuih raya, open-house payoff. Mechanics untouched.
-• **Skin 2 swatch label** `[tight]`: Base + Raya accent
-
-• **Final statement:** Under every festive skin, the foundation does not move: **bleeding gums are not normal**, and expert protection is an everyday job.
 
 ---
 
