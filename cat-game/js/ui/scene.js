@@ -74,9 +74,12 @@
     const seasons = this.seasonList(t);
     const sig = JSON.stringify([s.room, s.bowl, seasons]);
     if (!force && sig === this.roomSig) return;
-    const seasonChanged = seasons.join() !== this.seasons.join() || !this.back.childNodes.length;
+    // The background holds the framed photo of the cat, so a new look redraws it too.
+    const coatSig = JSON.stringify(s.cat.coat || null);
+    const seasonChanged = seasons.join() !== this.seasons.join() || !this.back.childNodes.length || coatSig !== this.coatSig;
     this.roomSig = sig;
     this.seasons = seasons;
+    this.coatSig = coatSig;
     if (seasonChanged) {
       this.back.innerHTML = A.background() + A.decorBack(seasons);
       this.lastLightMin = -1;
