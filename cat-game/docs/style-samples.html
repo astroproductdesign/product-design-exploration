@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Style Samples</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1b1714; --paper: #fcfcfc; --cream: #fcf4ec; --cream-deep: #f2e4cc;
+    --pink: #f9d6de; --mint: #d6f0d8; --butter: #f8e7a8; --mustard: #ecbc44;
+    --text: #1b1714; --muted: #6b5a4a; --bg: #f7efe2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #2a2420; --text: #f4ece0; --muted: #c9b9a6; }
+  }
+  :root[data-theme="dark"] { --bg: #2a2420; --text: #f4ece0; --muted: #c9b9a6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "M PLUS Rounded 1c", system-ui, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-weight: 800; font-size: 30px; margin: 0 0 4px; }
+  h3 { font-weight: 800; font-size: 15px; margin: 18px 0 8px; }
+  .combo svg.small { height: 70px; }
+  h2 { font-weight: 800; font-size: 20px; margin: 36px 0 4px; }
+  p.lede, p.note { color: var(--muted); margin: 0 0 14px; max-width: 70ch; }
+  .card { background: var(--cream); color: var(--ink); border: 3px solid var(--ink); border-radius: 14px; padding: 14px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .tile { background: var(--paper); border: 3px solid var(--ink); border-radius: 12px; padding: 8px; text-align: center; color: var(--ink); }
+  .tile svg { width: 100%; height: 150px; display: block; }
+  .tile b { display: block; font-weight: 800; font-size: 14px; }
+  .tile span { font-size: 12px; color: #6b5a4a; }
+  .pair { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .pair .tile svg { height: 200px; }
+  .room svg { width: 100%; height: auto; display: block; border-radius: 10px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sw { width: 92px; font-size: 11px; color: var(--ink); background: var(--paper); border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; }
+  .sw i { display: block; height: 38px; border-bottom: 2px solid var(--ink); }
+  .sw div { padding: 3px 6px; line-height: 1.3; }
+  .ui { background-color: var(--mint); border: 3px solid var(--ink); border-radius: 14px; padding: 16px; color: var(--ink);
+        background-image: radial-gradient(circle at 12px 12px, rgba(255,255,255,.55) 4px, transparent 5px); background-size: 34px 34px; }
+  .ui .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .ui button { font: 800 13px "M PLUS Rounded 1c", sans-serif; color: var(--ink); background: var(--cream); border: 3px solid var(--ink);
+               border-radius: 12px; padding: 8px 14px; box-shadow: 0 3px 0 var(--ink); }
+  .ui button.hi { background: var(--mustard); }
+  .title-outline { font-weight: 800; font-size: 28px; color: #fff; -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; letter-spacing: .5px; }
+  .ask { margin-top: 36px; }
+  .ask ol { margin: 6px 0 0 20px; padding: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Style samples for approval</h1>
+  <p class="lede">These follow <code>docs/art-style.md</code>. Our own tabby-and-white cat is drawn in a Neko Atsume–<em>inspired</em> style. Nothing here is traced or copied from Hit-Point art. All drawings are inline SVG, built the same way the game draws them, so whatever you approve here ports straight across.</p>
+
+  <h2>1 · Before → after</h2>
+  <p class="note">Left: the current cat (rendered live from <code>js/ui/catArt.js</code>). Right: the proposed style.</p>
+  <div class="pair">
+    <div class="tile"><svg id="before" viewBox="-75 -165 150 175"></svg><b>Current</b><span>thin brown line, whiskers, shading-like layering</span></div>
+    <div class="tile"><svg id="after" viewBox="-75 -165 150 175"></svg><b>Proposed</b><span>v2: dot eyes, ink oval nose, ω, minimal collar</span></div>
+  </div>
+
+  <h2>2 · Poses</h2>
+  <p class="note">v3: rounder bodies, smaller legs and paws. v2, simplified: head and ears are one shape, eyes are solid ink dots, bigger dot eyes, an ink oval nose sits on top of the ω mouth, there are no whiskers, a thin mint collar peeks out under the chin, and the coat has just two forehead bars and one or two bars per side. Same head in every pose; the body does the acting. The feet sit at (0,0), matching the current code's convention.</p>
+  <div class="grid" id="poses"></div>
+
+  <h2>3 · Face kit</h2>
+  <p class="note">At room scale the cat's face is about 40 px tall, so every expression has to read from silhouette and a few marks.</p>
+  <div class="grid" id="faces"></div>
+
+  <h2>3c · Face options: which is cuter?</h2>
+  <p class="note"><b>Chosen: E1 + N4 + M1 + B1</b> (dots, ink oval nose, ω, no blush), with a minimal collar. The options stay here for reference; each row changes one feature from the chosen face.</p>
+  <h3>Eyes</h3><div class="grid" id="opt-eyes"></div>
+  <h3>Nose</h3><div class="grid" id="opt-nose"></div>
+  <h3>Mouth</h3><div class="grid" id="opt-mouth"></div>
+  <h3>Extra: cheek blush</h3><div class="grid" id="opt-blush"></div>
+  <h3>Curated combos (close-up + room size)</h3><div class="grid" id="opt-combos"></div>
+
+  <h2>4 · Scale check</h2>
+  <p class="note">The same cat at 100%, 60% (its size in the room) and 35% (menu badge). The simpler design has to survive the smallest one.</p>
+  <div class="pair" id="eyes"></div>
+
+  <h2>5 · The room</h2>
+  <p class="note">Same furniture as now (TV desk, green camping chair, table with laptop, round scratcher, rug, bowls, box), redrawn with flat fills and a slightly thinner line. There are no sheer curtains or light gradients. The window shows a flat sky.</p>
+  <div class="card room"><svg id="room" viewBox="0 0 960 600"></svg></div>
+
+  <h2>6 · Dusk &amp; night (flat tint, no gradients)</h2>
+  <div class="pair">
+    <div class="tile"><svg id="dusk" viewBox="0 0 960 600" style="height:auto"></svg><b>Dusk</b><span>#f2b27a multiply 18%</span></div>
+    <div class="tile"><svg id="night" viewBox="0 0 960 600" style="height:auto"></svg><b>Night</b><span>#3a4a7a multiply 35% + flat lamp cone</span></div>
+  </div>
+
+  <h2>7 · UI direction</h2>
+  <div class="ui">
+    <div class="title-outline">Diary</div>
+    <div class="btns">
+      <button class="hi">🐾 Feed</button><button>Treat</button><button>Play</button><button>Call</button><button>Photo</button>
+    </div>
+  </div>
+
+  <h2>8 · Palette</h2>
+  <div class="swatches" id="swatches"></div>
+
+  <div class="card ask">
+    <b>To approve, please answer:</b>
+    <ol>
+      <li>Cat v2 (sections 1–4): approve / adjust?</li>
+      <li>Restyle the UI now, or keep the current UI for this pass?</li>
+    </ol>
+  </div>
+</main>
+
+<script src="../js/ui/catArt.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- tokens (docs/art-style.md §3.3) ----------
+  const T = {
+    ink: '#1b1714', paper: '#fcfcfc', cream: '#fcf4ec', creamDeep: '#f2e4cc',
+    coat: '#a8957c', coatFar: '#978670', stripe: '#6b5a4a', iris: '#a8a24a',
+    collar: '#8fd3c6', bell: '#ecbc44', tongue: '#e98f94', nose: '#f2a0a8', bean: '#f4accc',
+    wall: '#fcf4ec', wains: '#f2e4cc', floor: '#dcbc84', floorLine: '#c8a26a',
+    wood: '#bc7c4c', woodDark: '#8a5636', rug: '#d44c34', rugLight: '#e8806a',
+    chair: '#8cac64', chairDark: '#4c8444', sky: '#bfe0f4', pot: '#cc6c3c',
+    leaf: '#8cac64', leafDark: '#4c8444', box: '#dcaa6c', grey: '#bcb4ac', blue: '#6ca4e4', pink: '#f4accc',
+  };
+  const LW = 5;
+  let uidN = 0;
+  const uid = (p) => `${p}${++uidN}`;
+
+  // ---------- helpers ----------
+  const S = (d, fill, w) => `<path d="${d}" fill="${fill}" stroke="${T.ink}" stroke-width="${w || LW}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const F = (d, fill) => `<path d="${d}" fill="${fill}"/>`;
+  const Ln = (d, w, c) => `<path d="${d}" fill="none" stroke="${c || T.ink}" stroke-width="${w || 3}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const bars = (list, w) => list.map((d) => Ln(d, w || 7, T.stripe)).join('');
+  // Flat fill, unoutlined markings clipped inside, outline drawn once on top.
+  function part(d, fill, inner, w) {
+    const id = uid('c');
+    return `<clipPath id="${id}"><path d="${d}"/></clipPath>${F(d, fill)}<g clip-path="url(#${id})">${inner || ''}</g>${Ln(d, w || LW)}`;
+  }
+  // Constant-width tube (tail, raised legs): ink stroke under a colour stroke.
+  function tube(d, w, color, inner) {
+    return `<path d="${d}" fill="none" stroke="${T.ink}" stroke-width="${w + LW * 2}" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>` + (inner || '');
+  }
+
+  // ---------- head (centre 0,0) ----------
+  // v2: one silhouette for head + ears, solid ink dot eyes, ink nose + ω,
+  // no whiskers, no collar, two forehead bars, one soft coat/white boundary.
+  const HEAD = 'M 0 30 C -30 30 -50 22 -50 0 C -50 -10 -49 -16 -48 -22 L -46 -43 Q -45 -50 -39 -46 L -22 -34 Q 0 -38 22 -34 L 39 -46 Q 45 -50 46 -43 L 48 -22 C 49 -16 50 -10 50 0 C 50 22 30 30 0 30 Z';
+  const COAT_TOP = 'M -70 -70 L 70 -70 L 70 8 C 52 6 36 2 24 -2 C 14 -5 8 -12 0 -12 C -8 -12 -14 -5 -24 -2 C -36 2 -52 6 -70 8 Z';
+
+  // ---- face options (pick by code: E*, N*, M*, B*) ----
+  const white = (cx, cy, r) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff"/>`;
+  const EYE_STYLES = {
+    E1: { label: 'Dots', at: (x) => `<circle cx="${x}" cy="0" r="5.6" fill="${T.ink}"/>` },
+    E2: { label: 'Dots + sparkle', at: (x) => `<circle cx="${x}" cy="0" r="6.4" fill="${T.ink}"/>` + white(x + 2, -2.2, 2) + white(x - 2, 2.4, 0.9) },
+    E3: { label: 'Tall ovals', at: (x) => `<ellipse cx="${x}" cy="0" rx="4.4" ry="6.8" fill="${T.ink}"/>` },
+    E4: { label: 'Big + sparkle', at: (x) => `<circle cx="${x}" cy="0.5" r="8" fill="${T.ink}"/>` + white(x + 2.6, -2.4, 2.6) + white(x - 2.6, 3.4, 1.2) },
+    E5: { label: 'Small, wide-set', x: 26, at: (x) => `<circle cx="${x}" cy="1" r="4.2" fill="${T.ink}"/>` },
+    E6: { label: 'Sleepy beans', at: (x) => `<ellipse cx="${x}" cy="1" rx="6.6" ry="4.6" fill="${T.ink}"/>` },
+  };
+  const outlineN = (d, fill) => `<path d="${d}" fill="${fill}" stroke="${T.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  const NOSE_STYLES = {
+    N1: { label: 'Pink triangle', svg: () => outlineN('M -7.2 3.6 L 7.2 3.6 L 0 11 Z', T.nose) },
+    N2: { label: 'Ink triangle', svg: () => outlineN('M -7.2 3.6 L 7.2 3.6 L 0 11 Z', T.ink) },
+    N3: { label: 'Pink heart', svg: () => outlineN('M 0 11 C -3 8.6 -7.6 6.4 -7.6 3.6 C -7.6 0.8 -3.8 0 0 2.8 C 3.8 0 7.6 0.8 7.6 3.6 C 7.6 6.4 3 8.6 0 11 Z', T.nose) },
+    N4: { label: 'Ink oval', svg: () => `<ellipse cx="0" cy="7" rx="5.4" ry="4" fill="${T.ink}"/>` + Ln('M 0 10 L 0 11.5', 3) },
+    N5: { label: 'Pink oval', svg: () => `<ellipse cx="0" cy="7" rx="6" ry="4.2" fill="${T.nose}" stroke="${T.ink}" stroke-width="2.2"/>` + Ln('M 0 11.2 L 0 11.8', 3) },
+    N6: { label: 'Tiny ink + philtrum', svg: () => outlineN('M -4.4 5.4 L 4.4 5.4 L 0 9.4 Z', T.ink) + Ln('M 0 9.4 L 0 12.5', 3) },
+  };
+  const MOUTH_STYLES = {
+    M1: { label: 'ω', svg: () => Ln('M -10 12.5 Q -5 18.5 0 11.5 Q 5 18.5 10 12.5', 3.4) },
+    M2: { label: 'Small ω', svg: () => Ln('M -6.5 12.5 Q -3.2 16.5 0 11.5 Q 3.2 16.5 6.5 12.5', 3.2) },
+    M3: { label: 'Curly ω', svg: () => Ln('M -13 10.5 Q -12 16.5 -6 16.5 Q -1.5 16.5 0 11.5 Q 1.5 16.5 6 16.5 Q 12 16.5 13 10.5', 3.4) },
+    M4: { label: 'Open smile', svg: () => `<path d="M -8 12.5 Q 0 13.8 8 12.5 Q 6.8 22 0 22 Q -6.8 22 -8 12.5 Z" fill="${T.tongue}" stroke="${T.ink}" stroke-width="3.2" stroke-linejoin="round"/>` + Ln('M 0 11 L 0 13', 3) },
+    M5: { label: 'Wide shallow ω', svg: () => Ln('M -12 13.5 Q -6 17 0 13 Q 6 17 12 13.5', 3.4) + Ln('M 0 11 L 0 13', 3.2) },
+    M6: { label: 'Tiny "v"', svg: () => Ln('M -3.5 12.5 L 0 15.5 L 3.5 12.5', 3) },
+  };
+  const BLUSH = (on) => on ? `<ellipse cx="-33" cy="11" rx="7" ry="4" fill="${T.nose}" opacity=".75"/><ellipse cx="33" cy="11" rx="7" ry="4" fill="${T.nose}" opacity=".75"/>` : '';
+
+  function eyes(kind, style) {
+    const st = EYE_STYLES[style] || EYE_STYLES.E1;
+    const at = (x) => {
+      switch (kind) {
+        case 'happy': return Ln(`M ${x - 6.5} 3.5 Q ${x} -4 ${x + 6.5} 3.5`, 4);
+        case 'closed': return Ln(`M ${x - 6.5} 0 Q ${x} 6 ${x + 6.5} 0`, 4);
+        case 'wide': return `<circle cx="${x}" cy="0" r="7" fill="${T.ink}"/>`;
+        case 'grumpy': return `<circle cx="${x}" cy="1.5" r="5.2" fill="${T.ink}"/>` + Ln(`M ${x - 7.5} -2.5 L ${x + 7.5} -2.5`, 4);
+        default: return st.at(x);
+      }
+    };
+    const dx = st.x || 22;
+    return at(-dx) + at(dx);
+  }
+  const OMEGA = 'M -10 12.5 Q -5 18.5 0 11.5 Q 5 18.5 10 12.5';
+  function mouth(kind, o) {
+    const n = (NOSE_STYLES[o.noseStyle] || NOSE_STYLES.N4).svg();
+    switch (kind) {
+      case 'o': return Ln('M 0 11 L 0 13.5', 3.4) + `<ellipse cx="0" cy="18" rx="3.6" ry="4.4" fill="${T.ink}"/>` + n;
+      case 'flat': return Ln('M 0 11 L 0 15 M -6.5 15 L 6.5 15', 3.4) + n;
+      case 'open': return `<path d="${OMEGA} Q 8.5 24 0 24 Q -8.5 24 -10 12.5 Z" fill="${T.tongue}" stroke="${T.ink}" stroke-width="3.4" stroke-linejoin="round"/>` + n;
+      default: return (MOUTH_STYLES[o.mouthStyle] || MOUTH_STYLES.M1).svg() + n;
+    }
+  }
+  // Minimal collar: thin mint band peeking out under the chin, tiny bell.
+  // Drawn in head space before the head, so the head hides the band's ends.
+  const COLLAR = 'M -23 23 Q 0 44 23 23';
+  const collar = () => Ln(COLLAR, 11) + Ln(COLLAR, 5.5, T.collar) +
+    `<circle cx="0" cy="40.5" r="4" fill="${T.bell}" stroke="${T.ink}" stroke-width="2.4"/>`;
+  function head(x, y, o) {
+    o = o || {};
+    const s = o.s || 1, r = o.rot || 0;
+    const coat = F(COAT_TOP, T.coat) + bars(['M -8 -36 L -7 -27', 'M 8 -36 L 7 -27'], 6.5);
+    return `<g transform="translate(${x} ${y}) rotate(${r}) scale(${s})">` +
+      (o.collar === false ? '' : collar()) + part(HEAD, T.paper, coat) + BLUSH(o.blush) +
+      `<g transform="translate(0 2)">${eyes(o.eyes || 'open', o.eyeStyle)}</g>` + mouth(o.mouth, o) +
+      `</g>`;
+  }
+  // Tail: plain tube with three flat bands (the last one is the dark tip).
+  function tail(d, w) {
+    w = w || 11;
+    return tube(d, w, T.coat,
+      `<path d="${d}" pathLength="100" fill="none" stroke="${T.stripe}" stroke-width="${w}" stroke-dasharray="0 34 12 20 12 100"/>` +
+      `<path d="${d}" pathLength="100" fill="none" stroke="${T.stripe}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="0 88 12 0"/>`);
+  }
+  const stub = (x, c, top) => S(`M ${x - 6.5} ${top} L ${x - 6.5} -5 Q ${x - 6.5} 0 ${x - 1.5} 0 L ${x + 1.5} 0 Q ${x + 6.5} 0 ${x + 6.5} -5 L ${x + 6.5} ${top}`, c);
+
+  // ---------- poses (feet at 0,0, facing right) ----------
+  // v3: rounder, softer bodies; legs are short nubs and paws are small ovals.
+  const nub = (cx, cy, rx, ry, c) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${c || T.paper}" stroke="${T.ink}" stroke-width="4"/>`;
+  const stubLeg = (x, c) => S(`M ${x - 5} -12 L ${x - 5} -4 Q ${x - 5} 0 ${x - 1} 0 L ${x + 1} 0 Q ${x + 5} 0 ${x + 5} -4 L ${x + 5} -12`, c, 4.4);
+  const POSES = {
+    // A round "rice ball" body; two small paw nubs peek out at the front.
+    sit(o) {
+      const body = 'M -22 0 C -38 0 -42 -22 -36 -38 C -30 -54 -16 -60 0 -60 C 16 -60 30 -54 36 -38 C 42 -22 38 0 22 0 Z';
+      return tail('M 26 -6 C 48 -4 52 -26 44 -44', 10) +
+        part(body, T.coat, `<ellipse cx="0" cy="-30" rx="16" ry="26" fill="${T.paper}"/>` +
+          bars(['M -40 -32 L -30 -30', 'M 40 -32 L 30 -30'])) +
+        nub(-8, -3, 7.5, 5) + nub(8, -3, 7.5, 5) + head(0, -86, o);
+    },
+    loaf(o) {
+      const body = 'M -40 0 C -56 0 -58 -20 -50 -32 C -40 -46 -22 -50 -2 -50 C 22 -50 42 -42 48 -24 C 52 -8 44 0 34 0 Z';
+      return part(body, T.coat, `<ellipse cx="30" cy="-18" rx="16" ry="20" fill="${T.paper}"/>` +
+          bars(['M -30 -50 L -32 -36', 'M -12 -52 L -14 -38'])) +
+        tail('M -44 -4 C -36 3 -12 4 6 0', 9) + head(28, -46, Object.assign({ s: 0.9 }, o));
+    },
+    curl(o) {
+      const body = 'M -44 -24 C -46 -46 -20 -56 4 -56 C 30 -56 48 -42 48 -24 C 48 -6 30 0 2 0 C -26 0 -44 -6 -44 -24 Z';
+      return part(body, T.coat, bars(['M -24 -60 L -28 -40', 'M -6 -62 L -8 -42'])) +
+        tail('M -40 -8 C -34 3 -14 5 2 2', 9) +
+        head(22, -26, Object.assign({ s: 0.8, rot: -10, eyes: 'closed' }, o));
+    },
+    belly(o) {
+      const body = 'M -46 -18 C -46 -40 -26 -46 -2 -46 C 22 -46 38 -36 38 -18 C 38 -4 24 0 -4 0 C -32 0 -46 -4 -46 -18 Z';
+      return tail('M -44 -10 Q -64 -8 -74 0', 9) +
+        tube('M -32 -40 L -35 -52', 8, T.coat) + tube('M -16 -44 L -16 -56', 8, T.coat) +
+        part(body, T.coat, `<ellipse cx="-4" cy="-36" rx="30" ry="12" fill="${T.paper}"/>`) +
+        head(56, -28, Object.assign({ s: 0.8, rot: 14, eyes: 'happy', mouth: 'open' }, o)) +
+        nub(10, -50, 6, 5) + nub(24, -46, 6, 5);
+    },
+    walk(o) {
+      const body = 'M -38 -28 C -38 -48 -18 -54 4 -54 C 26 -54 40 -46 40 -28 C 40 -12 26 -8 0 -8 C -24 -8 -38 -12 -38 -28 Z';
+      return tail('M -34 -36 C -50 -44 -50 -68 -42 -80', 10) +
+        stubLeg(-18, T.coatFar) + stubLeg(28, T.paper) +
+        part(body, T.coat, `<ellipse cx="22" cy="-14" rx="22" ry="12" fill="${T.paper}"/>` +
+          bars(['M -22 -56 L -24 -40', 'M -4 -58 L -6 -42'])) +
+        stubLeg(-28, T.coat) + stubLeg(18, T.paper) + head(32, -58, Object.assign({ s: 0.86 }, o));
+    },
+    stretch(o) {
+      const body = 'M -46 -38 C -48 -54 -32 -58 -18 -50 C 0 -40 18 -26 32 -20 C 44 -14 42 -4 32 -4 C 12 -2 -10 -8 -26 -18 C -38 -26 -46 -28 -46 -38 Z';
+      return tail('M -44 -46 C -56 -58 -52 -78 -42 -86', 10) +
+        S('M -38 -34 L -39 -4 Q -39 0 -35 0 L -33 0 Q -29 0 -29 -4 L -28 -28', T.coat, 4.4) +
+        part(body, T.coat, `<ellipse cx="22" cy="-8" rx="22" ry="9" fill="${T.paper}"/>` + bars(['M -30 -58 L -34 -42'])) +
+        nub(56, -3, 8, 4.6) + nub(48, -3, 8, 4.6) +
+        head(40, -24, Object.assign({ s: 0.8, eyes: 'closed', mouth: 'open' }, o));
+    },
+  };
+  const draw = (pose, o) => POSES[pose](o || {});
+
+  // ---------- room (960 x 600) ----------
+  const RW = 4;
+  const RS = (d, fill, w) => S(d, fill, w || RW);
+  const R = (x, y, w, h, fill, rx) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx || 6}" fill="${fill}" stroke="${T.ink}" stroke-width="${RW}" stroke-linejoin="round"/>`;
+  const E = (cx, cy, rx, ry, fill, w) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${T.ink}" stroke-width="${w || RW}"/>`;
+
+  function room(phase) {
+    const FLOOR = 420;
+    let s = '';
+    // wall + wainscot + floor
+    s += `<rect x="0" y="0" width="960" height="${FLOOR}" fill="${T.wall}"/>`;
+    s += `<rect x="0" y="310" width="960" height="${FLOOR - 310}" fill="${T.wains}"/>` + Ln('M 0 310 L 960 310', 3);
+    for (let x = 60; x < 960; x += 80) s += Ln(`M ${x} 322 L ${x} ${FLOOR - 10}`, 2.5, '#dcc7a2');
+    s += `<rect x="0" y="${FLOOR}" width="960" height="${600 - FLOOR}" fill="${T.floor}"/>` + Ln(`M 0 ${FLOOR} L 960 ${FLOOR}`, RW);
+    for (const y of [462, 516, 578]) s += Ln(`M 0 ${y} L 960 ${y}`, 3, T.floorLine);
+    [[140, 420, 462], [520, 420, 462], [330, 462, 516], [760, 462, 516], [90, 516, 578], [600, 516, 578]].forEach(([x, a, b]) => (s += Ln(`M ${x} ${a} L ${x - 6} ${b}`, 3, T.floorLine)));
+
+    // window
+    const sky = phase === 'night' ? '#4a5c8c' : phase === 'dusk' ? '#f6c79a' : T.sky;
+    s += R(330, 90, 230, 190, T.paper, 8) + `<rect x="344" y="104" width="202" height="162" fill="${sky}"/>`;
+    if (phase === 'night') s += `<circle cx="500" cy="140" r="16" fill="#fff6c8" stroke="${T.ink}" stroke-width="3"/>`;
+    else s += `<path d="M 350 266 L 350 222 Q 380 200 410 220 Q 440 196 470 218 Q 500 200 540 214 L 540 266 Z" fill="${T.leaf}"/>` + Ln('M 350 222 Q 380 200 410 220 Q 440 196 470 218 Q 500 200 540 214', 3);
+    s += Ln('M 445 104 L 445 266 M 344 185 L 546 185', RW) + Ln('M 344 104 L 546 104 L 546 266 L 344 266 Z', RW);
+    s += R(316, 276, 258, 18, T.wood, 6); // sill
+    // flat curtains
+    s += RS('M 300 74 L 344 74 L 344 300 Q 322 306 300 300 Z', T.cream) + Ln('M 314 90 L 314 290 M 330 90 L 330 296', 3, '#dcc7a2');
+    s += RS('M 546 74 L 590 74 L 590 300 Q 568 306 546 300 Z', T.cream) + Ln('M 560 90 L 560 296 M 576 90 L 576 290', 3, '#dcc7a2');
+    s += Ln('M 286 74 L 604 74', 7) + `<circle cx="286" cy="74" r="7" fill="${T.wood}" stroke="${T.ink}" stroke-width="3"/><circle cx="604" cy="74" r="7" fill="${T.wood}" stroke="${T.ink}" stroke-width="3"/>`;
+
+    // wall clock (cat-ear clock, as now)
+    s += RS('M 694 104 L 700 78 L 716 94 Z', T.paper, 3.5) + RS('M 754 104 L 748 78 L 732 94 Z', T.paper, 3.5) + E(724, 128, 34, 34, T.paper) +
+      Ln('M 724 128 L 724 106 M 724 128 L 740 136', 4) + `<circle cx="724" cy="128" r="3.5" fill="${T.ink}"/>`;
+    // framed portrait
+    s += R(64, 120, 70, 86, T.wood, 4) + `<rect x="74" y="130" width="50" height="66" fill="${T.paper}" stroke="${T.ink}" stroke-width="3"/>` +
+      `<g transform="translate(99 191) scale(.32)">${draw('sit')}</g>`;
+    // hanging lamp
+    s += Ln('M 880 0 L 880 96', 3) + RS('M 846 132 Q 846 98 880 96 Q 914 98 914 132 Z', T.bell);
+    if (phase === 'night') s += `<path d="M 850 134 L 910 134 L 960 300 L 800 300 Z" fill="#fff2b0" opacity=".28"/>`;
+
+    // TV desk
+    s += R(20, 310, 210, 18, T.wood, 6) + R(28, 326, 194, 120, T.wood, 6) + Ln('M 125 330 L 125 442', RW) +
+      `<circle cx="104" cy="386" r="5" fill="${T.ink}"/><circle cx="146" cy="386" r="5" fill="${T.ink}"/>` +
+      R(36, 446, 18, 16, T.woodDark, 4) + R(196, 446, 18, 16, T.woodDark, 4);
+    s += R(36, 210, 178, 96, '#3a3a40', 10) + `<rect x="50" y="222" width="150" height="72" rx="4" fill="#5a6070"/>` + Ln('M 62 236 L 92 236 M 62 248 L 80 248', 3, '#8a92a6') +
+      RS('M 112 306 L 138 306 L 132 296 L 118 296 Z', '#3a3a40');
+
+    // green camping chair
+    s += Ln('M 610 470 L 690 380 M 690 470 L 610 380', 6) +
+      RS('M 596 376 L 704 376 Q 708 392 700 398 L 600 398 Q 592 392 596 376 Z', T.chair) +
+      RS('M 604 300 L 696 300 L 700 378 L 600 378 Z', T.chair) + R(586, 368, 26, 12, T.wood, 5) + R(688, 368, 26, 12, T.wood, 5) +
+      Ln('M 612 318 L 688 318', 3, T.chairDark) + R(662, 324, 20, 12, T.rug, 3);
+
+    // table + laptop
+    s += R(744, 344, 210, 18, T.wood, 6) + R(760, 360, 16, 110, T.woodDark, 4) + R(924, 360, 16, 110, T.woodDark, 4);
+    s += RS('M 856 344 L 868 296 L 932 296 L 924 344 Z', T.grey) + RS('M 840 344 L 940 344 L 936 352 L 846 352 Z', T.grey, 3.5);
+    s += RS('M 786 344 L 788 318 L 812 318 L 814 344 Z', T.paper) + RS('M 812 324 Q 824 326 822 336 Q 820 342 812 340', 'none', 3.5); // mug
+
+    // plant
+    s += RS('M 248 420 L 288 420 L 282 456 L 254 456 Z', T.pot) + R(244, 412, 48, 12, T.pot, 4) +
+      RS('M 268 412 Q 240 380 238 352 Q 262 372 268 412 Z', T.leaf) + RS('M 268 412 Q 270 362 286 340 Q 292 378 268 412 Z', T.leafDark) +
+      RS('M 268 412 Q 300 386 312 368 Q 304 400 268 412 Z', T.leaf);
+
+    // rug, scratcher bed, bowls, box
+    s += E(470, 540, 196, 46, T.rug) + `<ellipse cx="470" cy="540" rx="160" ry="34" fill="none" stroke="${T.rugLight}" stroke-width="5" stroke-dasharray="14 10"/>`;
+    s += E(92, 540, 78, 30, '#9a6a44') + E(92, 534, 60, 20, '#b98858', 3) + Ln('M 46 534 Q 92 524 138 534 M 52 540 Q 92 530 132 540', 2.5, '#8a5a36');
+    s += E(214, 552, 22, 9, T.pink) + `<ellipse cx="214" cy="549" rx="15" ry="5" fill="#b9805a"/>` +
+      E(264, 552, 22, 9, T.blue) + `<ellipse cx="264" cy="549" rx="15" ry="5" fill="#bfe0f4"/>`;
+    s += RS('M 790 520 L 790 470 L 880 470 L 880 520 Z', T.box) + RS('M 790 470 L 768 448 L 852 448 L 880 470 Z', '#e8bf86') +
+      RS('M 880 470 L 902 452 L 902 504 L 880 520 Z', '#c99456') + Ln('M 810 486 L 836 486', 3, '#a87a44');
+
+    // the cat on the rug
+    s += `<g transform="translate(470 548) scale(.62)">${draw('sit')}</g>`;
+
+    if (phase === 'dusk') s += `<rect width="960" height="600" fill="#f2b27a" opacity=".18" style="mix-blend-mode:multiply"/>`;
+    if (phase === 'night') s += `<rect width="960" height="600" fill="#3a4a7a" opacity=".35" style="mix-blend-mode:multiply"/>`;
+    return s;
+  }
+
+  // ---------- render ----------
+  const $ = (id) => document.getElementById(id);
+
+  try {
+    const old = globalThis.CatGame && globalThis.CatGame.CatArt;
+    $('before').innerHTML = old ? `<g transform="translate(0 0) scale(.95)">${old.render('sit', 'old')}</g>` : '';
+  } catch (e) { /* the before image is optional */ }
+  $('after').innerHTML = draw('sit');
+
+  const poseTiles = [
+    ['sit', 'Sit', '-80 -146 160 156', {}],
+    ['loaf', 'Loaf', '-75 -100 150 110', { eyes: 'happy' }],
+    ['curl', 'Curl (sleeping)', '-70 -80 140 90', {}],
+    ['belly', 'Belly-up', '-95 -100 200 110', {}],
+    ['walk', 'Walk', '-70 -110 150 120', {}],
+    ['stretch', 'Stretch', '-70 -105 150 115', {}],
+  ];
+  $('poses').innerHTML = poseTiles.map(([p, label, vb, o]) =>
+    `<div class="tile"><svg viewBox="${vb}">${draw(p, o)}</svg><b>${label}</b><span>${p}</span></div>`).join('');
+
+  const faces = [
+    ['Neutral', { }], ['Happy / purr', { eyes: 'happy' }], ['Sleepy / slow blink', { eyes: 'closed' }],
+    ['Surprised', { eyes: 'wide', mouth: 'o' }], ['A Look', { eyes: 'grumpy', mouth: 'flat' }], ['Mrrp!', { eyes: 'happy', mouth: 'open' }],
+  ];
+  $('faces').innerHTML = faces.map(([label, o]) =>
+    `<div class="tile"><svg viewBox="-60 -60 120 100">${head(0, 0, o)}</svg><b>${label}</b></div>`).join('');
+
+  $('eyes').innerHTML = [1, 0.6, 0.35].map((k) =>
+    `<div class="tile"><svg viewBox="-80 -150 160 160" style="height:${Math.round(200 * k)}px;margin:${Math.round(100 * (1 - k))}px auto 0">${draw('sit')}</svg><b>${Math.round(k * 100)}%</b></div>`).join('');
+
+  const HEAD_VB = '-58 -54 116 92';
+  const faceTile = (code, label, o) => `<div class="tile"><svg viewBox="${HEAD_VB}">${head(0, 0, o)}</svg><b>${code}</b><span>${label}</span></div>`;
+  $('opt-eyes').innerHTML = Object.entries(EYE_STYLES).map(([k, v]) => faceTile(k, v.label, { eyeStyle: k })).join('');
+  $('opt-nose').innerHTML = Object.entries(NOSE_STYLES).map(([k, v]) => faceTile(k, v.label, { noseStyle: k })).join('');
+  $('opt-mouth').innerHTML = Object.entries(MOUTH_STYLES).map(([k, v]) => faceTile(k, v.label, { mouthStyle: k })).join('');
+  $('opt-blush').innerHTML = faceTile('B1', 'No blush', {}) + faceTile('B2', 'Pink cheek blush', { blush: true });
+  const COMBOS = [
+    ['A', 'Classic Neko Atsume', 'E1 + N2 + M1', { eyeStyle: 'E1', noseStyle: 'N2', mouthStyle: 'M1' }],
+    ['B', 'Sparkly & soft', 'E2 + N1 + M3 + B2', { eyeStyle: 'E2', noseStyle: 'N1', mouthStyle: 'M3', blush: true }],
+    ['C', 'Big-eyed baby', 'E4 + N3 + M2 + B2', { eyeStyle: 'E4', noseStyle: 'N3', mouthStyle: 'M2', blush: true }],
+    ['D', 'Calm & minimal', 'E5 + N6 + M5', { eyeStyle: 'E5', noseStyle: 'N6', mouthStyle: 'M5' }],
+    ['E', 'Bean-eyed cosy', 'E6 + N5 + M1 + B2', { eyeStyle: 'E6', noseStyle: 'N5', mouthStyle: 'M1', blush: true }],
+    ['F', 'Happy-go-lucky', 'E3 + N1 + M4', { eyeStyle: 'E3', noseStyle: 'N1', mouthStyle: 'M4' }],
+  ];
+  $('opt-combos').innerHTML = COMBOS.map(([k, name, codes, o]) =>
+    `<div class="tile combo"><svg viewBox="${HEAD_VB}">${head(0, 0, o)}</svg>` +
+    `<svg class="small" viewBox="-80 -146 160 156">${draw('sit', o)}</svg><b>${k} · ${name}</b><span>${codes}</span></div>`).join('');
+
+  $('room').innerHTML = room('day');
+  $('dusk').innerHTML = room('dusk');
+  $('night').innerHTML = room('night');
+
+  const sw = [['ink', T.ink], ['paper', T.paper], ['cream', T.cream], ['coat', T.coat], ['stripe', T.stripe], 
+    ['collar', T.collar], ['bell', T.bell], ['floor', T.floor], ['wood', T.wood], ['rug', T.rug], ['chair', T.chair], ['leaf dark', T.leafDark], ['sky', T.sky], ['pot', T.pot], ['pink', T.pink]];
+  $('swatches').innerHTML = sw.map(([n, c]) => `<div class="sw"><i style="background:${c}"></i><div><b>${n}</b><br>${c}</div></div>`).join('');
+})();
+</script>
+</body>
+</html>
