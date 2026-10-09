@@ -737,8 +737,6 @@
   }
 
   const TV = { CHANNELS, show: tvShow, static: tvStatic };
-  // [back, front] art for one placeable item (the intro borrows a box).
-  const itemArt = (id, x, y) => ITEM_ART[id](x, y);
 
-  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, itemArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
+  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, mixHex, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
 })(globalThis.CatGame = globalThis.CatGame || {});

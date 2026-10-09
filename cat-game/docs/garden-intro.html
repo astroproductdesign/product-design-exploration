@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garden Intro</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@800;900&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #1b1714; --cream: #fcf4ec; --bg: #f8e9b4; --muted: #6b5a4a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 "M PLUS Rounded 1c", system-ui, sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 56px; }
+  h1 { font-weight: 900; font-size: 28px; margin: 0 0 4px; }
+  p.lede { color: var(--muted); margin: 0 0 18px; max-width: 74ch; }
+  .option { background: var(--cream); border: 3px solid var(--ink); border-radius: 16px; padding: 14px; box-shadow: 0 3px 0 var(--ink); margin-bottom: 20px; }
+  .option h2 { margin: 0 0 2px; font-size: 20px; font-weight: 900; }
+  .option > p { margin: 0 0 12px; color: var(--muted); }
+  .shots { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+  .stage { position: relative; border: 3px solid var(--ink); border-radius: 12px; overflow: hidden; background: #bfe6f5; }
+  .stage.desk { flex: 1 1 520px; aspect-ratio: 16 / 10; }
+  .stage.phone { width: 190px; aspect-ratio: 9 / 19; flex: none; }
+  .stage svg.scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage .ui { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 3% 10px 5%; pointer-events: none; }
+  .stage .ui svg { width: min(70%, 360px); height: auto; }
+  .stage .btn { background: #ff4f86; color: #fff; border: 3px solid var(--ink); border-radius: 999px; box-shadow: 0 4px 0 var(--ink); font-weight: 900; padding: 10px 36px; font-size: 20px; white-space: nowrap; }
+  .stage.phone .btn { font-size: 13px; padding: 6px 16px; }
+  .label { font-size: 12px; font-weight: 900; color: var(--muted); margin-top: 4px; }
+  .ask { background: #fff8de; }
+  .ask ol { margin: 6px 0 0; padding-left: 20px; }
+
+  /* the game's idle animations */
+  .cat .breathe { animation: breathe 3.2s ease-in-out infinite; transform-origin: 0 0; }
+  @keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.03); } }
+  .cat .tail-curl { animation: tailCurl 5.5s ease-in-out infinite; }
+  @keyframes tailCurl { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(14deg); } }
+  .cat .ear-l.twitch { animation: twitch 0.35s ease-in-out; }
+  @keyframes twitch { 40% { transform: rotate(-14deg); } }
+  .butterfly { animation: drift 9s ease-in-out infinite; }
+  .butterfly .flap { animation: flap 0.35s ease-in-out infinite; transform-origin: 0 0; }
+  @keyframes drift { 0%, 100% { transform: translate(110px, -96px); } 33% { transform: translate(150px, -132px); } 66% { transform: translate(220px, -100px); } }
+  @keyframes flap { 50% { transform: scaleX(0.35); } }
+  @media (prefers-reduced-motion: reduce) { .cat *, .butterfly, .butterfly * { animation: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Garden intro</h1>
+  <p class="lede">The chosen intro (option A, "paws on the rim"): Mochi, the tabby &amp; white, waits in a low cardboard box in the garden. The background is kept low and simple so the title stands out, and the main button is the hot pink CTA. Drawn from the game's own code (<code>js/ui/gardenArt.js</code>, <code>js/ui/catArt.js</code>), shown here in daylight.</p>
+  <div id="options"></div>
+</main>
+
+<script src="../js/core/coats.js"></script>
+<script src="../js/ui/catArt.js"></script>
+<script src="../js/ui/gardenArt.js"></script>
+<script src="../js/ui/logo.js"></script>
+<script>
+(function () {
+  'use strict';
+  const G = globalThis.CatGame;
+  const OPTIONS = [{ pose: 'boxgroom', name: 'Paws on the rim', text: 'Sitting up with both paws hooked over the front of the box and the tail draped over the side. It licks a paw, washes its face, flicks an ear and glances around.' }];
+  const SAFE = { l: 0.06, r: 0.06, t: 0.3, b: 0.2 };
+  const coat = 'mochi';
+  const stages = [];
+
+  function viewBox(el, g) {
+    const r = el.getBoundingClientRect();
+    const [sw, sh] = g.frame.close;
+    const safeW = (1 - SAFE.l - SAFE.r) * r.width;
+    const safeH = (1 - SAFE.t - SAFE.b) * r.height;
+    const k = Math.min(safeW / sw, safeH / sh);
+    const x = -((SAFE.l + (1 - SAFE.l - SAFE.r) / 2) * r.width) / k;
+    const y = g.frame.cy - ((SAFE.t + (1 - SAFE.t - SAFE.b) / 2) * r.height) / k;
+    return `${x.toFixed(1)} ${y.toFixed(1)} ${(r.width / k).toFixed(1)} ${(r.height / k).toFixed(1)}`;
+  }
+
+  function sceneSvg(pose, uid) {
+    const g = G.CatArt.INTRO;
+    const [lx, ly] = g.label;
+    return (
+      G.GardenArt.back() +
+      `<g class="cat">${G.CatArt.render(pose, uid)}</g>` +
+      `<text x="${lx}" y="${ly}" text-anchor="middle" font-size="17" font-weight="900" fill="#1b1714" font-family="'M PLUS Rounded 1c', Nunito, sans-serif">Mochi</text>` +
+      G.GardenArt.front()
+    );
+  }
+
+  function build() {
+    const host = document.getElementById('options');
+    host.innerHTML = '';
+    stages.length = 0;
+    G.CatArt.setCoat(G.Coats.fromPreset(coat));
+    OPTIONS.forEach((o, i) => {
+      const card = document.createElement('section');
+      card.className = 'option';
+      card.innerHTML = `<h2>${o.name}</h2><p>${o.text}</p><div class="shots"></div>`;
+      const shots = card.querySelector('.shots');
+      ['desk', 'phone'].forEach((kind, j) => {
+        const wrap = document.createElement('div');
+        wrap.style.flex = kind === 'desk' ? '1 1 520px' : 'none';
+        const st = document.createElement('div');
+        st.className = 'stage ' + kind;
+        st.innerHTML = `<svg class="scene" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">${sceneSvg(o.pose, `s${i}${j}`)}</svg><div class="ui">${G.Logo.wordmark()}<span class="btn">Start adoption</span></div>`;
+        wrap.append(st);
+        wrap.insertAdjacentHTML('beforeend', `<div class="label">${kind === 'desk' ? 'Laptop' : 'Phone'}</div>`);
+        if (kind === 'desk') st.style.width = '100%';
+        shots.append(wrap);
+        stages.push({ el: st, pose: o.pose, t0: performance.now() - i * 2400, look: { x: 0, y: 0, tx: 0, ty: 0 }, next: 0, nextEar: 0 });
+      });
+      host.append(card);
+    });
+    requestAnimationFrame(fit);
+  }
+  function fit() {
+    for (const s of stages) s.el.querySelector('svg').setAttribute('viewBox', viewBox(s.el, G.CatArt.INTRO));
+  }
+
+  const show = (root, cls, key) => root.querySelectorAll(`.${cls}`).forEach((n) => n.setAttribute('display', n.classList.contains(`${cls}-${key}`) ? 'inline' : 'none'));
+  const lerp = (a, b, f) => a + (b - a) * Math.max(0, Math.min(1, f));
+  const ease = (f) => 0.5 - Math.cos(Math.PI * Math.max(0, Math.min(1, f))) / 2;
+
+  // Same grooming loop as the game (js/ui/scene.js introIdle).
+  function tick(now) {
+    for (const s of stages) {
+      const g = G.CatArt.INTRO;
+      const root = s.el.querySelector('.cat');
+      const ph = ((now - s.t0) % 10000) / 10000;
+      const M = g.mouth;
+      const Ck = g.cheek;
+      let px = 0, py = 0, eyes = 'open', mouth = 'normal';
+      if (ph < 0.18) {
+      } else if (ph < 0.24) {
+        const f = ease((ph - 0.18) / 0.06); px = lerp(0, M[0], f); py = lerp(0, M[1], f);
+      } else if (ph < 0.46) {
+        px = M[0]; py = M[1] + Math.sin(now / 90) * 2; eyes = 'closed'; mouth = 'tongue';
+      } else if (ph < 0.52) {
+        const f = ease((ph - 0.46) / 0.06); px = lerp(M[0], Ck[0], f); py = lerp(M[1], Ck[1], f); eyes = 'closed';
+      } else if (ph < 0.68) {
+        const f = ((ph - 0.52) / 0.16) * 2; const w = Math.sin((f % 1) * Math.PI); px = Ck[0] + w * 6; py = Ck[1] - w * 16; eyes = 'closed';
+      } else if (ph < 0.74) {
+        const f = ease((ph - 0.68) / 0.06); px = lerp(Ck[0], 0, f); py = lerp(Ck[1], 0, f);
+      } else if (ph > 0.8 && ph < 0.86) {
+        eyes = 'wide'; s.look.tx = s.look.ty = 0;
+      }
+      G.CatArt.moveArm(root, px, py);
+      show(root, 'eyes', eyes);
+      show(root, 'mouth', mouth);
+      if (now > s.next) {
+        s.next = now + 1800 + Math.random() * 2600;
+        const a = Math.random() * Math.PI * 2;
+        const k = Math.random() < 0.4 ? 0 : 1;
+        s.look.tx = Math.cos(a) * 3 * k; s.look.ty = Math.sin(a) * 2 * k;
+      }
+      s.look.x += (s.look.tx - s.look.x) * 0.15; s.look.y += (s.look.ty - s.look.y) * 0.15;
+      root.querySelectorAll('.eyes-open, .eyes-wide').forEach((n) => n.setAttribute('transform', `translate(${s.look.x.toFixed(2)} ${s.look.y.toFixed(2)})`));
+      if (now > s.nextEar) {
+        s.nextEar = now + 3000 + Math.random() * 5000;
+        const ear = root.querySelector('.ear-l');
+        if (ear) { ear.classList.remove('twitch'); void ear.getBoundingClientRect(); ear.classList.add('twitch'); }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  addEventListener('resize', fit);
+  build();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

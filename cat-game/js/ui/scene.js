@@ -30,6 +30,7 @@
     this.cam = { x: 0, y: 0, w: A.W, h: A.H };
     this.focus = null; // camera framing a point (intro, change look)
     this.intro = null; // the cat-in-the-box opening
+    this.inGarden = false; // the cat is drawn in the garden layer (intro, and while it fades)
     this.overrides = {}; // temporary eyes/mouth/pose from reactions
     this.roomSig = '';
     this.seasons = [];
@@ -49,9 +50,10 @@
     this.back = el('g', { id: 'back' });
     this.mid = el('g', { id: 'mid' });
     this.fx = el('g', { id: 'fx' });
+    this.garden = el('g', { id: 'garden' }); // the intro's garden, drawn over the room
     this.over = el('g', { id: 'over' }, A.overlay());
     this.top = el('g', { id: 'top' });
-    svg.append(this.back, this.mid, this.fx, this.over, this.top);
+    svg.append(this.back, this.mid, this.garden, this.fx, this.over, this.top);
 
     this.catG = el('g', { id: 'cat' });
     this.catShadow = el('ellipse', { cx: 0, cy: 2, rx: 46, ry: 8, fill: '#000', opacity: 0.12 });
@@ -91,11 +93,12 @@
     }
     this.mid.innerHTML = '';
     const items = A.midLayer(s, seasons).sort((a, b) => a.z - b.z);
-    // A box borrowed for the intro when the room doesn't have one.
+    // The intro's box, left on the rug for a moment after the cat hops out.
     const tb = this.tempBox;
     if (tb) {
-      const [back, front] = A.itemArt('box', tb.x, tb.y);
-      items.push({ z: tb.y - 1, svg: `<g class="${tb.fading ? 'temp-box fading' : 'temp-box'}">${back}</g>` }, { z: tb.y + 1, svg: `<g class="${tb.fading ? 'temp-box fading' : 'temp-box'}">${front}</g>` });
+      const [back, front] = G.CatArt.introBox('tempbox');
+      const wrap = (inner) => `<g class="${tb.fading ? 'temp-box fading' : 'temp-box'}" transform="translate(${tb.x} ${tb.y}) scale(${tb.s.toFixed(3)})">${inner}</g>`;
+      items.push({ z: tb.y - 1, svg: wrap(back) }, { z: tb.y + 1, svg: wrap(front) });
       items.sort((a, b) => a.z - b.z);
     }
     for (const it of items) this.mid.append(el('g', { 'data-z': it.z }, it.svg));
@@ -111,10 +114,12 @@
     A.applyLighting(this.svg, G.Clock.lightingAt(t));
     A.updateClock(this.svg, t);
     const light = G.Clock.lightingAt(t);
+    G.GardenArt.applyLighting(this.svg, light, A.mixHex);
     this.svg.closest('.stage').style.setProperty('--letterbox', light.isDay ? '#efe0bd' : '#6c6a7c');
   };
 
   Scene.prototype.placeCatInZ = function () {
+    if (this.inGarden) return this.garden.insertBefore(this.catG, this.garden.querySelector('.garden-front'));
     const z = this.cv ? this.cv.z : 0;
     let before = null;
     for (const c of this.mid.children) {
@@ -140,7 +145,7 @@
   };
 
   Scene.prototype.baseEyes = function () {
-    if (this.intro) return 'open'; // awake in the box, whatever the simulation says
+    if (this.inGarden) return 'open'; // awake in the box, whatever the simulation says
     const a = this.getState().activity;
     if (this.cv.moving) return this.cv.zoom ? 'wide' : 'open';
     if (SLEEP_EYES.has(a.id)) return 'closed';
@@ -152,7 +157,7 @@
   };
 
   Scene.prototype.baseMouth = function () {
-    if (this.intro) return 'normal';
+    if (this.inGarden) return 'normal';
     const a = this.getState().activity;
     if (a.rare || a.id === 'groom') return 'tongue';
     return 'normal';
@@ -203,7 +208,7 @@
   };
 
   Scene.prototype.teleport = function (a) {
-    if (this.intro) return; // the cat stays in its box until the intro ends
+    if (this.inGarden) return; // the cat stays in its box until the intro ends
     const p = this.posFor(a);
     this.cv = { x: p.x, y: p.y, z: p.z, fy: p.floor.y, high: p.high, facing: p.face || a.facing, path: [], moving: false, act: a.id + a.start };
     this.setArt(...this.artFor(a));
@@ -228,7 +233,7 @@
 
   // Called whenever the simulation picks a new activity.
   Scene.prototype.onActivity = function (a, opts) {
-    if (this.intro) return; // picked up when the intro ends
+    if (this.inGarden) return; // picked up when the intro ends
     if (!this.cv) return this.teleport(a);
     this.cv.act = a.id + a.start;
     this.cv.zoom = a.id === 'zoomies';
@@ -317,7 +322,7 @@
     this.catG.setAttribute('transform', `translate(${cv.x.toFixed(1)} ${cv.y.toFixed(1)}) scale(${s.toFixed(3)})`);
     this.catFlip.setAttribute('transform', `scale(${cv.facing < 0 ? -1 : 1} 1)`);
     this.catHop.setAttribute('transform', `translate(0 ${(-(cv.hopY || 0)).toFixed(1)})`);
-    this.catShadow.setAttribute('opacity', this.intro ? 0 : cv.hopY ? 0.06 : 0.12);
+    this.catShadow.setAttribute('opacity', this.inGarden ? 0 : cv.hopY ? 0.06 : 0.12);
     this.catShadow.setAttribute('rx', cv.pose === 'sit' || cv.pose === 'back' || cv.pose === 'groom' || cv.pose === 'swipe' ? 34 : 50);
 
     // blinking
@@ -742,24 +747,26 @@
     this.svg.setAttribute('viewBox', `${c.x.toFixed(1)} ${c.y.toFixed(1)} ${c.w.toFixed(1)} ${c.h.toFixed(1)}`);
   };
 
-  // ---- Intro: the cat in its box ------------------------------------------------------
-  // The opening is the real room, zoomed in on the cardboard box. The cat
-  // grooms in a loop, glances at you and follows the pointer with its eyes.
+  // ---- Intro: the cat in its box, out in the garden -------------------------------
+  // The garden is drawn over the room, around a cardboard box standing where
+  // the rug is. The cat grooms in a loop, glances at you and follows the
+  // pointer with its eyes. At the end the garden fades into the room around
+  // the cat, so it's one continuous shot.
 
-  // Where the box is: the room's own box if there is one, else a borrowed one.
-  Scene.prototype.introBox = function () {
-    const i = this.getState().room.slots.indexOf('box');
-    if (i >= 0 && A.SLOTS[i]) return { x: A.SLOTS[i].x, y: A.SLOTS[i].y, temp: false };
-    return { x: 742, y: 530, temp: true };
-  };
+  const INTRO_SPOT = { x: 470, y: 548 };
+  const introAt = () => Object.assign({ s: A.scaleAt(INTRO_SPOT.y) }, INTRO_SPOT);
 
   // safe: the screen fractions left free by the logo/buttons ({ l, t, r, b }).
   Scene.prototype.startIntro = function (safe) {
-    const box = this.introBox();
-    this.tempBox = box.temp ? { x: box.x, y: box.y } : null;
+    const box = introAt();
+    clearTimeout(this.introTimer);
+    this.tempBox = null;
     this.intro = { box, t0: performance.now(), look: { x: 0, y: 0, tx: 0, ty: 0, at: 0 }, nextGlance: 0 };
-    const y = box.y - 6;
-    this.cv = { x: box.x, y, z: box.y + 0.5, fy: y, high: false, facing: 1, path: [], moving: false, act: 'intro' };
+    this.cv = { x: box.x, y: box.y, z: box.y + 0.5, fy: box.y, high: false, facing: 1, path: [], moving: false, act: 'intro' };
+    const at = `translate(${box.x} ${box.y}) scale(${box.s.toFixed(3)})`;
+    this.garden.innerHTML = `<g class="garden-back" transform="${at}">${G.GardenArt.back()}</g><g class="garden-front" transform="${at}" pointer-events="none">${G.GardenArt.front()}</g>`;
+    this.inGarden = true;
+    this.lampGlow(false);
     this.renderRoom(true, G.Clock.now(this.getState()));
     this.refreshCat();
     this.placeCatInZ();
@@ -768,18 +775,25 @@
     this.camSnap = true;
   };
 
+  // The room's lamp light would shine across the garden.
+  Scene.prototype.lampGlow = function (on) {
+    const g = this.over.querySelector('#lamp-glow');
+    if (g) g.style.display = on ? '' : 'none';
+  };
+
   // 'close': the cat fills the screen; 'custom': pulled back beside the panel.
   Scene.prototype.frameBox = function (shot, safe) {
-    const b = this.intro ? this.intro.box : this.introBox();
-    const close = shot === 'close';
-    this.focus = { cx: b.x, cy: b.y - (close ? 70 : 72), spanW: close ? 190 : 270, spanH: close ? 170 : 220, safe: safe || { l: 0.05, r: 0.05, t: 0.05, b: 0.05 } };
+    const b = this.intro ? this.intro.box : introAt();
+    const F = G.CatArt.INTRO.frame;
+    const [w, h] = shot === 'close' ? F.close : F.custom;
+    this.focus = { cx: b.x, cy: b.y + F.cy * b.s, spanW: w * b.s, spanH: h * b.s, safe: safe || { l: 0.05, r: 0.05, t: 0.05, b: 0.05 } };
   };
 
   // Redraw the cat in its current pose (after a look change).
   Scene.prototype.refreshCat = function () {
     if (!this.cv) return;
     this.cv.artKey = null;
-    if (this.intro) this.setArt('boxgroom');
+    if (this.inGarden) this.setArt('boxgroom');
     else if (this.cv.moving) this.setArt('walk');
     else this.setArt(...this.artFor(this.getState().activity));
   };
@@ -796,8 +810,9 @@
       this.top.prepend(lab);
     }
     const b = this.intro.box;
-    lab.setAttribute('x', b.x);
-    lab.setAttribute('y', b.y - 16);
+    const [lx, ly] = G.CatArt.INTRO.label;
+    lab.setAttribute('x', (b.x + lx * b.s).toFixed(1));
+    lab.setAttribute('y', (b.y + ly * b.s).toFixed(1));
     lab.textContent = [...(text || '')].length > 12 ? [...text].slice(0, 11).join('') + '…' : text || '';
   };
 
@@ -820,8 +835,8 @@
     const ph = ((nowMs - it.t0) % 10000) / 10000;
     const lerp = (a, b, f) => a + (b - a) * Math.max(0, Math.min(1, f));
     const ease = (f) => 0.5 - Math.cos(Math.PI * Math.max(0, Math.min(1, f))) / 2;
-    const MOUTH = [-9, -15];
-    const CHEEK = [10, -34];
+    const MOUTH = G.CatArt.INTRO.mouth;
+    const CHEEK = G.CatArt.INTRO.cheek;
     let px = 0;
     let py = 0;
     let eyes = null;
@@ -857,8 +872,7 @@
       eyes = 'wide'; // a little look at you
       it.look.tx = it.look.ty = 0;
     }
-    const paw = this.catBody.querySelector('.groom-paw');
-    if (paw) paw.setAttribute('transform', `translate(${px.toFixed(1)} ${py.toFixed(1)})`);
+    G.CatArt.moveArm(this.catBody, px, py);
     const now = performance.now();
     if (eyes) {
       this.overrides.eyes = eyes;
@@ -883,7 +897,8 @@
     for (const g of this.catBody.querySelectorAll('.eyes-open, .eyes-wide, .eyes-half')) g.setAttribute('transform', tf);
   };
 
-  // Leave the box: the cat hops out and the camera settles on the room.
+  // Leave the garden: it fades into the room around the cat while the camera
+  // pulls back, then the cat hops out of its box onto the rug.
   Scene.prototype.endIntro = function () {
     if (!this.intro) return;
     const b = this.intro.box;
@@ -891,23 +906,38 @@
     this.focus = null;
     this.zoomingOut = true;
     this.overrides = {};
-    this.setLabel('');
-    const cv = this.cv;
-    cv.high = true; // hop out over the front of the box
-    cv.fy = b.y + 10;
-    cv.act = null;
-    this.onActivity(this.getState().activity);
-    if (this.tempBox) {
-      setTimeout(() => {
-        if (!this.tempBox) return;
-        this.tempBox.fading = true;
+    G.CatArt.moveArm(this.catBody, 0, 0);
+    for (const g of this.catBody.querySelectorAll('.eyes')) g.removeAttribute('transform');
+    for (const g of this.garden.querySelectorAll('.garden-back, .garden-front')) g.classList.add('fading');
+    const lab = this.top.querySelector('#box-label');
+    if (lab) lab.classList.add('fading');
+    clearTimeout(this.introTimer);
+    this.introTimer = setTimeout(
+      () => {
+        // Swap the cat's own box for an identical empty one on the rug.
+        this.inGarden = false;
+        this.tempBox = { x: b.x, y: b.y, s: b.s };
         this.renderRoom(true, G.Clock.now(this.getState()));
-        setTimeout(() => {
-          this.tempBox = null;
+        this.garden.innerHTML = '';
+        this.setLabel('');
+        this.lampGlow(true);
+        const cv = this.cv;
+        cv.high = true; // hop out over the front of the box
+        cv.fy = b.y + 10;
+        cv.act = null;
+        this.onActivity(this.getState().activity);
+        this.introTimer = setTimeout(() => {
+          if (!this.tempBox) return;
+          this.tempBox.fading = true;
           this.renderRoom(true, G.Clock.now(this.getState()));
-        }, 700);
-      }, 1800);
-    }
+          this.introTimer = setTimeout(() => {
+            this.tempBox = null;
+            this.renderRoom(true, G.Clock.now(this.getState()));
+          }, 700);
+        }, 1800);
+      },
+      reduceMotion() ? 0 : 900
+    );
   };
 
   // ---- Photo ----------------------------------------------------------------------------

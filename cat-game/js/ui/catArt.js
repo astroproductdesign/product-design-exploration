@@ -397,26 +397,74 @@
     },
   };
 
-  // In the cardboard box (intro): curled up with the head raised. The box
-  // front hides everything below about y = -51. The scene moves .groom-paw
-  // (licking, washing) and twitches the ear.
-  POSES.boxgroom = function (uid) {
-    const body = 'M -40 -8 C -46 -40 -26 -66 0 -66 C 26 -66 46 -40 40 -8 Z';
+  // ---- In the garden box (intro) ------------------------------------------------
+  // Sitting up in a low cardboard box, paws hooked over the front, tail draped
+  // over the side. The pose draws the box too, so the paws can sit on its rim.
+  // (0,0) is the middle of the box floor. The scene moves the grooming arm
+  // with moveArm() and twitches the left ear.
+
+  const BOX = { face: '#dcaa6c', flap: '#e8bf86', inside: '#a9763f', tape: '#e9c48a' };
+  const BOX_FRONT = 'M -60 -30 L 60 -30 L 60 8 L -60 8 Z';
+
+  // The box on its own, [behind the cat, in front of the cat].
+  function introBox(uid) {
+    return [
+      shape('M -50 -44 L -44 -74 L 44 -74 L 50 -44 Z', BOX.flap) +
+        shape('M -60 -30 L -50 -44 L -82 -62 L -94 -44 Z', BOX.flap) +
+        shape('M 60 -30 L 50 -44 L 82 -62 L 94 -44 Z', BOX.flap) +
+        shape('M -60 -30 L -50 -44 L 50 -44 L 60 -30 Z', BOX.inside),
+      part(uid, 'box', BOX_FRONT, BOX.face, `<rect x="-7" y="-30" width="14" height="38" fill="${BOX.tape}"/>`),
+    ];
+  }
+
+  const armD = (sx, sy, px, py) => `M ${sx} ${sy} L ${px.toFixed(1)} ${py.toFixed(1)}`;
+  function groomArm(sx, sy, rx, ry) {
+    const d = armD(sx, sy, rx, ry);
     return (
-      `<g class="breathe">` +
-      pivot(30, -40, 'tail-curl', tail('M 30 -40 C 52 -50 58 -70 46 -82', 10)) +
-      part(uid, 'body', body, C.tabby, marks(['M -40 -54 L -30 -52', 'M 40 -54 L 30 -52']) + `<ellipse cx="0" cy="-46" rx="16" ry="20" fill="${C.belly}"/>`) +
-      placeHead(uid, 0, -90, { earFlick: true }) +
-      nub(-15, -56, 8, 5.5) +
-      `<g class="groom-paw">${nub(15, -56, 8, 5.5)}</g>` +
+      `<g class="groom-arm" data-s="${sx} ${sy}" data-r="${rx} ${ry}">` +
+      `<path class="arm-ink" d="${d}" fill="none" stroke="${C.line}" stroke-width="${7 + LIMB_LW * 2}" stroke-linecap="round"/>` +
+      `<path class="arm-fill" d="${d}" fill="none" stroke="${C.paw}" stroke-width="7" stroke-linecap="round"/>` +
+      `<ellipse class="arm-paw" cx="${rx}" cy="${ry}" rx="8" ry="5.5" fill="${C.paw}" stroke="${C.line}" stroke-width="${LIMB_LW}"/>` +
       `</g>`
     );
+  }
+  // Move the grooming paw (dx, dy) from where it rests.
+  function moveArm(root, dx, dy) {
+    const a = root.querySelector('.groom-arm');
+    if (!a) return;
+    const [sx, sy] = a.getAttribute('data-s').split(' ').map(Number);
+    const [rx, ry] = a.getAttribute('data-r').split(' ').map(Number);
+    const d = armD(sx, sy, rx + dx, ry + dy);
+    a.querySelector('.arm-ink').setAttribute('d', d);
+    a.querySelector('.arm-fill').setAttribute('d', d);
+    a.querySelector('.arm-paw').setAttribute('cx', (rx + dx).toFixed(1));
+    a.querySelector('.arm-paw').setAttribute('cy', (ry + dy).toFixed(1));
+  }
+
+  POSES.boxgroom = function (uid) {
+    const [back, front] = introBox(uid);
+    return (
+      back +
+      `<g class="breathe">` +
+      pivot(26, -36, 'tail-curl', tail('M 26 -36 C 52 -46 70 -40 72 -26 C 74 -16 71 -8 68 -2', 10)) +
+      part(uid, 'body', SIT_BODY, C.tabby, marks(SIT_SIDES) + `<ellipse cx="0" cy="-30" rx="16" ry="26" fill="${C.belly}"/>`) +
+      placeHead(uid, 0, -86, { earFlick: true }) +
+      `</g>` +
+      front +
+      tube('M -14 -44 L -15 -31', 7, C.paw) +
+      nub(-15, -30, 8, 5.5) +
+      groomArm(14, -44, 15, -30)
+    );
   };
+
+  // Intro numbers, in the cat's units: where the grooming paw goes (offsets
+  // from rest), where the name sits on the box, and the camera framing.
+  const INTRO = { mouth: [-10, -38], cheek: [11, -64], label: [0, -5], frame: { cy: -64, close: [210, 170], custom: [300, 250] } };
 
   // Where each pose's head sits (for petting zones, speech bubbles, hearts).
   const HEAD_AT = {
     sit: [0, -86], back: [0, -86], groom: [-2, -86], swipe: [2, -86], loaf: [28, -46], lie: [30, -40],
-    curl: [22, -26], walk: [32, -58], stretch: [40, -24], belly: [56, -28], crouch: [40, -34], boxgroom: [0, -90],
+    curl: [22, -26], walk: [32, -58], stretch: [40, -24], belly: [56, -28], crouch: [40, -34], boxgroom: [0, -86],
   };
 
   // Rough height of each pose (for bubbles above the head).
@@ -437,5 +485,5 @@
 
   setCoat(G.Coats.DEFAULT);
 
-  G.CatArt = { render, renderHead, setCoat, setAccessory, withCoat, HEAD_AT, TOP, COLORS: C, POSES: Object.keys(POSES) };
+  G.CatArt = { render, renderHead, setCoat, setAccessory, withCoat, moveArm, introBox, INTRO, HEAD_AT, TOP, COLORS: C, POSES: Object.keys(POSES) };
 })(globalThis.CatGame = globalThis.CatGame || {});

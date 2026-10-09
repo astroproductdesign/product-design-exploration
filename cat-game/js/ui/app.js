@@ -1049,7 +1049,7 @@
     scene.endIntro();
     lastMood = '';
     updateHUD();
-    if (after) setTimeout(after, 1100);
+    if (after) setTimeout(after, 2000);
   }
 
   // ---- The customisation panel ------------------------------------------------------------

@@ -304,3 +304,5 @@ The game logic in `js/core` is unaffected.
 | 4 | Collar: minimal mint band under the chin with a tiny bell | ✅ Chosen |
 | 5 | UI restyle (ink borders, cream cards, paw-print backdrop, M PLUS Rounded 1c) | ✅ Implemented |
 | 6 | Line colour: near-black `#1b1714` | ✅ Used in approved environment |
+| 7 | Intro: the cat waits in a low cardboard box in the garden, sitting up with its paws over the rim (option A). The garden stays low and simple (fence, bushes, lawn, flowers, no sign) so the title stands out. See `docs/garden-intro.html` | ✅ Chosen and implemented |
+| 8 | Main call to action: hot pink `#ff4f86` (`--cta`), white text, ink border | ✅ Chosen |

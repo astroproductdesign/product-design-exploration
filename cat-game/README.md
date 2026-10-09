@@ -11,7 +11,7 @@ Your save stays in the browser on that device, so there's no login and no server
 
 ## How to play
 
-The game opens on your cat curled up in a cardboard box, grooming and watching your pointer. New players press **Start adoption**: the camera pulls back and a panel slides in where you name your cat, choose how it looks and pick a collar and extra (bell, bow tie, bandana or flower). Every change shows on the cat in the box. Returning players see the box once per browser session, then press **Continue**.
+The game opens on your cat waiting in a cardboard box out in the garden, paws over the rim, grooming and watching your pointer. New players press **Start adoption**: the camera pulls back and a panel slides in where you name your cat, choose how it looks and pick a collar and extra (bell, bow tie, bandana or flower). Every change shows on the cat in the box. When you adopt, the garden fades into your living room around the cat and it hops out. Returning players see the garden once per browser session, then press **Continue**.
 
 When choosing a look, pick a breed (Tabby & white, Calico, Tuxedo, Siamese, Ragdoll…), mix your own colour, pattern and white markings, or upload a photo, tap your cat's fur (and a stripe or patch, if it has one), and the game reads the coat for you. The photo is read on your device and isn't saved. Then you name your cat.
 
@@ -68,6 +68,7 @@ cat-game/
   js/ui/              ← the screen
     catArt.js           the cat, drawn as SVG (all poses)
     roomArt.js          the room, furniture, items, decor, lighting
+    gardenArt.js        the garden outside, for the intro
     scene.js            movement, idle animations, toys, bubbles, photos
     sound.js            synthesised sounds (no audio files)
     app.js              start-up, intro, adoption panel, live loop, menus, input

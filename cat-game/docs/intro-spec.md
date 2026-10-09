@@ -1,18 +1,21 @@
 # Intro & Adoption Flow: Spec
 
-> **Status:** implemented. Title: **My Purrfriend**. The logo is in `js/ui/logo.js` and shown in `docs/logo-options.html`.
+> **Status:** implemented. Title: **My Purrfriend**. The logo is in `js/ui/logo.js` and shown in `docs/logo-options.html`. The garden intro is shown in `docs/garden-intro.html`.
 > All art follows `docs/art-style.md`.
 
 ## 1. Intro screen
 
 - The **first thing players see** when they open the game.
-- **Scene:** a close-up of the cat in the room's real cardboard box, curled up with its head raised. It's a continuous shot of the room, not a separate picture.
+- **Scene:** the cat waits **outside in the garden** in a low cardboard box, ready to be adopted. It sits up with both front paws hooked over the front of the box and its tail draped over the side, so you see its chest, paws and tail as well as its face.
+  - The garden is drawn over the room, around the box (`js/ui/gardenArt.js`): a low picket fence, bushes, lawn, flowers, stepping stones and a butterfly. There's no sign.
+  - It stays low and simple so the sky above is clear and the title stands out.
+  - The default cat is Mochi, the tabby & white.
 - **Idle loop:** licks a paw, washes its face, flicks an ear, slowly curls its tail. Every so often it pauses to look at the player.
 - **Eyes follow the pointer:** the dots shift up to about 3 px towards it. On touch screens they follow taps and glance around on their own. They don't move while the cat blinks or sleeps.
-- **Layout:** the logo above the cat, the button below.
+- **Layout:** the logo above the cat, the button below. The button is big and hot pink (`--cta`), with a gentle bob.
   - New player: **Start adoption**
   - Returning player (a save exists): **Continue** only. Starting over stays in Me → Start a new game.
-- **Atmosphere:** soft lighting that follows the real time of day (gentler than in the room), and a calm background.
+- **Atmosphere:** the garden's sky and light follow the real time of day, like the room's window.
 - **When it shows:**
   - Shown when the game opens in a **new browser session** (the browser was fully closed and reopened).
   - Not shown again while the browser stays open, including reloads and other tabs.
@@ -22,7 +25,7 @@
 
 ## 2. Start → customisation
 
-- Pressing **Start adoption** does **not** cut to a new screen. The camera zooms out and pans from the box close-up, and the same cat stays on screen the whole time.
+- Pressing **Start adoption** does **not** cut to a new screen. The camera pulls back a little in the garden, and the same cat stays on screen the whole time.
 - A **customisation panel** slides in from the right on desktop, or up from the bottom on mobile.
   - On mobile the sheet covers about half the screen, and the camera keeps the cat in the visible top half.
   - The photo step needs room to tap the photo, so the sheet expands to full height for that step only.
@@ -31,8 +34,8 @@
   1. **Name** (first step).
   2. **Look:** Breeds / Mix your own / From a photo (the same options as today).
   3. **Collar & accessory** (optional, see §3).
-  4. **Adopt!** The panel slides away, the cat hops out of the box into the room, the camera settles on the room, and the HUD and toolbar fade in.
-- **Returning players:** Continue zooms straight out to the room. The "While you were away" summary appears **after** this, not on top of the intro.
+  4. **Adopt!** The panel slides away and the camera pulls back while the garden fades into the living room around the cat, still in its box on the rug. Then the cat hops out, the HUD and toolbar fade in, and the empty box fades away.
+- **Returning players:** Continue does the same garden-to-room fade straight away. The "While you were away" summary appears **after** this, not on top of the intro.
 
 ## 3. Collar & accessory
 

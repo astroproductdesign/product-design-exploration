@@ -8,6 +8,7 @@
   --ink-soft: #6b5a4a;
   --accent: #d44c34;
   --accent-dark: #843424;
+  --cta: #ff4f86; /* main call to action: a hot pink that stands out on the garden greens */
   --sage: #8cac64;
   --mint: #8fd3c6;
   --gold: #ecbc44;
@@ -356,7 +357,7 @@ button {
   color: var(--ink);
 }
 .btn.primary {
-  background: var(--accent);
+  background: var(--cta);
   color: #fff;
 }
 .btn.danger {
@@ -1374,9 +1375,23 @@ body.no-anim *::before {
   animation: introIn 0.8s ease-out both;
 }
 .btn.big {
-  font-size: 20px;
-  padding: 13px 34px;
-  animation: introIn 0.8s 0.25s ease-out both;
+  font-size: 26px;
+  font-weight: 900;
+  padding: 16px 54px;
+  border-width: 4px;
+  box-shadow: 0 5px 0 var(--ink);
+  letter-spacing: 0.01em;
+  animation: introIn 0.8s 0.25s ease-out both, ctaBob 2.6s 1.4s ease-in-out infinite;
+}
+.btn.big:hover {
+  filter: brightness(1.06);
+}
+.btn.big:active {
+  box-shadow: 0 2px 0 var(--ink);
+}
+@keyframes ctaBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 @keyframes introIn {
   from { opacity: 0; transform: translateY(10px); }
@@ -1392,6 +1407,25 @@ body.no-anim *::before {
 }
 .temp-box.fading {
   animation: fadeAway 0.7s ease forwards;
+}
+/* The garden fades into the room around the cat when the intro ends. */
+#garden .fading,
+#box-label.fading {
+  animation: fadeAway 0.9s ease forwards;
+}
+#garden .butterfly {
+  animation: drift 9s ease-in-out infinite;
+}
+#garden .butterfly .flap {
+  animation: flap 0.35s ease-in-out infinite;
+}
+@keyframes drift {
+  0%, 100% { transform: translate(110px, -96px); }
+  33% { transform: translate(150px, -132px); }
+  66% { transform: translate(220px, -100px); }
+}
+@keyframes flap {
+  50% { transform: scaleX(0.35); }
 }
 @keyframes fadeAway {
   to { opacity: 0; }
@@ -1499,7 +1533,21 @@ body.no-anim *::before {
     transition: opacity 0.3s ease !important;
   }
   .intro-logo svg,
-  .btn.big {
+  .btn.big,
+  #garden .butterfly,
+  #garden .butterfly .flap {
     animation: none;
+  }
+  #garden .fading,
+  #box-label.fading {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .btn.big {
+    font-size: 23px;
+    padding: 14px 38px;
   }
 }
