@@ -2999,42 +2999,38 @@ body.decorating #scene {
   }
 }
 
-/* ---- Cat coins, under the bond level in the cat card ---------------------------------------- */
+/* ---- Cat coins, at the end of the meters bar ------------------------------------------------- */
 
-.nc-coins {
+.m-coins {
   position: relative;
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-left: 11px;
-  font-size: 14px;
+  gap: 4px;
+  padding: 2px 6px 2px 2px;
+  font-size: 16px;
   font-weight: 900;
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: 999px;
 }
-.nc-coins:hover {
+.m-coins:hover {
   background: rgba(236, 188, 68, 0.25);
 }
-.nc-coins .ico,
-.nc-coins .ico svg {
+.m-coins .ico,
+.m-coins .ico svg {
   display: block;
-  width: 20px;
-  height: 20px;
-}
-.nc-coins small {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink-soft);
+  width: 26px;
+  height: 26px;
 }
 @media (max-width: 640px) {
-  .nc-coins {
-    font-size: 12.5px;
-    gap: 5px;
-    padding-left: 8px;
+  .m-coins {
+    font-size: 14px;
+    gap: 3px;
+    padding: 1px 2px;
   }
-  .nc-coins .ico,
-  .nc-coins .ico svg {
-    width: 17px;
-    height: 17px;
+  .m-coins .ico,
+  .m-coins .ico svg {
+    width: 22px;
+    height: 22px;
   }
 }
