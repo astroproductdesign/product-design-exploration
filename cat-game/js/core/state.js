@@ -21,7 +21,7 @@
       activity: { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t, end: t + 20000, facing: 1 },
       bowl: { food: 'kibble', portions: 2 },
       daily: { day: today, pet: 0, play: 0, feed: 0, treats: 0, care: 0, invite: 0 },
-      room: { slots: ['scratcher', null, 'box'], perch: false, cupOnFloor: false, gifts: [], litter: { clumps: [], mess: 0 }, grass: 1, vomit: [] },
+      room: { slots: ['scratcher', null, null, 'box'], perch: false, cupOnFloor: false, gifts: [], litter: { clumps: [], mess: 0 }, grass: 1, vomit: [], skins: {} },
       unlocked: C.unlocksAt(1),
       unseenUnlocks: [],
       favorites: { spots: {}, toys: {}, foods: {}, pets: {} },
@@ -47,6 +47,12 @@
     for (const k of Object.keys(fresh)) if (s[k] === undefined) s[k] = fresh[k];
     for (const k of ['stats', 'room', 'favorites', 'flags', 'settings', 'daily', 'bowl']) {
       for (const kk of Object.keys(fresh[k])) if (s[k][kk] === undefined) s[k][kk] = fresh[k][kk];
+    }
+    // Older saves had three spots; the new one is second from the left, so the others move up one.
+    if (Array.isArray(s.room.slots) && s.room.slots.length === 3) {
+      s.room.slots.splice(1, 0, null);
+      const m = s.activity && /^slot(\d)$/.exec(s.activity.spot || '');
+      if (m && Number(m[1]) >= 1) s.activity.spot = 'slot' + (Number(m[1]) + 1);
     }
     s.cat.coat = G.Coats.normalize(s.cat.coat);
     s.cat.accessory = G.Coats.normalizeAccessory(s.cat.accessory);

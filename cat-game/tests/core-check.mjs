@@ -731,12 +731,45 @@ test('gachapon: costs coins, gives new things, duplicates pay some back', () => 
   // every prize has its catalogue entry
   for (const p of G.Gacha.PRIZES) {
     if (p.kind === 'item') assert.ok(G.Catalog.ITEMS[p.id] && G.Catalog.ITEMS[p.id].gacha, p.id);
+    else if (p.kind === 'skin') assert.ok(G.Gacha.PIECES.some((x) => x.id === p.ref.split(':')[0]), p.id);
     else assert.ok((p.kind === 'extra' ? G.Coats.EXTRAS : G.Coats.COLLARS).some((x) => x.id === p.ref && x.gacha), p.id);
   }
   // old saves get enough for a spin and an empty collection
   const old = G.State.migrate({ ...fresh(), coins: undefined, gacha: undefined });
   assert.equal(old.coins, G.Gacha.COST);
   assert.equal(old.gacha.owned.length, 0);
+  assert.equal(G.Achievements.DEFS.find((d) => d.id === 'gachaAll').goal, G.Gacha.PRIZES.length, 'collect-them-all counts every prize');
+});
+
+test('furniture colours: only ones you have won, and back to the original', () => {
+  const s = fresh();
+  assert.equal(G.Gacha.skinOf(s, 'clock'), '');
+  assert.equal(G.Gacha.setSkin(s, 'clock', 'pink'), false, 'not won yet');
+  assert.equal(G.Gacha.skinOf(s, 'clock'), '');
+  s.gacha.owned.push('skin:clock:pink', 'skin:clock:midnight', 'skin:rug:blue');
+  assert.equal(G.Gacha.skinsFor(s, 'clock').join(), 'pink,midnight');
+  assert.ok(G.Gacha.setSkin(s, 'clock', 'pink'));
+  assert.equal(G.Gacha.skinOf(s, 'clock'), 'pink');
+  assert.equal(G.Gacha.skinOf(s, 'rug'), '', 'won but not used');
+  G.Gacha.setSkin(s, 'clock', '');
+  assert.equal(G.Gacha.skinOf(s, 'clock'), '');
+  // changing colours counts toward the achievement
+  for (let i = 0; i < 5; i++) G.Achievements.bump(s, 'restyle', 1, t0 + i);
+  assert.ok(s.achievements.restyle5);
+});
+
+test('room spots: four of them, and older three-spot saves keep their items', () => {
+  assert.equal(fresh().room.slots.length, 4);
+  const old = fresh();
+  old.room.slots = ['scratcher', 'cushion', 'box'];
+  old.activity = { id: 'sit', spot: 'slot2', key: 'box', pose: 'sit', start: t0, end: t0 + HOUR, facing: 1 };
+  const m = G.State.migrate(old);
+  assert.equal(m.room.slots.length, 4);
+  assert.equal(m.room.slots[0], 'scratcher');
+  assert.equal(m.room.slots[1], null, 'the new spot starts empty');
+  assert.equal(m.room.slots[2], 'cushion');
+  assert.equal(m.room.slots[3], 'box');
+  assert.equal(m.activity.spot, 'slot3', 'the cat stays on the box');
 });
 
 console.log(`\n${passed} checks passed`);

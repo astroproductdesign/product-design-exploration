@@ -29,6 +29,53 @@
     mint: '#8fd3c6',
   };
 
+  // Furniture colours from the gachapon (see Gacha.PIECES). 'base' is each piece's original look.
+  const SKINS = {
+    wall: {
+      base: { wall: K.wall, top: K.wallTop, wains: K.wains, line: K.wainsLine },
+      peach: { wall: '#fff0e6', top: '#fde2d2', wains: '#f8d2bc', line: '#e3a88a' },
+      mint: { wall: '#f0f9f2', top: '#e2f2e6', wains: '#cfe8d7', line: '#98c8ab' },
+      lavender: { wall: '#f5f0fd', top: '#ebe2f9', wains: '#ddd0f3', line: '#b3a0da' },
+    },
+    curtains: {
+      base: { fill: K.cream, fold: '#e2d6c2' },
+      pink: { fill: '#fad3df', fold: '#eba8bd' },
+      sky: { fill: '#d2e9f7', fold: '#9cc6e3' },
+      polka: { fill: K.cream, fold: '#e2d6c2', dots: K.red },
+    },
+    clock: {
+      base: { face: K.cream, ring: K.red, ears: K.cream, hands: K.line },
+      pink: { face: '#ffe8ef', ring: '#ff6f91', ears: '#ffc7d6', hands: K.line },
+      mint: { face: '#ecf8f4', ring: '#3fa58f', ears: '#bfe8dc', hands: K.line },
+      midnight: { face: '#3a3a40', ring: '#ecbc44', ears: '#3a3a40', hands: '#ecbc44' },
+    },
+    rug: {
+      base: { fill: K.red, ring: '#e8806a' },
+      blue: { fill: '#5b8fd4', ring: '#a6c6f0' },
+      lavender: { fill: '#a98bd9', ring: '#d8c9f3' },
+    },
+    chair: {
+      base: { canvas: K.olive, seam: K.oliveDark },
+      red: { canvas: '#e0735f', seam: '#a8473a' },
+      navy: { canvas: '#5574ad', seam: '#2f4a7a' },
+    },
+    lamp: {
+      base: { shade: '#ecbc44', rim: '#d9a43a' },
+      mint: { shade: '#8fd3c6', rim: '#5fb3a3' },
+      pink: { shade: '#f6b3cf', rim: '#e07fa8' },
+    },
+    desk: {
+      base: { top: K.woodLight, body: K.wood, feet: K.woodDark },
+      white: { top: '#fbf8f2', body: '#e9e1d2', feet: '#c4b69e' },
+      pink: { top: '#ffd9e2', body: '#f4accc', feet: '#c9708f' },
+    },
+  };
+  // The colours a piece is drawn in right now.
+  const paint = (state, piece) => {
+    const v = state && G.Gacha ? G.Gacha.skinOf(state, piece) : '';
+    return SKINS[piece][v] || SKINS[piece].base;
+  };
+
   // The room is wide, so a wide screen is filled instead of showing empty wall. Each piece of
   // furniture is drawn at its original coordinates and slid sideways (DX) so they stand well
   // apart; the places the cat uses (SPOTS, SLOTS) move by the same amounts.
@@ -74,6 +121,7 @@
 
   const SLOTS = [
     { x: 105 + DX.tv, y: 568 },
+    { x: 296, y: 592 }, // the front of the floor between the TV corner and the bowls
     { x: 668 + DX.chair, y: 584 },
     { x: 868 + DX.right, y: 574 },
   ];
@@ -240,11 +288,16 @@
   }
 
   // Flat cream curtains beside the window: opaque, a few fold lines, no sheer.
-  function curtains() {
+  function curtains(p) {
+    p = p || SKINS.curtains.base;
     const panel = (x, flip) => {
       const m = flip ? -1 : 1;
       const d = `M ${x} 44 L ${x + 66 * m} 44 L ${x + 66 * m} 404 Q ${x + 50 * m} 414 ${x + 33 * m} 406 Q ${x + 16 * m} 414 ${x} 404 Z`;
-      return S(d, K.cream, 3) + L(`M ${x + 22 * m} 60 L ${x + 22 * m} 396 M ${x + 44 * m} 60 L ${x + 44 * m} 396`, '#e2d6c2', 3);
+      let dots = '';
+      if (p.dots)
+        for (let r = 0; r < 12; r++)
+          for (let c = 0; c < 3; c++) dots += `<circle cx="${x + (11 + c * 22 + (r % 2) * 11) * m}" cy="${66 + r * 28}" r="4.5" fill="${p.dots}"/>`;
+      return S(d, p.fill, 3) + dots + L(`M ${x + 22 * m} 60 L ${x + 22 * m} 396 M ${x + 44 * m} 60 L ${x + 44 * m} 396`, p.fold, 3);
     };
     return (
       panel(264, false) +
@@ -254,20 +307,24 @@
     );
   }
 
-  function wallClock() {
+  // The clock face at (0, 0). The room's one has ids so the hands can turn; a menu icon doesn't.
+  function clockFace(p, icon) {
+    p = p || SKINS.clock.base;
     return (
-      `<g transform="translate(${722 + DX.clock} 128)">` +
-      E(0, 0, 34, 34, K.cream, 3.5) +
-      `<circle r="28" fill="none" stroke="${K.red}" stroke-width="3"/>` +
-      [0, 90, 180, 270].map((a) => `<rect x="-1.5" y="-25" width="3" height="6" fill="${K.line}" transform="rotate(${a})"/>`).join('') +
-      `<g id="clock-h">${L('M 0 2 L 0 -14', K.line, 4)}</g>` +
-      `<g id="clock-m">${L('M 0 3 L 0 -21', K.line, 2.6)}</g>` +
-      `<circle r="3" fill="${K.red}"/>` +
+      E(0, 0, 34, 34, p.face, 3.5) +
+      `<circle r="28" fill="none" stroke="${p.ring}" stroke-width="3"/>` +
+      [0, 90, 180, 270].map((a) => `<rect x="-1.5" y="-25" width="3" height="6" fill="${p.hands}" transform="rotate(${a})"/>`).join('') +
+      `<g ${icon ? 'transform="rotate(300)"' : 'id="clock-h"'}>${L('M 0 2 L 0 -14', p.hands, 4)}</g>` +
+      `<g ${icon ? 'transform="rotate(60)"' : 'id="clock-m"'}>${L('M 0 3 L 0 -21', p.hands, 2.6)}</g>` +
+      `<circle r="3" fill="${p.ring}"/>` +
       // little cat ears on top of the clock
-      S('M -24 -24 L -26 -44 L -10 -32 Z', K.cream, 3) +
-      S('M 24 -24 L 26 -44 L 10 -32 Z', K.cream, 3) +
-      `</g>`
+      S('M -24 -24 L -26 -44 L -10 -32 Z', p.ears, 3) +
+      S('M 24 -24 L 26 -44 L 10 -32 Z', p.ears, 3)
     );
+  }
+
+  function wallClock(p) {
+    return `<g transform="translate(${722 + DX.clock} 128)">${clockFace(p)}</g>`;
   }
 
   function portrait() {
@@ -282,19 +339,26 @@
     );
   }
 
-  function lamp() {
+  function lamp(p) {
+    p = p || SKINS.lamp.base;
     return (
       `<g class="lamp act" data-act="lamp" role="button" tabindex="0" aria-label="Lamp: switch the lights on or off" style="cursor:pointer">` +
       `<rect x="800" y="40" width="100" height="112" rx="10" fill="none" pointer-events="all"/>` +
       L('M 850 0 L 850 96', K.line, 2.5) +
-      S('M 818 132 Q 818 96 850 96 Q 882 96 882 132 Z', '#ecbc44', 3) +
-      R(814, 129, 72, 7, '#d9a43a', 3, 2.5) +
+      S('M 818 132 Q 818 96 850 96 Q 882 96 882 132 Z', p.shade, 3) +
+      R(814, 129, 72, 7, p.rim, 3, 2.5) +
       `<ellipse id="bulb" cx="850" cy="138" rx="10" ry="5" fill="#fff4c8" opacity=".3"/>` +
       `</g>`
     );
   }
 
-  function background() {
+  function rugArt(p) {
+    p = p || SKINS.rug.base;
+    return E(470, 546, 168, 40, p.fill, 3) + `<ellipse cx="470" cy="546" rx="140" ry="29" fill="none" stroke="${p.ring}" stroke-width="5" stroke-dasharray="14 10" stroke-linecap="round"/>`;
+  }
+
+  function background(state) {
+    const wp = paint(state, 'wall');
     let s = '';
     s += `<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop id="sky-top" offset="0" stop-color="#8fd0ee"/><stop id="sky-bot" offset="1" stop-color="#e3f4fb"/></linearGradient>`;
     s += `</defs>`;
@@ -302,11 +366,11 @@
     // Wall and floor run past the edges so wide screens never show bars.
     const X0 = -1500;
     const XW = W + 3000;
-    s += `<rect x="${X0}" y="-400" width="${XW}" height="${FLOOR + 400}" fill="${K.wall}"/>`;
-    s += `<rect x="${X0}" y="-400" width="${XW}" height="420" fill="${K.wallTop}"/>`;
-    s += `<rect x="${X0}" y="336" width="${XW}" height="${FLOOR - 336}" fill="${K.wains}"/>`;
+    s += `<rect x="${X0}" y="-400" width="${XW}" height="${FLOOR + 400}" fill="${wp.wall}"/>`;
+    s += `<rect x="${X0}" y="-400" width="${XW}" height="420" fill="${wp.top}"/>`;
+    s += `<rect x="${X0}" y="336" width="${XW}" height="${FLOOR - 336}" fill="${wp.wains}"/>`;
     s += L(`M ${X0} 336 L ${X0 + XW} 336`, K.line, 4);
-    for (let x = -1470; x < W + 1500; x += 80) s += L(`M ${x} 346 L ${x} 406`, K.wainsLine, 3);
+    for (let x = -1470; x < W + 1500; x += 80) s += L(`M ${x} 346 L ${x} 406`, wp.line, 3);
     // floor
     s += `<rect x="${X0}" y="${FLOOR}" width="${XW}" height="${H - FLOOR + 400}" fill="${K.floor}"/>`;
     const rows = [420, 446, 476, 512, 552, 600];
@@ -317,20 +381,34 @@
     }
     s += `<rect x="${X0}" y="${FLOOR - 8}" width="${XW}" height="10" fill="${K.base}" stroke="${K.line}" stroke-width="4"/>`;
     // rug (terracotta oval, woven rings)
-    s += at(DX.mid, E(470, 546, 168, 40, K.red, 3) + `<ellipse cx="470" cy="546" rx="140" ry="29" fill="none" stroke="#e8806a" stroke-width="5" stroke-dasharray="14 10" stroke-linecap="round"/>`);
+    s += at(DX.mid, rugArt(paint(state, 'rug')));
     // morning sunbeam from the window
     s += `<path id="sunbeam" d="M 360 420 L 520 420 L 640 600 L 380 600 Z" fill="#fff6d2" opacity="0" transform="translate(${DX.mid} 0)"/>`;
     s += at(DX.mid, `<g class="item act" data-act="window" data-spot="sill" style="cursor:pointer">${windowArt()}</g>`);
-    s += at(DX.mid, curtains());
-    s += wallClock();
+    s += at(DX.mid, curtains(paint(state, 'curtains')));
+    s += wallClock(paint(state, 'clock'));
     s += portrait();
-    s += at(DX.right, lamp());
+    s += at(DX.right, lamp(paint(state, 'lamp')));
     return s;
   }
 
   // ---- Furniture (sorted with the cat by z) ------------------------------------------
 
-  function desk() {
+  function deskBody(p) {
+    p = p || SKINS.desk.base;
+    return (
+      R(40, 324, 196, 16, p.top, 4) +
+      R(48, 338, 180, 112, p.body, 3) +
+      R(60, 352, 74, 40, p.top, 3, 2.5) +
+      R(142, 352, 74, 40, p.top, 3, 2.5) +
+      R(60, 400, 156, 40, p.top, 3, 2.5) +
+      `<circle cx="97" cy="372" r="3" fill="${K.line}"/><circle cx="179" cy="372" r="3" fill="${K.line}"/><circle cx="138" cy="420" r="3" fill="${K.line}"/>` +
+      R(52, 448, 12, 14, p.feet, 2, 2.5) +
+      R(212, 448, 12, 14, p.feet, 2, 2.5)
+    );
+  }
+
+  function desk(p) {
     return (
       // TV: tap it to change the channel (the scene fills #tv-show).
       `<g class="tv act" data-act="tv" style="cursor:pointer">` +
@@ -342,30 +420,23 @@
       // power button: tap it to switch the TV off (tap the screen of an off TV to switch it on)
       `<g class="tv-power act" data-act="tvpower" role="button" tabindex="0" aria-label="TV power"><circle cx="72" cy="297" r="17" fill="none" pointer-events="all"/><circle id="tv-led" cx="72" cy="299.5" r="2.8" fill="#6fd16f" stroke="${K.line}" stroke-width="1"/></g>` +
       `</g>` +
-      // desk
-      R(40, 324, 196, 16, K.woodLight, 4) +
-      R(48, 338, 180, 112, K.wood, 3) +
-      R(60, 352, 74, 40, K.woodLight, 3, 2.5) +
-      R(142, 352, 74, 40, K.woodLight, 3, 2.5) +
-      R(60, 400, 156, 40, K.woodLight, 3, 2.5) +
-      `<circle cx="97" cy="372" r="3" fill="${K.line}"/><circle cx="179" cy="372" r="3" fill="${K.line}"/><circle cx="138" cy="420" r="3" fill="${K.line}"/>` +
-      R(52, 448, 12, 14, K.woodDark, 2, 2.5) +
-      R(212, 448, 12, 14, K.woodDark, 2, 2.5)
+      deskBody(p)
     );
   }
 
   // The green camping chair: black frame, olive canvas, wooden armrests.
-  function chair() {
+  function chair(p) {
+    p = p || SKINS.chair.base;
     const fr = K.line;
     return (
       `<g>` +
       L('M 596 300 Q 640 286 686 300', fr, 7) +
       L('M 594 296 L 596 418 M 686 296 L 684 418', fr, 6) +
-      S('M 598 308 L 684 308 L 682 370 L 600 370 Z', K.olive, 3) +
+      S('M 598 308 L 684 308 L 682 370 L 600 370 Z', p.canvas, 3) +
       `<rect x="660" y="318" width="14" height="9" rx="1.5" fill="#b8743e" stroke="${K.line}" stroke-width="1.5"/>` +
-      L('M 606 312 L 606 366 M 676 312 L 676 366', K.oliveDark, 2) +
+      L('M 606 312 L 606 366 M 676 312 L 676 366', p.seam, 2) +
       // seat
-      S('M 584 392 Q 640 412 698 392 L 700 404 Q 640 424 582 404 Z', K.olive, 3) +
+      S('M 584 392 Q 640 412 698 392 L 700 404 Q 640 424 582 404 Z', p.canvas, 3) +
       // legs (X-frame)
       L('M 586 404 L 690 482 M 696 404 L 592 482', fr, 6) +
       L('M 586 404 L 586 484 M 696 404 L 696 484', fr, 6) +
@@ -1025,9 +1096,9 @@
   function midLayer(state, seasons, opts) {
     const out = [];
     out.push({ z: 299, svg: noteBoard(!!(opts && opts.noteFresh) && guide(state, 'note'), opts && opts.noteText) });
-    out.push({ z: 460, svg: at(DX.tv, desk()) });
+    out.push({ z: 460, svg: at(DX.tv, desk(paint(state, 'desk'))) });
     out.push({ z: 463, svg: gachaMachine(!!(opts && opts.canSpin) && guide(state, 'gacha')) });
-    out.push({ z: 480, svg: at(DX.chair, `<g class="item act" data-act="chair" data-spot="chair" style="cursor:pointer">${chair()}</g>`) });
+    out.push({ z: 480, svg: at(DX.chair, `<g class="item act" data-act="chair" data-spot="chair" style="cursor:pointer">${chair(paint(state, 'chair'))}</g>`) });
     out.push({ z: 494, svg: at(DX.right, table(state)) });
     out.push({ z: 530, svg: at(DX.basket, bowls(state)) });
     out.push({ z: 500, svg: at(DX.basket, toyBasket()) });
@@ -1061,6 +1132,35 @@
     const [b, f] = art(0, 0);
     const vb = { tower: '-70 -150 140 160', mouse: '-40 -45 95 55', ball: '-35 -40 70 50', duck: '-35 -45 70 55', banana: '-50 -40 100 50', tunnel: '-75 -100 150 110' }[id] || '-75 -90 150 100';
     return `<svg viewBox="${vb}">${b}${f}</svg>`;
+  }
+
+  // A piece of furniture in one of its colours ('' or 'base' for the original), for menus.
+  function skinIcon(piece, colour) {
+    const p = SKINS[piece] && (SKINS[piece][colour] || SKINS[piece].base);
+    if (!p) return '';
+    switch (piece) {
+      case 'wall':
+        return (
+          `<svg viewBox="0 0 120 100"><rect x="6" y="6" width="108" height="88" rx="8" fill="${p.wall}" stroke="${K.line}" stroke-width="3.5"/>` +
+          `<rect x="7.75" y="7.75" width="104.5" height="22" rx="6" fill="${p.top}"/><rect x="7.75" y="62" width="104.5" height="30.25" rx="6" fill="${p.wains}"/>` +
+          L('M 7 62 L 113 62', K.line, 3.5) +
+          [26, 50, 74, 98].map((x) => L(`M ${x} 70 L ${x} 86`, p.line, 3)).join('') +
+          `<rect x="40" y="26" width="40" height="26" rx="3" fill="${K.woodLight}" stroke="${K.line}" stroke-width="3"/><rect x="47" y="32" width="26" height="14" fill="#cfe6e0"/></svg>`
+        );
+      case 'curtains':
+        return `<svg viewBox="236 26 388 400">${curtains(p)}</svg>`;
+      case 'clock':
+        return `<svg viewBox="-50 -52 100 100">${clockFace(p, true)}</svg>`;
+      case 'rug':
+        return `<svg viewBox="290 496 360 100">${rugArt(p)}</svg>`;
+      case 'chair':
+        return `<svg viewBox="556 276 166 214">${chair(p)}</svg>`;
+      case 'lamp':
+        return `<svg viewBox="806 70 88 76">${lamp(p).replace(' id="bulb"', '')}</svg>`;
+      case 'desk':
+        return `<svg viewBox="32 316 212 152">${deskBody(p)}</svg>`;
+    }
+    return '';
   }
 
   function giftIcon(id) {
@@ -1137,5 +1237,5 @@
 
   const TV = { CHANNELS, show: tvShow, static: tvStatic, off: tvOff };
 
-  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, mixHex, weatherArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
+  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, SKINS, skinIcon, mixHex, weatherArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
 })(globalThis.CatGame = globalThis.CatGame || {});

@@ -58,6 +58,7 @@
     { id: 'tvOff', icon: '🔌', name: 'Off Switch Appreciator', desc: 'Turn the TV off completely.', key: 'tvOff', goal: 1 },
     { id: 'window5', icon: '🪟', name: 'Window Shopper', desc: 'Tap the window 5 times. Nothing is for sale.', key: 'windowTap', goal: 5 },
     { id: 'arrange10', icon: '🧘', name: 'Feng Shui Master', desc: 'Rearrange the furniture 10 times.', key: 'arrange', goal: 10 },
+    { id: 'restyle5', icon: '🎨', name: 'Pink Is A Personality', desc: 'Change the colour of the furniture 5 times. The cat did not notice.', key: 'restyle', goal: 5 },
     { id: 'clearSpot', icon: '🧺', name: 'Marie Kondo', desc: 'Clear a spot entirely. Does it spark joy? No.', key: 'clearSpot', goal: 1 },
     { id: 'photo5', icon: '📷', name: 'Shutterbug', desc: 'Take 5 photos of the cat.', key: 'photo', goal: 5 },
     { id: 'photo25', icon: '🤳', name: 'Paparazzi', desc: 'Take 25 photos of the cat. It is not impressed.', key: 'photo', goal: 25 },
@@ -98,7 +99,8 @@
     { id: 'gacha10', icon: '🥚', name: 'Capsule Hoarder', desc: 'Spin the gachapon 10 times.', key: 'gacha', goal: 10 },
     { id: 'gachaDup', icon: '🔁', name: 'Not Again', desc: 'Get something from the gachapon you already had.', key: 'gachaDup', goal: 1 },
     { id: 'gachaCrown', icon: '👑', name: 'Royalty', desc: 'Win the tiny crown.', key: 'prize:extra:crown', goal: 1, secret: true },
-    { id: 'gachaAll', icon: '🧺', name: 'Gotta Catch Them All (Legally Distinct)', desc: 'Collect every prize in the gachapon.', calc: (s) => (s.gacha ? s.gacha.owned.length : 0), goal: 14 },
+    { id: 'gachaLavender', icon: '💜', name: 'Lavender Haze', desc: 'Win the lavender walls.', key: 'prize:skin:wall:lavender', goal: 1, secret: true },
+    { id: 'gachaAll', icon: '🧺', name: 'Gotta Catch Them All (Legally Distinct)', desc: 'Collect every prize in the gachapon.', calc: (s) => (s.gacha ? s.gacha.owned.length : 0), goal: 31 },
 
     // ---- Meta
     { id: 'meta5', icon: '🏆', name: 'Trophy Hoarder', desc: 'Unlock 5 achievements. Look at you go.', calc: (s) => unlockedCount(s, 'meta5'), goal: 5 },

@@ -90,14 +90,15 @@
     const canSpin = (s.coins || 0) >= G.Gacha.COST;
     const sig = JSON.stringify([s.room, s.bowl, seasons, (s.unseenUnlocks || []).length > 0, (s.achUnseen || 0) > 0, noteFresh, noteText, canSpin, s.flags.learned || null]);
     if (!force && sig === this.roomSig) return;
-    // The background holds the framed photo of the cat, so a new look redraws it too.
-    const coatSig = JSON.stringify(s.cat.coat || null);
+    // The background holds the framed photo of the cat and the wall, rug, curtains, clock and
+    // lamp, so a new look or a new colour from the gachapon redraws it too.
+    const coatSig = JSON.stringify([s.cat.coat || null, s.room.skins || null]);
     const seasonChanged = seasons.join() !== this.seasons.join() || !this.back.childNodes.length || coatSig !== this.coatSig;
     this.roomSig = sig;
     this.seasons = seasons;
     this.coatSig = coatSig;
     if (seasonChanged) {
-      this.back.innerHTML = A.background() + A.decorBack(seasons);
+      this.back.innerHTML = A.background(s) + A.decorBack(seasons);
       this.wxKey = null; // the window was redrawn empty
       this.lastLightMin = -1;
     }

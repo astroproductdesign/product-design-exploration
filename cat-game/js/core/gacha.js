@@ -1,5 +1,6 @@
 // The gachapon machine next to the TV: spend cat coins, get a random capsule with a new
-// accessory for the cat or a new toy for the room. No drawing here.
+// accessory for the cat, a new toy for the room, or a new colour for a piece of furniture.
+// No drawing here (the colours themselves are in RoomArt).
 (function (G) {
   'use strict';
 
@@ -7,7 +8,8 @@
   const COST = 5; // cat coins per spin
   const REFUND = 2; // back for a prize you already had
 
-  // kind: 'item' (a room item, see Catalog.ITEMS), 'extra' or 'collar' (see Coats).
+  // kind: 'item' (a room item, see Catalog.ITEMS), 'extra' or 'collar' (see Coats), or 'skin'
+  // (a new colour for a piece of furniture; ref is 'piece:colour').
   const PRIZES = [
     { id: 'mouse', kind: 'item', name: 'Toy mouse', rarity: 'common', line: 'It squeaks. The cat will pretend it is real.' },
     { id: 'ball', kind: 'item', name: 'Jingle ball', rarity: 'common', line: 'Guaranteed to roll under the sofa at 3am.' },
@@ -23,6 +25,23 @@
     { id: 'extra:sunnies', kind: 'extra', ref: 'sunnies', name: 'Cool sunglasses', rarity: 'rare', line: 'Too cool to look at you. As usual.' },
     { id: 'extra:crown', kind: 'extra', ref: 'crown', name: 'Tiny crown', rarity: 'legendary', line: 'Finally, the outfit matches the attitude.' },
     { id: 'collar:gold', kind: 'collar', ref: 'gold', name: 'Gold collar', rarity: 'legendary', line: 'Shiny. Expensive-looking. Absolutely deserved.' },
+    { id: 'skin:curtains:pink', kind: 'skin', ref: 'curtains:pink', name: 'Pink curtains', rarity: 'common', line: 'Everything looks rosier now. Literally.' },
+    { id: 'skin:curtains:sky', kind: 'skin', ref: 'curtains:sky', name: 'Sky blue curtains', rarity: 'common', line: 'For the days the real sky is grey.' },
+    { id: 'skin:clock:pink', kind: 'skin', ref: 'clock:pink', name: 'Pink clock', rarity: 'common', line: 'Time flies. Pinkly.' },
+    { id: 'skin:clock:mint', kind: 'skin', ref: 'clock:mint', name: 'Mint clock', rarity: 'common', line: 'Fresh minutes, every minute.' },
+    { id: 'skin:rug:blue', kind: 'skin', ref: 'rug:blue', name: 'Blue rug', rarity: 'common', line: 'Now the cat can sit in the sea.' },
+    { id: 'skin:rug:lavender', kind: 'skin', ref: 'rug:lavender', name: 'Lavender rug', rarity: 'common', line: 'Soft, purple and instantly covered in fur.' },
+    { id: 'skin:chair:red', kind: 'skin', ref: 'chair:red', name: 'Red chair cover', rarity: 'common', line: 'Same chair. More drama.' },
+    { id: 'skin:chair:navy', kind: 'skin', ref: 'chair:navy', name: 'Navy chair cover', rarity: 'common', line: 'Hides the cat hair. Does not hide the cat.' },
+    { id: 'skin:lamp:mint', kind: 'skin', ref: 'lamp:mint', name: 'Mint lamp', rarity: 'common', line: 'A cool glow for a cool cat.' },
+    { id: 'skin:lamp:pink', kind: 'skin', ref: 'lamp:pink', name: 'Pink lamp', rarity: 'common', line: 'Mood lighting, for a cat with moods.' },
+    { id: 'skin:curtains:polka', kind: 'skin', ref: 'curtains:polka', name: 'Polka-dot curtains', rarity: 'rare', line: 'The cat has counted every dot. Twice.' },
+    { id: 'skin:clock:midnight', kind: 'skin', ref: 'clock:midnight', name: 'Midnight clock', rarity: 'rare', line: 'Black and gold. Very serious about 3am zoomies.' },
+    { id: 'skin:desk:white', kind: 'skin', ref: 'desk:white', name: 'White TV desk', rarity: 'rare', line: 'Clean, minimal, about to be scratched.' },
+    { id: 'skin:desk:pink', kind: 'skin', ref: 'desk:pink', name: 'Pink TV desk', rarity: 'rare', line: 'The TV has never looked so sweet.' },
+    { id: 'skin:wall:peach', kind: 'skin', ref: 'wall:peach', name: 'Peach walls', rarity: 'rare', line: 'Warm, cosy, and a bit like living in a fruit.' },
+    { id: 'skin:wall:mint', kind: 'skin', ref: 'wall:mint', name: 'Mint walls', rarity: 'rare', line: 'Like living inside an ice cream. Good.' },
+    { id: 'skin:wall:lavender', kind: 'skin', ref: 'wall:lavender', name: 'Lavender walls', rarity: 'legendary', line: 'A whole new room. The cat sniffed one wall and approved.' },
   ];
   const BY_ID = {};
   for (const p of PRIZES) BY_ID[p.id] = p;
@@ -43,6 +62,37 @@
     const list = kind === 'extra' ? G.Coats.EXTRAS : G.Coats.COLLARS;
     const it = list.find((x) => x.id === ref);
     return !!it && (!it.gacha || owned(s, kind + ':' + ref));
+  }
+
+  // The pieces of furniture that can change colour, in the order the Room tray shows them.
+  const PIECES = [
+    { id: 'wall', name: 'Walls' },
+    { id: 'curtains', name: 'Curtains' },
+    { id: 'clock', name: 'Clock' },
+    { id: 'rug', name: 'Rug' },
+    { id: 'chair', name: 'Chair' },
+    { id: 'lamp', name: 'Lamp' },
+    { id: 'desk', name: 'TV desk' },
+  ];
+
+  // The colours won for one piece (not counting its original one).
+  function skinsFor(s, piece) {
+    return PRIZES.filter((p) => p.kind === 'skin' && p.ref.split(':')[0] === piece && owned(s, p.id)).map((p) => p.ref.split(':')[1]);
+  }
+
+  // The colour a piece is showing ('' is its original one).
+  function skinOf(s, piece) {
+    const v = (s.room && s.room.skins && s.room.skins[piece]) || '';
+    return v && owned(s, 'skin:' + piece + ':' + v) ? v : '';
+  }
+
+  // Paint a piece in a colour you've won, or back to its original ('' or null).
+  function setSkin(s, piece, colour) {
+    if (!s.room.skins) s.room.skins = {};
+    if (colour && !owned(s, 'skin:' + piece + ':' + colour)) return false;
+    if (colour) s.room.skins[piece] = colour;
+    else delete s.room.skins[piece];
+    return true;
   }
 
   function give(s, p) {
@@ -69,5 +119,5 @@
     return { ok: true, prize, dup, refund: dup ? REFUND : 0 };
   }
 
-  G.Gacha = { COST, REFUND, PRIZES, BY_ID, RARITY_LABEL, owned, canWear, spin };
+  G.Gacha = { COST, REFUND, PRIZES, BY_ID, RARITY_LABEL, PIECES, owned, canWear, skinsFor, skinOf, setSkin, spin };
 })(globalThis.CatGame = globalThis.CatGame || {});

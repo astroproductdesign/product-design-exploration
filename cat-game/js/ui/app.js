@@ -1023,7 +1023,7 @@
   // it there, or drag an item from the tray (or from one spot) onto a spot. Dropping a placed
   // item back on the tray puts it away.
 
-  const SPOT_NAMES = ['Left corner', 'By the chair', 'By the table'];
+  const SPOT_NAMES = ['Left corner', 'By the bowls', 'By the chair', 'By the table'];
   let decor = null; // {sel: the spot being filled}
   let drag = null;
 
@@ -1077,6 +1077,21 @@
     cards.push(
       `<button class="dcard ${state.room.perch ? 'placed' : ''} ${perchOk ? '' : 'locked'}" data-perch ${perchOk ? '' : 'aria-disabled="true"'}><span class="dcard-ico">${G.RoomArt.itemIcon('perch')}</span><b>Window hammock</b><small>${perchOk ? (state.room.perch ? 'On: tap to remove' : 'Tap to add') : `Bond Lv ${C.PERCH.level}`}</small></button>`
     );
+    // Furniture colours won from the gachapon: tap a piece to try its next colour.
+    let anySkin = false;
+    for (const piece of G.Gacha.PIECES) {
+      const won = G.Gacha.skinsFor(state, piece.id);
+      if (!won.length) continue;
+      anySkin = true;
+      const cur = G.Gacha.skinOf(state, piece.id);
+      cards.push(
+        `<button class="dcard skin ${cur ? 'placed' : ''}" data-skin="${piece.id}" aria-label="${esc(piece.name)}: ${esc(skinName(piece.id, cur))}. Tap for the next colour."><span class="dcard-ico">${G.RoomArt.skinIcon(piece.id, cur)}</span><b>${esc(piece.name)}</b><small>${esc(skinName(piece.id, cur))}</small></button>`
+      );
+    }
+    if (!anySkin)
+      cards.push(
+        `<button class="dcard skin locked" data-skin="" aria-disabled="true"><span class="dcard-ico">${G.RoomArt.skinIcon('clock', 'pink')}</span><b>New colours</b><small>Gachapon</small></button>`
+      );
     const tray = $('decorTray');
     const keep = tray.scrollLeft;
     tray.innerHTML = cards.join('');
@@ -1113,6 +1128,32 @@
     setSlot(i, null, true);
     ach('clearSpot');
     sound('pop');
+    drawDecor();
+  }
+
+  // 'Pink' for a colour won from the gachapon, 'Original' for the piece's own.
+  function skinName(piece, colour) {
+    if (!colour) return 'Original';
+    const p = G.Gacha.BY_ID['skin:' + piece + ':' + colour];
+    const piName = G.Gacha.PIECES.find((x) => x.id === piece).name.toLowerCase();
+    return p ? p.name.replace(new RegExp('\\s*(' + piName + '|' + piece + '|chair cover)$', 'i'), '') : colour;
+  }
+
+  // Paint a piece in a colour you've won (or back to its original) and redraw the room.
+  function useSkin(piece, colour) {
+    if (!G.Gacha.setSkin(state, piece, colour)) return;
+    ach('restyle');
+    sound('pop');
+    refreshRoom();
+    save(true);
+  }
+
+  // Original, then each colour won, then back to the original.
+  function cycleSkin(piece) {
+    if (!piece) return toast('New colours for the curtains, clock, rug, chair, lamp, TV desk and walls come out of the gachapon machine by the TV.');
+    const order = [''].concat(G.Gacha.skinsFor(state, piece));
+    const i = order.indexOf(G.Gacha.skinOf(state, piece));
+    useSkin(piece, order[(i + 1) % order.length]);
     drawDecor();
   }
 
@@ -1171,6 +1212,7 @@
         putItem(d.item, decor.sel);
       } else if (d.clear) clearSpot(decor.sel);
       else if (d.perch) togglePerch();
+      else if (d.skin != null) cycleSkin(d.skin);
       return;
     }
     const to = spotAt(e.clientX, e.clientY);
@@ -1202,6 +1244,7 @@
       G.Sound.unlock();
       if (c.hasAttribute('data-clear')) beginDecorPress(e, { clear: true });
       else if (c.hasAttribute('data-perch')) beginDecorPress(e, { perch: true });
+      else if (c.hasAttribute('data-skin')) beginDecorPress(e, { skin: c.getAttribute('data-skin') });
       else beginDecorPress(e, { item: c.getAttribute('data-item') });
     });
     $('scene').addEventListener('pointerdown', (e) => {
@@ -1560,9 +1603,11 @@
     </svg>`;
   }
 
-  // The prize's picture: the room item, or the cat's own face wearing the new accessory.
+  // The prize's picture: the room item, the piece of furniture in its new colour, or the cat's
+  // own face wearing the new accessory.
   function prizeIcon(p, uid) {
     if (p.kind === 'item') return G.RoomArt.itemIcon(p.id);
+    if (p.kind === 'skin') return G.RoomArt.skinIcon(...p.ref.split(':'));
     const acc = Object.assign({}, state.cat.accessory, p.kind === 'collar' ? { collar: p.ref } : { extra: p.ref });
     if (p.kind === 'collar') acc.extra = 'none'; // show off the collar on its own
     return `<svg viewBox="-64 -100 128 162">${G.CatArt.withCoat(state.cat.coat, () => G.CatArt.renderHead(uid, 'happy', 'normal', true), acc)}</svg>`;
@@ -1582,7 +1627,7 @@
     openModal(
       `<div class="gacha"><h2>Gachapon</h2>
         <div class="g-stage" id="gStage">${gachaSvg()}<div class="g-prize" id="gPrize"></div></div>
-        <div class="g-result" id="gResult"><p class="small">Every capsule holds something new for ${esc(state.cat.name)}: an accessory to wear, or a toy for the room.</p></div>
+        <div class="g-result" id="gResult"><p class="small">Every capsule holds something new for ${esc(state.cat.name)}: an accessory to wear, a toy for the room, or a new colour for the furniture.</p></div>
         <div class="g-bar"><span class="g-coins">${ICONS.coin}<b id="gCoins">${state.coins || 0}</b> cat coins</span><button class="btn primary" id="gSpin">Spin for ${cost} ${ICONS.coin}</button></div>
         <p class="small muted">Earn more coins by visiting every day (streaks pay extra), unlocking achievements and levelling up your bond.</p>
         <details class="g-list" id="gList">${gachaListHtml()}</details></div>`,
@@ -1622,11 +1667,27 @@
             stage.classList.add('s4');
             sound('reveal', p.rarity);
             if (p.rarity === 'legendary') setTimeout(() => sound('bell'), 600);
-            const wear = p.kind !== 'item';
+            const wear = p.kind === 'extra' || p.kind === 'collar';
+            const [piece, colour] = p.kind === 'skin' ? p.ref.split(':') : [];
+            const painted = p.kind === 'skin' && G.Gacha.skinOf(state, piece) === colour;
+            const action = wear
+              ? `<button class="btn" id="gWear">Put it on ${esc(state.cat.name)}</button>`
+              : p.kind === 'skin'
+                ? `<button class="btn" id="gPaint" ${painted ? 'disabled' : ''}>${painted ? 'Already in the room' : 'Use it in the room'}</button>`
+                : `<button class="btn" id="gPlace">Put it in the room</button>`;
             result.innerHTML =
               `<div class="g-card ${p.rarity}"><small>${G.Gacha.RARITY_LABEL[p.rarity]}${r.dup ? '' : ' · New!'}</small><b>${esc(p.name)}</b><p>${esc(p.line)}</p>` +
               (r.dup ? `<p class="small">You already had this one, so here are ${r.refund} coins back.</p>` : '') +
-              `<div class="row center">${wear ? `<button class="btn" id="gWear">Put it on ${esc(state.cat.name)}</button>` : `<button class="btn" id="gPlace">Put it in the room</button>`}</div></div>`;
+              `<div class="row center">${action}</div>` +
+              (p.kind === 'skin' ? `<p class="small muted">Switch colours any time from Room.</p>` : '') +
+              `</div>`;
+            const pt = result.querySelector('#gPaint');
+            if (pt)
+              pt.addEventListener('click', () => {
+                useSkin(piece, colour);
+                pt.textContent = 'Done! Take a look';
+                pt.disabled = true;
+              });
             const w = result.querySelector('#gWear');
             if (w)
               w.addEventListener('click', () => {
