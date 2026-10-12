@@ -279,8 +279,10 @@
     if (shownBond !== null && b - shownBond >= 0.5) floatUp($('bondRow'), `+${half(b - shownBond)} ♥`, 'bond');
     shownBond = b;
     const c = state.coins || 0;
-    if (shownCoins !== null && c !== shownCoins) piggyFloat((c > shownCoins ? '+' : '') + (c - shownCoins), c > shownCoins);
+    if (shownCoins !== null && c !== shownCoins) floatUp($('coinRow'), `${c > shownCoins ? '+' : ''}${c - shownCoins} 🪙`, c > shownCoins ? 'coin' : 'spent');
     shownCoins = c;
+    $('coinCount').textContent = c;
+    $('coinRow').setAttribute('aria-label', `${c} cat coin${c === 1 ? '' : 's'}: open the gachapon`);
     $('muteBtn').innerHTML = state.settings.muted ? ICONS.soundOff : ICONS.soundOn;
     $('muteBtn').setAttribute('aria-label', state.settings.muted ? 'Sound off' : 'Sound on');
     if (tipId) $('meterTip').innerHTML = meterTipHtml(tipId);
@@ -477,26 +479,6 @@
   }
   const half = (n) => String(Math.round(n * 2) / 2);
 
-  // Coins in or out: the piggy bank wiggles and the amount floats up from it.
-  function piggyFloat(text, gained) {
-    scene.renderRoom(false, now()); // the piggy's tag shows the new count
-    const pig = $('scene').querySelector('.piggy');
-    if (!pig) return;
-    pig.classList.remove('jiggle');
-    void pig.getBoundingClientRect();
-    pig.classList.add('jiggle');
-    const st = $('stage').getBoundingClientRect();
-    const r = pig.getBoundingClientRect();
-    if (r.right < st.left || r.left > st.right) return; // off screen (a phone looking elsewhere)
-    const f = document.createElement('span');
-    f.className = 'hud-float scene-float ' + (gained ? 'coin' : 'spent');
-    f.textContent = text + ' 🪙';
-    f.style.left = r.left - st.left + r.width / 2 + 'px';
-    f.style.top = r.top - st.top + 'px';
-    $('stage').append(f);
-    if (gained) sound('coin');
-    setTimeout(() => f.remove(), 1400);
-  }
   let shownBond = null;
   let shownCoins = null;
 
@@ -571,6 +553,20 @@
     };
     bondRow.addEventListener('click', showBond);
     bondRow.addEventListener('keydown', showBond);
+    // The coins under it open the gachapon.
+    $('coinIco').innerHTML = ICONS.coin;
+    const showGacha = (e) => {
+      e.stopPropagation();
+      if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      G.Sound.unlock();
+      closeFab();
+      sound('pop');
+      learn('gacha');
+      openGacha();
+    };
+    $('coinRow').addEventListener('click', showGacha);
+    $('coinRow').addEventListener('keydown', showGacha);
     $('doneBtn').addEventListener('click', () => finishPlay(false));
   }
 
@@ -772,7 +768,6 @@
       return;
     }
     if (target.closest('.gacha')) return void (sound('pop'), learn('gacha'), openGacha());
-    if (target.closest('.piggy')) return void (sound('pop'), openGacha());
     if (target.closest('.note')) return void (sound('pop'), learn('note'), openNote());
     if (target.closest('.diary')) return void (sound('pop'), learn('diary'), ach('diaryOpen'), openBook('diary'));
     if (target.closest('.portrait')) return void (sound('pop'), openSettings());
@@ -1589,7 +1584,7 @@
         <div class="g-stage" id="gStage">${gachaSvg()}<div class="g-prize" id="gPrize"></div></div>
         <div class="g-result" id="gResult"><p class="small">Every capsule holds something new for ${esc(state.cat.name)}: an accessory to wear, or a toy for the room.</p></div>
         <div class="g-bar"><span class="g-coins">${ICONS.coin}<b id="gCoins">${state.coins || 0}</b> cat coins</span><button class="btn primary" id="gSpin">Spin for ${cost} ${ICONS.coin}</button></div>
-        <p class="small muted">Your coins live in the piggy bank by the TV. Earn more by visiting every day (streaks pay extra), unlocking achievements and levelling up your bond.</p>
+        <p class="small muted">Earn more coins by visiting every day (streaks pay extra), unlocking achievements and levelling up your bond.</p>
         <details class="g-list" id="gList">${gachaListHtml()}</details></div>`,
       (box) => {
         const stage = box.querySelector('#gStage');

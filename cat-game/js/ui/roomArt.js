@@ -37,7 +37,6 @@
   const FLOOR = 420;
   const DX = { tv: 24, basket: 140, mid: 168, chair: 234, clock: 240, note: 252, right: 282 };
   const GACHA_X = 322; // the gachapon machine, between the TV desk and the toy basket
-  const PIGGY = { x: 248, y: 500 }; // the piggy bank of cat coins, on the floor by the TV cabinet
   const at = (dx, svg) => `<g transform="translate(${dx} 0)">${svg}</g>`;
   // The dotted rings that point things out show until you've used that thing once.
   const guide = (state, key) => !(state.flags && state.flags.learned && state.flags.learned[key]);
@@ -866,29 +865,6 @@
     },
   };
 
-  // The piggy bank: where your cat coins live. A little tag above it shows how many.
-  function piggyBank(coins) {
-    const { x, y } = PIGGY;
-    const n = Math.max(0, Math.floor(coins || 0));
-    let g = `<g class="piggy act" data-act="piggy" role="button" tabindex="0" aria-label="Piggy bank: ${n} cat coin${n === 1 ? '' : 's'}" style="cursor:pointer" transform="translate(${x} ${y}) scale(1.3) translate(${-x} ${-y})">`;
-    g += `<rect x="${x - 36}" y="${y - 76}" width="72" height="82" rx="10" fill="none" pointer-events="all"/>`;
-    g += `<g class="piggy-body">`;
-    g += R(x - 17, y - 10, 8, 11, '#e98aa0', 2, 2.2) + R(x + 9, y - 10, 8, 11, '#e98aa0', 2, 2.2);
-    g += L(`M ${x - 26} ${y - 22} q -9 -3 -6 -10 q 3 -6 -4 -8`, K.line, 4.4) + L(`M ${x - 26} ${y - 22} q -9 -3 -6 -10 q 3 -6 -4 -8`, '#e98aa0', 2.2);
-    g += E(x, y - 22, 27, 18, '#f4accc', 2.6);
-    g += S(`M ${x + 3} ${y - 37} L ${x + 9} ${y - 49} L ${x + 15} ${y - 36} Z`, '#e98aa0', 2);
-    g += E(x + 26, y - 21, 6, 7.5, '#f7c6d8', 2.2) + `<circle cx="${x + 24.5}" cy="${y - 22}" r="1.3" fill="${K.line}"/><circle cx="${x + 27.5}" cy="${y - 19}" r="1.3" fill="${K.line}"/>`;
-    g += `<circle cx="${x + 14}" cy="${y - 27}" r="2.2" fill="${K.line}"/>`;
-    g += `<ellipse cx="${x + 10}" cy="${y - 17}" rx="3.5" ry="2" fill="#f08cae" opacity=".7"/>`;
-    g += L(`M ${x - 9} ${y - 39} L ${x + 1} ${y - 39}`, K.line, 3.4);
-    g += `</g>`;
-    // the coin count
-    g += `<g class="piggy-tag"><rect x="${x - 24}" y="${y - 74}" width="48" height="22" rx="11" fill="#fff6d6" stroke="${K.line}" stroke-width="2.6"/>`;
-    g += `<circle cx="${x - 12}" cy="${y - 63}" r="7" fill="#ecbc44" stroke="${K.line}" stroke-width="2"/><circle cx="${x - 12}" cy="${y - 63}" r="3.6" fill="none" stroke="#c99a2c" stroke-width="1.2"/>`;
-    g += `<text x="${x + 9}" y="${y - 57.5}" text-anchor="middle" font-family="'M PLUS Rounded 1c', 'Nunito', system-ui, sans-serif" font-size="14" font-weight="900" fill="${K.line}">${n}</text></g>`;
-    return g + `</g>`;
-  }
-
   // The gachapon machine: a glass dome full of capsules on a pink stand, a coin slot, a crank
   // and the chute the capsule rolls out of. It glows when you have enough coins for a spin.
   function gachaMachine(canSpin) {
@@ -1050,7 +1026,6 @@
     const out = [];
     out.push({ z: 299, svg: noteBoard(!!(opts && opts.noteFresh) && guide(state, 'note'), opts && opts.noteText) });
     out.push({ z: 460, svg: at(DX.tv, desk()) });
-    out.push({ z: PIGGY.y, svg: piggyBank(state.coins) });
     out.push({ z: 463, svg: gachaMachine(!!(opts && opts.canSpin) && guide(state, 'gacha')) });
     out.push({ z: 480, svg: at(DX.chair, `<g class="item act" data-act="chair" data-spot="chair" style="cursor:pointer">${chair()}</g>`) });
     out.push({ z: 494, svg: at(DX.right, table(state)) });

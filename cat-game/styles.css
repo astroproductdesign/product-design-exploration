@@ -2999,35 +2999,42 @@ body.decorating #scene {
   }
 }
 
-/* ---- The piggy bank by the TV ---------------------------------------------------------------- */
+/* ---- Cat coins, under the bond level in the cat card ---------------------------------------- */
 
-.scene-float {
-  position: absolute;
-  top: 0;
-  transform: translate(-50%, 0);
+.nc-coins {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 11px;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  border-radius: 12px;
 }
-.piggy .piggy-body,
-.piggy .piggy-tag {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
+.nc-coins:hover {
+  background: rgba(236, 188, 68, 0.25);
 }
-.piggy.jiggle .piggy-body {
-  animation: piggyJiggle 0.6s ease-in-out;
+.nc-coins .ico,
+.nc-coins .ico svg {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
-.piggy.jiggle .piggy-tag {
-  animation: piggyTag 0.6s ease-out;
+.nc-coins small {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
 }
-@keyframes piggyJiggle {
-  20% { transform: rotate(-8deg) scale(1.05); }
-  45% { transform: rotate(7deg) scale(1.05); }
-  70% { transform: rotate(-4deg); }
-}
-@keyframes piggyTag {
-  30% { transform: scale(1.25); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .piggy.jiggle .piggy-body,
-  .piggy.jiggle .piggy-tag {
-    animation: none;
+@media (max-width: 640px) {
+  .nc-coins {
+    font-size: 12.5px;
+    gap: 5px;
+    padding-left: 8px;
+  }
+  .nc-coins .ico,
+  .nc-coins .ico svg {
+    width: 17px;
+    height: 17px;
   }
 }

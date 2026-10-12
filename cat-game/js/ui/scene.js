@@ -88,7 +88,7 @@
     const noteFresh = G.Notes.fresh(s, t);
     const noteText = G.Notes.today(s, t).text; // the sticky note shows its first words
     const canSpin = (s.coins || 0) >= G.Gacha.COST;
-    const sig = JSON.stringify([s.room, s.bowl, seasons, (s.unseenUnlocks || []).length > 0, (s.achUnseen || 0) > 0, noteFresh, noteText, canSpin, s.flags.learned || null, s.coins || 0]);
+    const sig = JSON.stringify([s.room, s.bowl, seasons, (s.unseenUnlocks || []).length > 0, (s.achUnseen || 0) > 0, noteFresh, noteText, canSpin, s.flags.learned || null]);
     if (!force && sig === this.roomSig) return;
     // The background holds the framed photo of the cat, so a new look redraws it too.
     const coatSig = JSON.stringify(s.cat.coat || null);
