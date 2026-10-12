@@ -340,6 +340,24 @@
     $('doneBtn').addEventListener('click', () => finishPlay(false));
   }
 
+  let lastTvTap = 0;
+
+  // Switch the TV off or on. Off: the screen goes dark, the cat stops "supervising" it.
+  function toggleTv() {
+    const off = state.settings.tv !== 'off';
+    state.settings.tv = off ? 'off' : 'on';
+    sound('tvClick');
+    if (off && state.activity.id === 'supervise') {
+      G.Sim.setActivity(state, now(), 'sit', 'desk');
+      scene.onActivity(state.activity);
+    }
+    scene.paintTv();
+    scene.updateLighting(now(), true);
+    toast(off ? 'TV off.' : 'TV on.', 1400);
+    updateHUD();
+    save(true);
+  }
+
   // Tap the TV: new channel. Fish, birds and mice make a watching cat keener to come and sit by it.
   function flipTv() {
     const ch = scene.changeChannel();
@@ -499,7 +517,15 @@
       scene.renderRoom(true, now());
       return;
     }
-    if (target.closest('.tv')) return flipTv();
+    if (target.closest('.tv-power')) return toggleTv();
+    if (target.closest('.tv')) {
+      // tap: next channel (or switch on); a quick double tap switches it off
+      const ms = performance.now();
+      const dbl = ms - lastTvTap < 380;
+      lastTvTap = ms;
+      if (state.settings.tv === 'off' || dbl) return toggleTv();
+      return flipTv();
+    }
     if (target.closest('.litter')) {
       apply(G.Interactions.scoop(state, now()));
       scene.renderRoom(true, now());

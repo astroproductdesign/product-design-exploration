@@ -119,7 +119,13 @@
     let light = G.Clock.lightingAt(t);
     // Lights off (tap the lamp): the room goes dark whatever the time of day.
     const off = this.getState().settings.lights === 'off' && !this.intro && !this.inGarden;
-    if (off) light = Object.assign({}, light, { tint: '#0c1236', alpha: Math.max(light.alpha, 0.66), beam: 0, lightsOff: true });
+    // How dark depends on the time: a morning room just dims, a night room goes properly dark.
+    // (The sun still shines through the window by day, so the sunbeam stays.)
+    if (off) {
+      const night = Math.max(0, Math.min(1, light.lamp));
+      light = Object.assign({}, light, { tint: A.mixHex('#2c3768', '#0c1236', night), alpha: Math.max(light.alpha, 0.2 + 0.46 * night), lightsOff: true });
+    }
+    light.tvOff = this.getState().settings.tv === 'off';
     A.applyLighting(this.svg, light);
     A.updateClock(this.svg, t);
     G.GardenArt.applyLighting(this.svg, light, A.mixHex);
@@ -298,7 +304,10 @@
     const host = this.mid.querySelector('#tv-show');
     if (!host) return;
     if (!this.tv) this.tv = { ch: Math.floor(Math.random() * A.TV.CHANNELS.length), next: performance.now() + 60000 + Math.random() * 60000 };
-    host.innerHTML = this.tv.static ? A.TV.static() : A.TV.show(A.TV.CHANNELS[this.tv.ch], number);
+    const off = this.getState().settings.tv === 'off';
+    host.innerHTML = off ? A.TV.off() : this.tv.static ? A.TV.static() : A.TV.show(A.TV.CHANNELS[this.tv.ch], number);
+    const led = this.mid.querySelector('#tv-led');
+    if (led) led.setAttribute('fill', off ? '#e0553f' : '#6fd16f');
   };
 
   // Flip to a different random channel. Returns the new channel's id.
@@ -322,7 +331,7 @@
   Scene.prototype.frame = function (dt, nowMs) {
     const cv = this.cv;
     if (!cv) return;
-    if (this.tv && nowMs > this.tv.next) this.changeChannel();
+    if (this.tv && nowMs > this.tv.next && this.getState().settings.tv !== 'off') this.changeChannel();
     if (this.intro) this.introIdle(nowMs);
     else if (this.play) this.updatePlay(dt, nowMs);
     else if (cv.moving) this.stepPath(dt);

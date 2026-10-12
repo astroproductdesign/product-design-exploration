@@ -25,11 +25,11 @@
       unlocked: C.unlocksAt(1),
       unseenUnlocks: [],
       favorites: { spots: {}, toys: {}, foods: {}, pets: {} },
-      flags: { breakfastDay: null, bondDay: today, litterTip: false, bowlTip: false, inviteTip: false },
+      flags: { breakfastDay: null, bondDay: today, litterTip: false, bowlTip: false, inviteTip: false, litterAt: 0 },
       log: [],
       journal: [],
       treasures: {},
-      settings: { muted: false, timeOffset: 0, seasonPreview: null, lights: 'on', lightsAt: 0 },
+      settings: { muted: false, timeOffset: 0, seasonPreview: null, lights: 'on', lightsAt: 0, tv: 'on' },
     };
   }
 

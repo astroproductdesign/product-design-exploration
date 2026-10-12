@@ -81,6 +81,9 @@
     }
     joy(s, 6);
     s.stats.fullness = clamp(s.stats.fullness + 3);
+    // Treats go straight through: the litter box is likelier soon after.
+    s.stats.litter = clamp(s.stats.litter + 8);
+    if (!s.flags.litterAt && r() < 0.55) s.flags.litterAt = t + 25000 + Math.floor(r() * 50000);
     const res = G.Progression.addBond(s, 1, t, 'feed');
     return withBond({ ok: true, say: R.pick(r, ['Crunch crunch', 'Nom!', 'Mrrp ♥']), eyes: 'happy', sound: 'crunch', hearts: 2, toast: R.pick(r, ['{name} woke right up for that. Crunch crunch.', 'Treat accepted. {name} would like another.', '{name} did a happy little tail flick.']) }, res);
   }

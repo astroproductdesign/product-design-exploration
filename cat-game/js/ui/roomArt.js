@@ -237,6 +237,8 @@
       R(56, 206, 136, 98, K.frame, 6, 3) +
       `<clipPath id="tv-clip"><rect x="64" y="214" width="120" height="82" rx="3"/></clipPath>` +
       `<g clip-path="url(#tv-clip)"><rect x="64" y="214" width="120" height="82" fill="#33414d"/><g id="tv-show" transform="translate(64 214)"></g></g>` +
+      // power button: tap it to switch the TV off (tap the screen of an off TV to switch it on)
+      `<g class="tv-power act" data-act="tvpower" role="button" tabindex="0" aria-label="TV power"><circle cx="72" cy="297" r="17" fill="none" pointer-events="all"/><circle id="tv-led" cx="72" cy="299.5" r="2.8" fill="#6fd16f" stroke="${K.line}" stroke-width="1"/></g>` +
       `</g>` +
       // desk
       R(40, 324, 196, 16, K.woodLight, 4) +
@@ -815,7 +817,9 @@
     const lamp = light.lightsOff ? 0 : light.lamp;
     $('lamp-glow').setAttribute('opacity', (lamp * 0.28).toFixed(3));
     $('bulb').setAttribute('opacity', (0.3 + lamp * 0.7).toFixed(3));
-    $('tv-glow').setAttribute('opacity', Math.max(0, Math.min(1, (light.alpha - 0.25) / 0.3)).toFixed(3));
+    // The TV lights up a dark room (not when it's off, and barely in a bright one).
+    const dim = light.lightsOff ? 0.25 + 0.75 * Math.max(0, Math.min(1, light.lamp)) : Math.max(0, Math.min(1, (light.alpha - 0.25) / 0.3));
+    $('tv-glow').setAttribute('opacity', (light.tvOff ? 0 : dim).toFixed(3));
     $('sunbeam').setAttribute('opacity', light.beam.toFixed(3));
     $('stars').setAttribute('opacity', light.isDay ? 0 : Math.min(1, light.lamp).toFixed(2));
     const sun = $('sun');
@@ -850,7 +854,12 @@
     );
   }
 
-  const TV = { CHANNELS, show: tvShow, static: tvStatic };
+  // The screen when the TV is switched off: dark glass with a faint reflection.
+  function tvOff() {
+    return box('#1c2026') + `<path d="M 0 0 L 52 0 L 0 58 Z" fill="#fff" opacity=".07"/><path d="M 78 82 L 120 36 L 120 82 Z" fill="#fff" opacity=".05"/>`;
+  }
+
+  const TV = { CHANNELS, show: tvShow, static: tvStatic, off: tvOff };
 
   G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, mixHex, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
 })(globalThis.CatGame = globalThis.CatGame || {});

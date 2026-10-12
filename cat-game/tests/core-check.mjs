@@ -227,6 +227,8 @@ test('a cat that says no shows what it would rather do', () => {
   s.stats.energy = 40;
   let r;
   for (let i = 0; i < 30; i++) {
+    // (reset each time: a yes would move the cat)
+    s.activity = { id: 'nap', spot: 'rug', key: 'rug', pose: 'curl', start: t0, end: t0 + 99 * HOUR, facing: 1 };
     r = G.Interactions.invite(s, t0 + i * 1000, 'slot0');
     if (r.thought) break;
   }
@@ -235,6 +237,56 @@ test('a cat that says no shows what it would rather do', () => {
   const q = G.Interactions.invite(s, t0, 'desk', { quiet: true, prefer: 'supervise' });
   assert.ok(!q.toast || q.say);
   assert.equal(typeof G.Sim.wouldRather(s, t0), 'string');
+});
+
+test('rest recovers energy quickly, and the litter box is visited often (more after food)', () => {
+  // a 3 hour nap away from the game fully restores a tired cat
+  const a = fresh();
+  a.stats.energy = 20;
+  a.activity = { id: 'nap', spot: 'rug', key: 'rug', pose: 'curl', start: t0, end: t0 + 3 * HOUR, facing: 1 };
+  G.Sim.advance(a, t0 + 3 * HOUR, { live: false });
+  assert.ok(a.stats.energy >= 60, 'after 3h of sleep: ' + a.stats.energy);
+  // while you watch, a short nap is a visible boost
+  const b = fresh();
+  b.stats.energy = 20;
+  b.activity = { id: 'nap', spot: 'rug', key: 'rug', pose: 'curl', start: t0, end: t0 + 4 * MIN, facing: 1, live: true };
+  G.Sim.advance(b, t0 + 4 * MIN, { live: true });
+  assert.ok(b.stats.energy >= 28, 'after 4 min of live sleep: ' + b.stats.energy);
+  // lights off: a little faster still
+  const c = fresh();
+  c.settings.lights = 'off';
+  c.stats.energy = 20;
+  c.activity = { id: 'nap', spot: 'rug', key: 'rug', pose: 'curl', start: t0, end: t0 + 3 * HOUR, facing: 1 };
+  G.Sim.advance(c, t0 + 3 * HOUR, { live: false });
+  assert.ok(c.stats.energy > a.stats.energy - 0.001);
+  // litter box: many visits in a day
+  const d = fresh();
+  d.bowl.portions = 99;
+  G.Sim.advance(d, t0 + 24 * HOUR, { live: false });
+  const visits = d.log.filter((e) => e.type === 'litter').length;
+  assert.ok(visits >= 6, 'visits in a day: ' + visits);
+  // after eating, a visit follows soon (live)
+  const e = fresh();
+  e.stats.fullness = 30;
+  e.stats.litter = 20;
+  e.bowl.portions = 3;
+  e.activity = { id: 'eat', spot: 'bowl', key: 'bowl', pose: 'crouch', start: t0, end: t0 + 15000, facing: 1, live: true };
+  G.Sim.advance(e, t0 + 6 * MIN, { live: true });
+  assert.ok(e.log.some((x) => x.type === 'litter'), 'went to the litter box soon after eating');
+  // treats nudge it too
+  const f = fresh();
+  const before = f.stats.litter;
+  G.Interactions.treat(f, t0);
+  assert.ok(f.stats.litter > before);
+});
+
+test('TV off: the cat does not supervise a dark screen; old saves have the TV on', () => {
+  const s = fresh();
+  assert.equal(s.settings.tv, 'on');
+  s.settings.tv = 'off';
+  for (let i = 0; i < 40; i++) assert.notEqual(G.Sim.chooseNext(s, t0 + i * 997 * 1000, true).id, 'supervise');
+  delete s.settings.tv;
+  assert.equal(G.State.migrate(s).settings.tv, 'on');
 });
 
 test('daily routine follows the clock (naps at night, sunbathing only in the day)', () => {

@@ -25,7 +25,7 @@
     knead: { tags: ['knead'], w: { dawn: 0.3, morning: 0.6, afternoon: 0.8, evening: 1, night: 0.6 }, dur: [5, 12], live: [20, 40], joy: 0.04 },
     roll: { tags: ['roll'], w: { dawn: 0.3, morning: 1, afternoon: 1, evening: 1.4, night: 0.2 }, dur: [3, 8], live: [14, 28], joy: 0.04 },
     laptop: { tags: ['laptop'], w: { dawn: 0.2, morning: 1, afternoon: 1, evening: 1.2, night: 0.3 }, dur: [15, 40], live: [40, 100], drowsy: true },
-    supervise: { tags: ['tv'], w: { dawn: 0.2, morning: 0.8, afternoon: 0.8, evening: 1.4, night: 0.3 }, dur: [10, 30], live: [40, 90] },
+    supervise: { need: (s) => s.settings.tv !== 'off', tags: ['tv'], w: { dawn: 0.2, morning: 0.8, afternoon: 0.8, evening: 1.4, night: 0.3 }, dur: [10, 30], live: [40, 90] },
     gift: { tags: ['front'], w: { dawn: 0.25, morning: 0.12, afternoon: 0.1, evening: 0.2, night: 0.2 }, dur: [2, 3], live: [10, 14], need: (s) => s.room.gifts.length < 3 },
     meow: { tags: ['front'], w: { dawn: 0.6, morning: 0.4, afternoon: 0.3, evening: 0.6, night: 0.4 }, dur: [1, 3], live: [6, 10] },
     sit: { tags: ['sit'], w: { dawn: 0.8, morning: 1, afternoon: 1, evening: 1, night: 0.6 }, dur: [5, 20], live: [20, 50] },
@@ -44,7 +44,7 @@
   };
 
   // How full the box can get before the cat stops using it properly.
-  const DIRTY_AT = 4;
+  const DIRTY_AT = 5;
   const MAX_CLUMPS = 6;
   const MAX_MESS = 2;
   const isDirty = (s) => s.room.litter.clumps.length >= DIRTY_AT || s.room.litter.mess > 0;
@@ -203,9 +203,12 @@
     }
     if (st.fullness < 22 && r() < 0.45) return make(s, t, 'askFood', bowl, r, live);
     // Nature calls. A dirty box puts the cat off: sometimes it goes beside the box instead.
-    if (st.litter >= 60 && r() < Math.min(0.9, 0.3 + (st.litter - 60) / 60)) {
+    // It also goes soon after a meal or a treat (litterAt is set when it eats).
+    const urge = !!s.flags.litterAt && t >= s.flags.litterAt;
+    if (urge) s.flags.litterAt = 0;
+    if ((urge && st.litter >= 15) || (st.litter >= 55 && r() < Math.min(0.9, 0.35 + (st.litter - 55) / 55))) {
       const kind = r() < 0.6 ? 'pee' : 'poop';
-      const accident = isDirty(s) && s.room.litter.mess < MAX_MESS && r() < 0.4;
+      const accident = isDirty(s) && s.room.litter.mess < MAX_MESS && r() < 0.3;
       const where = spots.find((sp) => sp.id === (accident ? 'litterOut' : 'litter'));
       return make(s, t, 'litter', where, r, live, { kind, accident });
     }
@@ -310,18 +313,23 @@
 
   // ---- Playing time forward -------------------------------------------------
 
-  function drift(s, a, mins) {
+  function drift(s, a, mins, live) {
     if (mins <= 0) return;
     const st = s.stats;
     const b = BEHAVIORS[a.id] || {};
     st.fullness = clamp(st.fullness - (b.sleep ? 0.045 : 0.07) * mins);
-    const dEnergy = b.sleep ? 0.35 : b.drowsy ? 0.08 : b.active ? -0.25 : -0.07;
+    // Rest recovers energy quickly. While you're watching, naps are short, so they recover much
+    // faster per minute (a few minutes of sleep is a visible boost). Dark and cosy helps a little.
+    let dEnergy = b.sleep ? 0.5 : b.drowsy ? 0.14 : b.active ? -0.25 : -0.07;
+    if (live && b.sleep) dEnergy = 2.4;
+    else if (live && b.drowsy) dEnergy = 0.7;
+    if (dEnergy > 0 && s.settings.lights === 'off') dEnergy *= 1.3;
     st.energy = clamp(st.energy + dEnergy * mins);
     // Happiness eases back toward a calm middle. Hungry = a little grumpy,
     // never miserable.
     // A dirty litter box makes a cat a bit grumpy too.
     const baseline = st.fullness < 20 ? 28 : isDirty(s) ? 40 : 50;
-    st.litter = clamp(st.litter + 0.2 * mins);
+    st.litter = clamp(st.litter + 0.4 * mins);
     st.happiness += (b.joy || 0) * mins;
     st.happiness = baseline + (st.happiness - baseline) * Math.exp(-0.0012 * mins);
     st.happiness = clamp(st.happiness, 12, 100);
@@ -342,7 +350,10 @@
           const f = G.Catalog.FOODS[s.bowl.food];
           s.bowl.portions -= 1;
           st.fullness = clamp(st.fullness + f.fill);
-          st.litter = clamp(st.litter + 10);
+          st.litter = clamp(st.litter + 14);
+          // Soon after a meal it needs the toilet: about half a minute when you're watching, up to an hour and a half away.
+          const rr = R.rng(R.hash(s.seed, 'poo', a.end));
+          s.flags.litterAt = a.end + (a.live ? R.between(rr, 20, 50) * 1000 : R.between(rr, 20, 90) * MIN);
           st.happiness = clamp(st.happiness + f.joy, 12, 100);
           G.State.log(s, Object.assign(base, { food: s.bowl.food, byYou: !!a.byYou, yell: !!a.yell }));
         }
@@ -353,7 +364,7 @@
         if (a.accident) L.mess = Math.min(MAX_MESS, L.mess + 1);
         else L.clumps.push(a.kind);
         if (L.clumps.length > MAX_CLUMPS) L.clumps.length = MAX_CLUMPS;
-        st.litter = 6;
+        st.litter = 4;
         st.happiness = clamp(st.happiness + 2, 12, 100);
         G.State.log(s, Object.assign(base, { kind: a.kind, accident: !!a.accident }));
         break;
@@ -393,7 +404,7 @@
       const a = s.activity;
       const segEnd = Math.min(a.end, to);
       if (segEnd > s.lastSimAt) {
-        drift(s, a, (segEnd - s.lastSimAt) / MIN);
+        drift(s, a, (segEnd - s.lastSimAt) / MIN, live);
         s.lastSimAt = segEnd;
       }
       if (a.end > to) break;
