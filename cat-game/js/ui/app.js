@@ -254,6 +254,7 @@
     setCaption(play ? (play.joined ? nm('{name} is in hunting mode! Wiggle the toy.') : nm('Wiggle the toy to tempt {name}…')) : nm(G.Sim.describe(state)));
     $('muteBtn').innerHTML = state.settings.muted ? ICONS.soundOff : ICONS.soundOn;
     $('muteBtn').setAttribute('aria-label', state.settings.muted ? 'Sound off' : 'Sound on');
+    if (tipId) $('meterTip').innerHTML = meterTipHtml(tipId);
     updateFollowBtn();
   }
 
@@ -261,6 +262,86 @@
   function setCaption(text) {
     const el = $('status');
     if (el.textContent !== text) el.textContent = text;
+  }
+
+  // Hover (or tap) a meter to read its exact level. Energy also says how long until it is full.
+  const METERS = {
+    mFull: { name: 'Tummy', get: (st) => st.fullness },
+    mEnergy: { name: 'Energy', get: (st) => st.energy },
+    mHappy: { name: 'Happiness', get: (st) => st.happiness },
+  };
+  let tipId = null;
+  let tipTimer = 0;
+
+  function minutesText(m) {
+    m = Math.max(1, Math.round(m));
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    return r ? `${h}h ${r}m` : `${h}h`;
+  }
+
+  function meterTipHtml(id) {
+    const st = state.stats;
+    const v = Math.round(METERS[id].get(st));
+    let more = '';
+    if (id === 'mEnergy') {
+      if (st.energy >= 99.5) more = 'Fully rested';
+      else {
+        const rate = G.Sim.energyRate(state, state.activity, true);
+        const left = 100 - st.energy;
+        if (rate > 0) more = `Full in about ${minutesText(left / rate)}`;
+        else {
+          // Awake: it only fills while napping, so say how long a nap would take.
+          const nap = G.Sim.energyRate(state, { id: 'nap' }, true);
+          more = `Fills while napping: about ${minutesText(left / nap)} of sleep`;
+        }
+      }
+    }
+    return `${METERS[id].name} ${v}%${more ? `<small>${more}</small>` : ''}`;
+  }
+
+  function positionMeterTip() {
+    const tip = $('meterTip');
+    const meter = $(tipId).closest('.meter');
+    const host = tip.offsetParent || tip.parentElement;
+    const hr = host.getBoundingClientRect();
+    const mr = meter.getBoundingClientRect();
+    const half = tip.offsetWidth / 2;
+    const x = Math.max(half + 4, Math.min(hr.width - half - 4, mr.left - hr.left + mr.width / 2));
+    tip.style.left = x + 'px';
+  }
+
+  function showMeterTip(id, ms) {
+    tipId = id;
+    const tip = $('meterTip');
+    tip.innerHTML = meterTipHtml(id);
+    tip.hidden = false;
+    positionMeterTip();
+    clearTimeout(tipTimer);
+    tipTimer = ms ? setTimeout(hideMeterTip, ms) : 0;
+  }
+
+  function hideMeterTip() {
+    clearTimeout(tipTimer);
+    tipTimer = 0;
+    tipId = null;
+    $('meterTip').hidden = true;
+  }
+
+  function bindMeterTips() {
+    for (const id of Object.keys(METERS)) {
+      const m = $(id).closest('.meter');
+      m.tabIndex = 0;
+      m.addEventListener('mouseenter', () => {
+        if (!matchMedia('(hover: none)').matches) showMeterTip(id);
+      });
+      m.addEventListener('mouseleave', hideMeterTip);
+      m.addEventListener('focus', () => showMeterTip(id));
+      m.addEventListener('blur', hideMeterTip);
+      // No hover on a touch screen: a tap shows it for a few seconds.
+      m.addEventListener('click', () => (tipId === id && !tipTimer ? null : showMeterTip(id, 3500)));
+    }
   }
 
   function setMeter(id, v) {
@@ -344,6 +425,7 @@
     $('mEnergyIco').innerHTML = ICONS.energy;
     $('mHappyIco').innerHTML = ICONS.happy;
     $('bondIco').innerHTML = ICONS.heart;
+    bindMeterTips();
     $('muteBtn').addEventListener('click', () => {
       state.settings.muted = !state.settings.muted;
       G.Sound.setMuted(state.settings.muted);

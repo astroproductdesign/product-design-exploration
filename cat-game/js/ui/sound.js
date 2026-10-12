@@ -1,5 +1,7 @@
-// Soft sound effects, synthesised in the browser (no audio files needed).
-// Purring, meows, crunching, bird chirps, the collar bell, the camera.
+// Sound effects. The cat's meow, hiss and purr are recordings (js/sound/); if a file
+// can't be loaded (still downloading, or the page is opened straight from disk) the old
+// synthesised versions step in. Crunching, bird chirps, the collar bell and the camera
+// are synthesised in the browser.
 (function (G) {
   'use strict';
 
@@ -7,6 +9,15 @@
   let master = null;
   let muted = false;
   let purrNode = null;
+
+  // Recordings: where to find them, how loud to play them (they were recorded quietly),
+  // and how much silence to skip at the start.
+  const SAMPLES = {
+    meow: { url: 'js/sound/cat-meow-default.mp3', gain: 2.5, skip: 0.1 },
+    hiss: { url: 'js/sound/cat-meow-hiss.mp3', gain: 3.5, skip: 0.03 },
+    purr: { url: 'js/sound/cat-meow-purring.mp3', gain: 1.4, skip: 0.1 },
+  };
+  const buffers = {};
 
   function ac() {
     if (muted) return null;
@@ -17,9 +28,58 @@
       master = ctx.createGain();
       master.gain.value = 0.5;
       master.connect(ctx.destination);
+      loadSamples(ctx);
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
+  }
+
+  // The files start downloading as soon as the page loads; they're decoded once there is an
+  // audio context (which browsers only allow after the first tap).
+  const downloads = {};
+  if (typeof fetch === 'function') {
+    for (const [name, sm] of Object.entries(SAMPLES)) {
+      downloads[name] = fetch(sm.url)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+        .catch(() => null);
+    }
+  }
+
+  function loadSamples(c) {
+    for (const name of Object.keys(downloads)) {
+      downloads[name]
+        .then((data) => (data ? c.decodeAudioData(data) : null))
+        .then((buf) => {
+          if (buf) buffers[name] = buf;
+        })
+        .catch(() => {
+          /* the synthesised sound is used instead */
+        });
+    }
+  }
+
+  // Play part of a recording through the master volume; returns the gain node and source.
+  function playSample(name, opts) {
+    const buf = buffers[name];
+    if (!buf) return null;
+    const sm = SAMPLES[name];
+    const c = ctx;
+    const o = opts || {};
+    const t = c.currentTime;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = o.rate || 1;
+    const g = c.createGain();
+    g.gain.value = sm.gain * (o.gain || 1);
+    src.connect(g).connect(master);
+    src.start(t, o.offset === undefined ? sm.skip : o.offset);
+    if (o.maxSecs) {
+      // cut short with a quick fade so it doesn't click
+      g.gain.setValueAtTime(g.gain.value, t + o.maxSecs - 0.08);
+      g.gain.linearRampToValueAtTime(0.0001, t + o.maxSecs);
+      src.stop(t + o.maxSecs + 0.02);
+    }
+    return { src, gain: g };
   }
 
   function noiseBuffer(c, secs) {
@@ -35,7 +95,7 @@
     g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
   }
 
-  function meow(kind) {
+  function meowSynth(kind) {
     const c = ac();
     if (!c) return;
     const t = c.currentTime;
@@ -59,7 +119,7 @@
     o.stop(t + len + 0.1);
   }
 
-  function purr(secs) {
+  function purrSynth(secs) {
     const c = ac();
     if (!c) return;
     stopPurr();
@@ -93,13 +153,80 @@
 
   function stopPurr() {
     if (!purrNode) return;
+    const n = purrNode;
+    purrNode = null;
     try {
-      purrNode.src.stop();
-      purrNode.lfo.stop();
+      if (n.out && ctx) {
+        // recording: fade out rather than cut
+        const now = ctx.currentTime;
+        n.out.gain.cancelScheduledValues(now);
+        n.out.gain.setValueAtTime(n.out.gain.value, now);
+        n.out.gain.linearRampToValueAtTime(0.0001, now + 0.12);
+        n.src.stop(now + 0.15);
+      } else {
+        n.src.stop();
+        n.lfo.stop();
+      }
     } catch {
       /* already stopped */
     }
-    purrNode = null;
+  }
+
+  // ---- The cat's voice: recordings first, synthesis as the fallback ---------------------
+
+  function meow(kind) {
+    if (!ac()) return;
+    const v = kind === 'short' ? { rate: 1.25 + Math.random() * 0.15, maxSecs: 0.5 } : { rate: 0.93 + Math.random() * 0.14 };
+    if (!playSample('meow', v)) meowSynth(kind);
+  }
+
+  function hiss() {
+    if (!ac()) return;
+    if (!playSample('hiss', { rate: 0.96 + Math.random() * 0.08 })) hissSynth();
+  }
+
+  // A purr lasts `secs`. Asking again while one is playing keeps it going instead of restarting it.
+  function purr(secs) {
+    const c = ac();
+    if (!c) return;
+    const buf = buffers.purr;
+    if (!buf) return purrSynth(secs);
+    const dur = secs || 2.2;
+    const now = c.currentTime;
+    const fade = 0.6;
+    const hold = (g, from, end) => {
+      g.gain.cancelScheduledValues(from);
+      g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), from);
+      g.gain.linearRampToValueAtTime(1, from + 0.15);
+      g.gain.setValueAtTime(1, Math.max(from + 0.15, end - fade));
+      g.gain.linearRampToValueAtTime(0.0001, end);
+    };
+    if (purrNode && purrNode.out && now < purrNode.end - 0.2) {
+      purrNode.end = now + dur;
+      hold(purrNode.out, now, purrNode.end);
+      purrNode.src.stop(purrNode.end + 0.05);
+      return;
+    }
+    stopPurr();
+    const sm = SAMPLES.purr;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    // loop the steady middle, starting somewhere different each time
+    const a = 0.4;
+    const b = buf.duration - 0.4;
+    src.loop = true;
+    src.loopStart = a;
+    src.loopEnd = b;
+    const out = c.createGain();
+    out.gain.value = 0.0001;
+    const level = c.createGain();
+    level.gain.value = sm.gain;
+    src.connect(out).connect(level).connect(master);
+    src.start(now, a + Math.random() * (b - a - 0.5));
+    const end = now + dur;
+    hold(out, now, end);
+    src.stop(end + 0.05);
+    purrNode = { src, out, end };
   }
 
   function burst(c, t, len, freq, peak) {
@@ -122,7 +249,7 @@
     for (let i = 0; i < 5; i++) burst(c, t + i * 0.13 + Math.random() * 0.04, 0.06, 1800 + Math.random() * 1500, 0.5);
   }
 
-  function hiss() {
+  function hissSynth() {
     const c = ac();
     if (!c) return;
     burst(c, c.currentTime, 0.35, 5000, 0.25);

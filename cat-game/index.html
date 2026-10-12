@@ -26,9 +26,10 @@
           </span>
         </button>
         <div class="meters" aria-label="How your cat is doing">
-          <div class="meter" title="Tummy"><span class="ico" id="mFullIco"></span><i><b id="mFull"></b></i></div>
-          <div class="meter" title="Energy"><span class="ico" id="mEnergyIco"></span><i><b id="mEnergy"></b></i></div>
-          <div class="meter" title="Happiness"><span class="ico" id="mHappyIco"></span><i><b id="mHappy"></b></i></div>
+          <div class="meter" aria-label="Tummy"><span class="ico" id="mFullIco"></span><i><b id="mFull"></b></i></div>
+          <div class="meter" aria-label="Energy"><span class="ico" id="mEnergyIco"></span><i><b id="mEnergy"></b></i></div>
+          <div class="meter" aria-label="Happiness"><span class="ico" id="mHappyIco"></span><i><b id="mHappy"></b></i></div>
+          <div class="meter-tip" id="meterTip" role="status" hidden></div>
         </div>
         <div class="right">
           <div class="clock"><b id="clockTime"></b><small id="clockPhase"></small></div>

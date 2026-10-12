@@ -313,6 +313,16 @@
 
   // ---- Playing time forward -------------------------------------------------
 
+  // Energy points gained (or lost) per minute for an activity.
+  function energyRate(s, a, live) {
+    const b = BEHAVIORS[a.id] || {};
+    let d = b.sleep ? 0.5 : b.drowsy ? 0.14 : b.active ? -0.25 : -0.07;
+    if (live && b.sleep) d = 2.4;
+    else if (live && b.drowsy) d = 0.7;
+    if (d > 0 && s.settings.lights === 'off') d *= 1.3;
+    return d;
+  }
+
   function drift(s, a, mins, live) {
     if (mins <= 0) return;
     const st = s.stats;
@@ -320,11 +330,7 @@
     st.fullness = clamp(st.fullness - (b.sleep ? 0.045 : 0.07) * mins);
     // Rest recovers energy quickly. While you're watching, naps are short, so they recover much
     // faster per minute (a few minutes of sleep is a visible boost). Dark and cosy helps a little.
-    let dEnergy = b.sleep ? 0.5 : b.drowsy ? 0.14 : b.active ? -0.25 : -0.07;
-    if (live && b.sleep) dEnergy = 2.4;
-    else if (live && b.drowsy) dEnergy = 0.7;
-    if (dEnergy > 0 && s.settings.lights === 'off') dEnergy *= 1.3;
-    st.energy = clamp(st.energy + dEnergy * mins);
+    st.energy = clamp(st.energy + energyRate(s, a, live) * mins);
     // Happiness eases back toward a calm middle. Hungry = a little grumpy,
     // never miserable.
     // A dirty litter box makes a cat a bit grumpy too.
@@ -456,5 +462,5 @@
     return (STATUS[a.id] || '{name} is being a cat.').replace('{at}', at);
   }
 
-  G.Sim = { BEHAVIORS, isDirty, spotsOf, spotInfo, chooseNext, behaviorAt, wouldRather, autoDawn, advance, clampToLive, setActivity, isSleeping, describe, drift, clamp };
+  G.Sim = { BEHAVIORS, isDirty, spotsOf, spotInfo, chooseNext, behaviorAt, wouldRather, autoDawn, advance, clampToLive, setActivity, isSleeping, describe, drift, energyRate, clamp };
 })(globalThis.CatGame = globalThis.CatGame || {});
