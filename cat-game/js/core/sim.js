@@ -6,6 +6,7 @@
 
   const { MIN, DAY } = G.Clock;
   const R = G.Random;
+  const HOUR_MS = 60 * 60 * 1000;
 
   // w: how likely at each time of day. dur: minutes when you're away.
   // live: seconds when you're watching (so the cat feels busy on screen).
@@ -218,6 +219,8 @@
       if (!spots.some((sp) => b.tags.some((tag) => sp.tags.includes(tag)))) continue;
       if (b.sleep) w *= st.energy < 35 ? 2.2 : st.energy > 85 ? 0.35 : 1;
       if (b.active) w *= Math.max(0.15, st.energy / 60);
+      // Lights off: cosy, so more napping and less racing about.
+      if (s.settings.lights === 'off') w *= b.sleep ? 2.2 : b.active ? 0.6 : 1;
       if (b.sleep && live && ph !== 'night') w *= 0.55;
       if (chaos && CHAOS[id]) w *= CHAOS[id];
       if (st.fullness < 20 && (id === 'stare' || id === 'meow')) w *= 2;
@@ -251,6 +254,58 @@
     if (id === 'gift') extra.gift = pickGift(s, r);
     if (chaos) extra.chaos = true;
     return make(s, t, id, spot, r, live, extra);
+  }
+
+
+  // What the cat would do at one particular spot right now (when you tap an item to invite it
+  // over). Weighted by the time of day and how it feels, like chooseNext, but only for what
+  // that spot is good for. Returns a behaviour id, or null if nothing fits right now.
+  function behaviorAt(s, t, spotId, prefer) {
+    const spot = spotInfo(s, spotId);
+    if (!spot) return null;
+    const r = R.rng(R.hash(s.seed, 'at', t, spotId));
+    const ph = G.Clock.phaseAt(t);
+    const st = s.stats;
+    const entries = [];
+    for (const [id, b] of Object.entries(BEHAVIORS)) {
+      if (!b.w || b.w[ph] === 0) continue;
+      if (!b.tags.some((tag) => spot.tags.includes(tag))) continue;
+      if (b.need && !b.need(s)) continue;
+      let w = Math.max(b.w[ph], 0.3);
+      if (b.sleep) w *= st.energy < 35 ? 2.2 : st.energy > 85 ? 0.35 : 1;
+      if (b.active) w *= Math.max(0.15, st.energy / 60);
+      if (s.settings.lights === 'off') w *= b.sleep ? 2.2 : b.active ? 0.6 : 1;
+      w *= quirkMul('behaviors', id);
+      entries.push([id, w]);
+    }
+    if (prefer && entries.some(([id]) => id === prefer)) return prefer;
+    return R.weighted(r, entries) || null;
+  }
+
+  // What the cat would rather be doing right now (for a thought bubble when it says no).
+  // Works on a throwaway copy so asking never changes the real cat.
+  function wouldRather(s, t) {
+    const copy = Object.assign({}, s, { flags: Object.assign({}, s.flags) });
+    return chooseNext(copy, t, true).id;
+  }
+
+  // Lights left off through the night come back on at dawn by themselves, and the cat slept
+  // well. Called wherever time moves on (live and while you're away).
+  function autoDawn(s, t) {
+    if (s.settings.lights !== 'off') return false;
+    const d = new Date(t);
+    d.setHours(7, 0, 0, 0);
+    const dawn = d.getTime();
+    const since = s.settings.lightsAt || 0;
+    if (t < dawn || since > dawn - HOUR_MS) return false;
+    const rested = t - since >= 6 * HOUR_MS;
+    s.settings.lights = 'on';
+    if (rested) {
+      s.stats.energy = clamp(s.stats.energy + 8);
+      s.stats.happiness = clamp(s.stats.happiness + 3, 12, 100);
+    }
+    G.State.log(s, { t, type: 'dawnLights', rested });
+    return true;
   }
 
   // ---- Playing time forward -------------------------------------------------
@@ -344,6 +399,7 @@
       if (a.end > to) break;
       complete(s, a);
       G.Progression.passiveDay(s, a.end);
+      autoDawn(s, a.end);
       const next = chooseNext(s, a.end, live);
       begin(s, next);
       s.activity = next;
@@ -389,5 +445,5 @@
     return (STATUS[a.id] || '{name} is being a cat.').replace('{at}', at);
   }
 
-  G.Sim = { BEHAVIORS, isDirty, spotsOf, spotInfo, chooseNext, advance, clampToLive, setActivity, isSleeping, describe, drift, clamp };
+  G.Sim = { BEHAVIORS, isDirty, spotsOf, spotInfo, chooseNext, behaviorAt, wouldRather, autoDawn, advance, clampToLive, setActivity, isSleeping, describe, drift, clamp };
 })(globalThis.CatGame = globalThis.CatGame || {});

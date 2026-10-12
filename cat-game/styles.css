@@ -2073,3 +2073,21 @@ body.decorating #scene {
     width: 88px;
   }
 }
+
+/* Lights going on and off fade rather than snap. */
+#tint,
+#lamp-glow,
+#tv-glow,
+#bulb,
+#sunbeam {
+  transition: opacity 0.7s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  #tint,
+  #lamp-glow,
+  #tv-glow,
+  #bulb,
+  #sunbeam {
+    transition: none;
+  }
+}

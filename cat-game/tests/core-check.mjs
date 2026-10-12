@@ -139,6 +139,104 @@ test('litter box: the need builds, visits leave clumps, a dirty box is scooped',
   assert.ok(m.stats.litter >= 0);
 });
 
+test('inviting the cat to an item: it decides by mood', () => {
+  const run = (setup, spot, n = 200) => {
+    const out = {};
+    for (let i = 0; i < n; i++) {
+      const s = fresh();
+      s.room.slots = ['scratcher', 'cushion', 'box'];
+      s.activity = { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t0, end: t0 + 99 * HOUR, facing: 1 };
+      setup(s);
+      G.Interactions.invite(s, t0 + i * 7919, spot);
+      const e = s.log.filter((x) => x.type === 'invited').pop();
+      const k = e ? e.result : s.activity.id;
+      out[k] = (out[k] || 0) + 1;
+    }
+    return out;
+  };
+  const happy = run((s) => { s.stats.happiness = 85; s.stats.energy = 60; s.stats.fullness = 70; }, 'slot2');
+  const grumpy = run((s) => { s.stats.happiness = 20; s.stats.energy = 50; s.stats.fullness = 70; }, 'slot2');
+  assert.ok(happy.accepted > 90 && happy.declined > 10, JSON.stringify(happy)); // usually, not always
+  assert.ok((grumpy.accepted || 0) < happy.accepted, 'a grumpy cat says yes less');
+  const hungry = run((s) => { s.stats.fullness = 8; }, 'slot2', 100);
+  assert.ok(hungry.hungry > 60, JSON.stringify(hungry));
+  const asleep = run((s) => { s.activity = { id: 'nap', spot: 'rug', key: 'rug', pose: 'curl', start: t0, end: t0 + 99 * HOUR, facing: 1 }; s.stats.energy = 40; }, 'slot1');
+  assert.ok(asleep.asleep > 150, JSON.stringify(asleep));
+  const sulk = run((s) => { s.activity = { id: 'sulk', spot: 'wall', key: 'wall', pose: 'back', start: t0, end: t0 + 99 * HOUR, facing: 1 }; }, 'slot1', 30);
+  assert.equal(sulk.sulk, 30);
+  // Saying yes sends the cat to that very spot, with a small capped bond reward.
+  const s = fresh();
+  s.room.slots = ['scratcher', 'cushion', 'box'];
+  s.stats.happiness = 95;
+  let moved = false;
+  for (let i = 0; i < 30 && !moved; i++) {
+    s.activity = { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t0, end: t0 + 99 * HOUR, facing: 1 };
+    G.Interactions.invite(s, t0 + i * 999, 'slot2');
+    moved = s.activity.spot === 'slot2';
+  }
+  assert.ok(moved && s.activity.byYou);
+  assert.ok(s.daily.invite <= G.Progression.CAPS.invite, 'bond from invites is capped per day');
+  // Unknown spots do nothing.
+  assert.equal(G.Interactions.invite(s, t0, 'slot9').ok, false);
+});
+
+test('lights: off is saved, naps more, and old saves default to on', () => {
+  const s = fresh();
+  assert.equal(s.settings.lights, 'on');
+  const r = G.Interactions.setLights(s, t0, true);
+  assert.equal(s.settings.lights, 'off');
+  assert.ok(r.toast.includes('Lights off'));
+  G.Interactions.setLights(s, t0, false);
+  assert.equal(s.settings.lights, 'on');
+  // In the dark the cat naps more (same cat, same two days).
+  const napMins = (lights) => {
+    const x = fresh();
+    x.settings.lights = lights;
+    x.settings.lightsAt = t0;
+    x.bowl.portions = 99;
+    G.Sim.advance(x, t0 + 2 * DAY);
+    return x.log.filter((e) => e.type === 'nap').reduce((n, e) => n + e.mins, 0);
+  };
+  assert.ok(napMins('off') > napMins('on'), 'naps ' + napMins('off') + ' vs ' + napMins('on'));
+  delete s.settings.lights;
+  assert.equal(G.State.migrate(s).settings.lights, 'on');
+});
+
+test('lights left off overnight come back on at dawn, and the cat sleeps well', () => {
+  const s = fresh(new Date(2026, 9, 9, 20, 0).getTime());
+  G.Interactions.setLights(s, s.lastSimAt, true);
+  const e0 = (s.stats.energy = 40);
+  // still dark mid-evening, then dawn passes
+  G.Sim.advance(s, new Date(2026, 9, 9, 23, 0).getTime(), { live: false });
+  assert.equal(s.settings.lights, 'off', 'still off before dawn');
+  G.Sim.advance(s, new Date(2026, 9, 10, 9, 0).getTime(), { live: false });
+  assert.equal(s.settings.lights, 'on', 'back on after dawn');
+  const ev = s.log.find((e) => e.type === 'dawnLights');
+  assert.ok(ev && ev.rested);
+  // a quick flick in the daytime is left alone
+  const d = fresh(new Date(2026, 9, 9, 13, 0).getTime());
+  G.Interactions.setLights(d, d.lastSimAt, true);
+  G.Sim.advance(d, new Date(2026, 9, 9, 17, 0).getTime(), { live: false });
+  assert.equal(d.settings.lights, 'off');
+});
+
+test('a cat that says no shows what it would rather do', () => {
+  const s = fresh();
+  s.room.slots = ['scratcher', 'cushion', 'box'];
+  s.activity = { id: 'nap', spot: 'rug', key: 'rug', pose: 'curl', start: t0, end: t0 + 99 * HOUR, facing: 1 };
+  s.stats.energy = 40;
+  let r;
+  for (let i = 0; i < 30; i++) {
+    r = G.Interactions.invite(s, t0 + i * 1000, 'slot0');
+    if (r.thought) break;
+  }
+  assert.ok(r.thought, 'a thought bubble when it stays put');
+  // the TV: quiet when it says no (no toast spam), loud when it comes
+  const q = G.Interactions.invite(s, t0, 'desk', { quiet: true, prefer: 'supervise' });
+  assert.ok(!q.toast || q.say);
+  assert.equal(typeof G.Sim.wouldRather(s, t0), 'string');
+});
+
 test('daily routine follows the clock (naps at night, sunbathing only in the day)', () => {
   const s = fresh();
   s.bowl.portions = 99;

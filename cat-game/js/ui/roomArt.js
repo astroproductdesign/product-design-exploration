@@ -181,7 +181,8 @@
 
   function lamp() {
     return (
-      `<g>` +
+      `<g class="lamp act" data-act="lamp" role="button" tabindex="0" aria-label="Lamp: switch the lights on or off" style="cursor:pointer">` +
+      `<rect x="800" y="40" width="100" height="112" rx="10" fill="none" pointer-events="all"/>` +
       L('M 850 0 L 850 96', K.line, 2.5) +
       S('M 818 132 Q 818 96 850 96 Q 882 96 882 132 Z', '#ecbc44', 3) +
       R(814, 129, 72, 7, '#d9a43a', 3, 2.5) +
@@ -217,7 +218,7 @@
     s += `<ellipse cx="470" cy="546" rx="140" ry="29" fill="none" stroke="#e8806a" stroke-width="5" stroke-dasharray="14 10" stroke-linecap="round"/>`;
     // morning sunbeam from the window
     s += `<path id="sunbeam" d="M 360 420 L 520 420 L 640 600 L 380 600 Z" fill="#fff6d2" opacity="0"/>`;
-    s += windowArt();
+    s += `<g class="item act" data-act="window" data-spot="sill" style="cursor:pointer">${windowArt()}</g>`;
     s += curtains();
     s += wallClock();
     s += portrait();
@@ -353,7 +354,7 @@
     const y = 502;
     const WICKER = '#d9a96a';
     let g = `<g class="toys act" data-act="toys" role="button" tabindex="0" aria-label="Toy basket: play" style="cursor:pointer">`;
-    g += `<rect x="${x - 40}" y="${y - 96}" width="86" height="104" rx="12" fill="#fff" opacity="0"/>`;
+    g += `<rect x="${x - 40}" y="${y - 96}" width="86" height="104" rx="12" fill="none" pointer-events="all"/>`;
     // feather wand and a laser pen poking out
     g += L(`M ${x + 8} ${y - 30} L ${x + 30} ${y - 82}`, K.line, 6);
     g += L(`M ${x + 8} ${y - 30} L ${x + 30} ${y - 82}`, '#e9c78d', 3);
@@ -374,7 +375,7 @@
   function diaryShelf(state) {
     const unread = state.unseenUnlocks && state.unseenUnlocks.length > 0;
     let g = `<g class="diary act" data-act="diary" role="button" tabindex="0" aria-label="Diary" style="cursor:pointer">`;
-    g += `<rect x="744" y="196" width="118" height="68" rx="10" fill="#fff" opacity="0"/>`;
+    g += `<rect x="744" y="196" width="118" height="68" rx="10" fill="none" pointer-events="all"/>`;
     g += S('M 764 256 L 764 270 L 774 256 Z M 842 256 L 842 270 L 832 256 Z', K.woodDark, 2.4);
     // teal book leaning on the diary
     g += S('M 800 248 L 806 208 L 822 211 L 818 248 Z', '#8fd3c6', 2.6) + L('M 808 220 L 819 222', '#fcfcfc', 2);
@@ -395,7 +396,7 @@
     const p = state.bowl.portions;
     let s = `<g class="bowl act" data-act="bowl" role="button" tabindex="0" aria-label="Food bowl: feed or give a treat" style="cursor:pointer">`;
     // a generous invisible target around both bowls
-    s += `<rect x="246" y="514" width="122" height="46" rx="14" fill="#fff" opacity="0"/>`;
+    s += `<rect x="246" y="514" width="122" height="46" rx="14" fill="none" pointer-events="all"/>`;
     s += `<rect x="256" y="532" width="104" height="22" rx="8" fill="#f6c9cf" stroke="${K.line}" stroke-width="2.5"/>`;
     s += L('M 266 543 L 350 543', '#fff', 2, 'stroke-dasharray="4 6"');
     // food bowl
@@ -731,7 +732,7 @@
         z: y + 2,
         svg:
           `<g class="gift act" data-act="gift${i}" data-gift="${i}" transform="translate(${x} ${y})" style="cursor:pointer">` +
-          `<circle r="22" fill="#fff" opacity="0"/>` +
+          `<circle r="22" fill="none" pointer-events="all"/>` +
           (GIFT_ART[g.id] || GIFT_ART.leaf)() +
           `<g class="sparkle"><path d="M 14 -16 l 2 5 l 5 2 l -5 2 l -2 5 l -2 -5 l -5 -2 l 5 -2 Z" fill="#fff6b0" stroke="#e0b84a" stroke-width="1"/></g>` +
           `</g>`,
@@ -745,7 +746,7 @@
       svg:
         `<g class="cup act" data-act="cup" style="cursor:pointer" transform="translate(770 590)">` +
         `<ellipse cx="18" cy="2" rx="26" ry="6" fill="#bfe2f5" opacity=".8"/>` +
-        `<circle r="24" fill="#fff" opacity="0"/>` +
+        `<circle r="24" fill="none" pointer-events="all"/>` +
         mug(0, 0, 100) +
         `</g>`,
     };
@@ -755,7 +756,7 @@
   function midLayer(state, seasons) {
     const out = [];
     out.push({ z: 460, svg: desk() });
-    out.push({ z: 480, svg: chair() });
+    out.push({ z: 480, svg: `<g class="item act" data-act="chair" data-spot="chair" style="cursor:pointer">${chair()}</g>` });
     out.push({ z: 494, svg: table(state) });
     out.push({ z: 530, svg: bowls(state) });
     out.push({ z: 500, svg: toyBasket() });
@@ -763,13 +764,15 @@
     const [litterBack, litterFront, litterMess] = litterBox(state);
     out.push({ z: 483, svg: litterBack }, { z: 485, svg: litterFront });
     if (litterMess) out.push({ z: 499, svg: litterMess });
-    if (state.room.perch) out.push({ z: 302, svg: perch() });
+    if (state.room.perch) out.push({ z: 302, svg: `<g class="item act" data-act="perch" data-spot="sill" style="cursor:pointer">${perch()}</g>` });
     state.room.slots.forEach((id, i) => {
       if (!id || !ITEM_ART[id]) return;
       const { x, y } = SLOTS[i];
       const [back, front] = ITEM_ART[id](x, y);
-      out.push({ z: y - (id === 'tower' ? 2 : 1), svg: back });
-      if (front) out.push({ z: y + 1, svg: front });
+      // Tap an item to invite the cat over (the cat decides).
+      const tap = (art) => `<g class="item act" data-act="item${i}" data-spot="slot${i}" style="cursor:pointer">${art}</g>`;
+      out.push({ z: y - (id === 'tower' ? 2 : 1), svg: tap(back) });
+      if (front) out.push({ z: y + 1, svg: tap(front) });
     });
     for (const d of decorItems(seasons)) out.push(d);
     for (const g of giftsLayer(state)) out.push(g);
@@ -808,8 +811,11 @@
     $('sky-bot').setAttribute('stop-color', sky);
     $('tint').setAttribute('fill', light.tint);
     $('tint').setAttribute('opacity', light.alpha.toFixed(3));
-    $('lamp-glow').setAttribute('opacity', (light.lamp * 0.28).toFixed(3));
-    $('bulb').setAttribute('opacity', (0.3 + light.lamp * 0.7).toFixed(3));
+    // Lights off (the lamp): no lamp glow or bright bulb, and the TV lights up the dark.
+    const lamp = light.lightsOff ? 0 : light.lamp;
+    $('lamp-glow').setAttribute('opacity', (lamp * 0.28).toFixed(3));
+    $('bulb').setAttribute('opacity', (0.3 + lamp * 0.7).toFixed(3));
+    $('tv-glow').setAttribute('opacity', Math.max(0, Math.min(1, (light.alpha - 0.25) / 0.3)).toFixed(3));
     $('sunbeam').setAttribute('opacity', light.beam.toFixed(3));
     $('stars').setAttribute('opacity', light.isDay ? 0 : Math.min(1, light.lamp).toFixed(2));
     const sun = $('sun');
@@ -838,6 +844,8 @@
   function overlay() {
     return (
       `<rect id="tint" x="-1500" y="-400" width="${W + 3000}" height="${H + 800}" fill="#000" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/>` +
+      // light spilling from the TV when the room is dark
+      `<g id="tv-glow" opacity="0" pointer-events="none" style="mix-blend-mode:screen"><defs><radialGradient id="tvg"><stop offset="0" stop-color="#7aa4ff" stop-opacity=".6"/><stop offset="1" stop-color="#7aa4ff" stop-opacity="0"/></radialGradient></defs><ellipse cx="124" cy="290" rx="230" ry="170" fill="url(#tvg)"/><rect x="64" y="214" width="120" height="82" rx="3" fill="#9cc2ff" opacity=".55"/></g>` +
       `<g id="lamp-glow" opacity="0" pointer-events="none"><path d="M 818 136 L 882 136 L 990 470 L 710 470 Z" fill="#fff2b0"/></g>`
     );
   }

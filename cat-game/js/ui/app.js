@@ -141,8 +141,14 @@
     if (document.hidden || !state) return;
     const t = now();
     const before = state.activity;
+    const lightsBefore = state.settings.lights;
     G.Sim.advance(state, t, { live: true });
     if (state.activity !== before) onActivityChanged(before);
+    if (state.settings.lights !== lightsBefore) {
+      // lights left off overnight come back on at dawn
+      scene.updateLighting(t, true);
+      toast(nm('The sun came up and the lights came back on.'));
+    }
 
     if (play && play.joined && state.stats.energy < 8) finishPlay(true);
 
@@ -157,6 +163,9 @@
     if (!state.flags.bowlTip && state.named && !introActive && !panel && !modalOpen && performance.now() > 8000) {
       state.flags.bowlTip = true;
       toast(nm('Tap things in the room: the food bowl to feed {name}, the toy basket to play, the diary on the shelf.'), 7000);
+    } else if (state.flags.bowlTip && !state.flags.inviteTip && state.named && !introActive && !panel && !modalOpen && !decor && performance.now() > 24000) {
+      state.flags.inviteTip = true;
+      toast(nm('Tap a bed, box or the chair to invite {name} over (they decide). Tap the lamp to switch the lights.'), 7000);
     }
     scene.renderRoom(false, t);
     scene.updateLighting(t);
@@ -331,11 +340,15 @@
     $('doneBtn').addEventListener('click', () => finishPlay(false));
   }
 
-  // Tap the TV: new channel. An awake cat perks up at fish, birds and mice.
+  // Tap the TV: new channel. Fish, birds and mice make a watching cat keener to come and sit by it.
   function flipTv() {
     const ch = scene.changeChannel();
     sound('tvClick');
-    if (['fish', 'birds', 'mouse'].includes(ch) && !G.Sim.isSleeping(state) && Math.random() < 0.6) {
+    const interesting = ['fish', 'birds', 'mouse'].includes(ch);
+    const prev = state.activity;
+    const r = G.Interactions.invite(state, now(), 'desk', { quiet: true, prefer: 'supervise', boost: interesting ? 0.25 : 0 });
+    apply(r, prev);
+    if (interesting && state.activity.spot !== 'desk' && !G.Sim.isSleeping(state) && !r.thought && Math.random() < 0.6) {
       setTimeout(() => scene.react({ say: ch === 'birds' ? 'Ek ek ek!' : '!', eyes: 'wide' }), 450);
     }
   }
@@ -464,6 +477,17 @@
     }
     if (target.closest('.toys')) {
       if (!hadMenu) openPlayMenu();
+      return;
+    }
+    const item = target.closest('.item');
+    if (item) {
+      const prev = state.activity;
+      apply(G.Interactions.invite(state, now(), item.getAttribute('data-spot')), prev);
+      return;
+    }
+    if (target.closest('.lamp')) {
+      apply(G.Interactions.setLights(state, now(), state.settings.lights !== 'off'));
+      scene.updateLighting(now(), true);
       return;
     }
     if (target.closest('.diary')) return void (sound('pop'), openBook('diary'));
@@ -924,15 +948,29 @@
     sound('shutter');
     const t = now();
     const caption = G.Sim.describe(state).replace(/\.$/, '');
+    // In the dark the camera uses its flash (you can turn it off for a moody one).
+    const dark = scene.isDark();
+    let useFlash = dark;
     scene
-      .snapshot('')
+      .snapshot('', { flash: useFlash })
       .then((url) => {
         const photo = { id: 'p' + t, t, url, caption, name: state.cat.name };
         openModal(
           `<h2>Snap!</h2>${polaroidHtml(photo)}
-           <div class="row"><button class="btn primary" id="keepBtn">Keep in album</button><button class="btn" id="saveBtn">Save to device</button></div>`,
+           <div class="row"><button class="btn primary" id="keepBtn">Keep in album</button><button class="btn" id="saveBtn">Save to device</button>${dark ? '<button class="btn" id="flashBtn" aria-pressed="true">⚡ Flash: on</button>' : ''}</div>`,
           (box) => {
             box.querySelector('#saveBtn').addEventListener('click', (e) => saveToDevice(photo, e.currentTarget));
+            const fb = box.querySelector('#flashBtn');
+            if (fb)
+              fb.addEventListener('click', () => {
+                useFlash = !useFlash;
+                fb.textContent = useFlash ? '⚡ Flash: on' : '⚡ Flash: off';
+                fb.setAttribute('aria-pressed', String(useFlash));
+                scene.snapshot('', { flash: useFlash }).then((u) => {
+                  photo.url = u;
+                  box.querySelector('.photo-big img').src = u;
+                });
+              });
             box.querySelector('#keepBtn').addEventListener('click', () => {
               album.unshift(photo);
               while (album.length && !G.Storage.saveAlbum(album)) album.pop();

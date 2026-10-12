@@ -18,7 +18,7 @@
 
   // cap: name of a daily counter ('pet' | 'play' | 'feed') and its daily max,
   // so spamming one button doesn't race through the levels.
-  const CAPS = { pet: 15, play: 15, feed: 6, care: 4 };
+  const CAPS = { pet: 15, play: 15, feed: 6, care: 4, invite: 3 };
 
   function addBond(s, amount, t, capKey) {
     G.State.ensureDay(s, t);

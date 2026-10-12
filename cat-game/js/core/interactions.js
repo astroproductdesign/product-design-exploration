@@ -281,6 +281,78 @@
     }
   }
 
+
+  // ---- Inviting the cat over, and the lights --------------------------------
+
+  // What each behaviour looks like in a thought bubble.
+  const THOUGHT = { nap: '💤', loaf: '💤', groom: '🛁', stretch: '🧘', sunbathe: '☀️', birds: '🐦', knock: '🥛', hide: '📦', hunt: '🐭', zoomies: '💨', stare: '👀', knead: '🍞', roll: '🌀', laptop: '💻', supervise: '📺', gift: '🎁', meow: '💬', sit: '…', toy: '🧶', scratch: '🪵', eat: '🍽️', askFood: '🍽️', litter: '🧻', sulk: '💢' };
+  const thoughtOf = (id) => THOUGHT[id] || '…';
+
+  // You tapped an item (or the chair, the window, the TV). The cat may well go and use it, but
+  // it decides for itself: asleep, sulking, hungry or just not feeling it, and it stays put, with
+  // a thought bubble showing what it'd rather be doing. opts: quiet (no toast when it says no,
+  // for the TV), boost (more keen), prefer (the behaviour to start if it says yes).
+  function invite(s, t, spotId, opts) {
+    opts = opts || {};
+    const sp = G.Sim.spotInfo(s, spotId);
+    if (!sp) return { ok: false };
+    const r = rngFor(s, t, 'invite' + spotId);
+    const st = s.stats;
+    const a = s.activity;
+    const label = sp.label;
+    const note = (result) => G.State.log(s, { t, type: 'invited', result, spot: sp.key, live: true });
+    const say = (text) => (opts.quiet ? undefined : text.split('{label}').join(label));
+    const no = (result, thought, extra, text) => {
+      note(result);
+      return Object.assign({ ok: true, thought, toast: say(text) }, extra);
+    };
+
+    if (a.spot === spotId) return { ok: true, eyes: 'happy', anim: 'slowBlink', toast: opts.quiet ? undefined : '{name} is already ' + sp.at + '. Very comfy.' };
+    if (a.id === 'litter') return no('busy', thoughtOf('litter'), null, '{name} is busy in the litter box. Maybe later.');
+    if (a.id === 'sulk') return no('sulk', thoughtOf('sulk'), { eyes: 'half' }, R.pick(r, ['{name} is sulking and is not interested in anything you point at.', '{name} kept their back to you. Still sulking.']));
+    if (G.Sim.isSleeping(s)) {
+      if (r() >= 0.1 + (st.energy > 70 ? 0.2 : 0)) return no('asleep', thoughtOf('nap'), { anim: 'earTwitch' }, 'One ear swivelled toward {label}. The rest of {name} kept sleeping.');
+    } else if (st.fullness < 25 && r() < 0.8) {
+      return no('hungry', thoughtOf('eat'), { say: 'Mrow!', anim: 'earTwitch' }, '{name} sniffed at {label}, then looked pointedly at the food bowl.');
+    }
+    const pick = G.Sim.behaviorAt(s, t, spotId, opts.prefer);
+    const rather = () => thoughtOf(G.Sim.wouldRather(s, t));
+    if (!pick) return no('notNow', rather(), { eyes: 'half' }, '{name} gave {label} a look. Not the right time of day for it.');
+    const b = G.Sim.BEHAVIORS[pick];
+    // How keen: happier and more bonded cats say yes more, favourites even more, and a mismatch
+    // with the cat's energy (a wide-awake cat offered a bed, a sleepy one offered a toy) says no.
+    let chance = 0.42 + (st.happiness - 50) / 180 + G.Progression.level(s) * 0.025 + (opts.boost || 0);
+    if (G.Progression.favorite(s, 'spots') === sp.key || G.Progression.favorite(s, 'toys') === sp.key) chance += 0.2;
+    if (b.active && st.energy < 30) chance -= 0.3;
+    if (b.sleep && st.energy > 85) chance -= 0.25;
+    if (G.Sim.isSleeping(s)) chance = 0.9; // it woke up for this
+    chance = Math.max(0.1, Math.min(0.92, chance));
+    if (r() >= chance) {
+      const lines = [
+        ['{name} gave {label} a long look, then stayed put.', 'slowBlink', 'happy'],
+        ['{name} slow-blinked at you. Maybe later.', 'slowBlink', 'happy'],
+        ['{name} is not in the mood for {label} right now.', null, 'half'],
+      ];
+      const [text, anim, eyes] = R.pick(r, lines);
+      return no('declined', rather(), { eyes, anim: anim || undefined }, text);
+    }
+    G.Sim.setActivity(s, t, pick, spotId, { byYou: true });
+    G.Progression.bump(s, 'spots', sp.key, 0.5);
+    note('accepted');
+    const res = G.Progression.addBond(s, 1, t, 'invite');
+    return withBond({ ok: true, say: R.pick(r, ['Mrrp!', 'Mrow.', 'Prrt?']), sound: 'meow', hearts: 1, toast: say(R.pick(r, ['{name} trotted over to {label}.', '{name} decided that was a great idea.', '{name} went to investigate {label}.'])) }, res);
+  }
+
+  // The lamp: lights off dims the whole room; lights on brings it back to normal.
+  function setLights(s, t, off) {
+    s.settings.lights = off ? 'off' : 'on';
+    s.settings.lightsAt = t; // when it was switched, so the night can be told from a quick flick
+    G.State.log(s, { t, type: 'lights', off: !!off, live: true });
+    const asleep = G.Sim.isSleeping(s);
+    if (off) return { ok: true, sound: 'tvClick', eyes: asleep ? undefined : 'wide', toast: asleep ? 'Lights off. Cosy.' : 'Lights off. {name}\'s pupils got very big.' };
+    return { ok: true, sound: 'tvClick', anim: asleep ? 'earTwitch' : undefined, toast: asleep ? 'Lights on. {name} grumbled in their sleep.' : 'Lights on.' };
+  }
+
   // ---- Naming -----------------------------------------------------------------
 
   function validateName(raw) {
@@ -326,5 +398,5 @@
     return withBond({ ok: true, rarity: info.rarity, toast: `You got ${info.name} from {name}.${tag} Added to your treasures.` }, res);
   }
 
-  G.Interactions = { moodOf, MOOD_LABEL, feed, treat, pet, scoop, startPlay, tempt, pounce, endPlay, call, validateName, rename, pickUpCup, collectGift };
+  G.Interactions = { moodOf, MOOD_LABEL, feed, treat, pet, scoop, invite, setLights, startPlay, tempt, pounce, endPlay, call, validateName, rename, pickUpCup, collectGift };
 })(globalThis.CatGame = globalThis.CatGame || {});

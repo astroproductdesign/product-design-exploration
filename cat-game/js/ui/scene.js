@@ -116,11 +116,14 @@
     const m = Math.floor(t / 60000);
     if (!force && m === this.lastLightMin) return;
     this.lastLightMin = m;
-    A.applyLighting(this.svg, G.Clock.lightingAt(t));
+    let light = G.Clock.lightingAt(t);
+    // Lights off (tap the lamp): the room goes dark whatever the time of day.
+    const off = this.getState().settings.lights === 'off' && !this.intro && !this.inGarden;
+    if (off) light = Object.assign({}, light, { tint: '#0c1236', alpha: Math.max(light.alpha, 0.66), beam: 0, lightsOff: true });
+    A.applyLighting(this.svg, light);
     A.updateClock(this.svg, t);
-    const light = G.Clock.lightingAt(t);
     G.GardenArt.applyLighting(this.svg, light, A.mixHex);
-    this.svg.closest('.stage').style.setProperty('--letterbox', light.isDay ? '#efe0bd' : '#6c6a7c');
+    this.svg.closest('.stage').style.setProperty('--letterbox', light.isDay && !off ? '#efe0bd' : '#6c6a7c');
   };
 
   Scene.prototype.placeCatInZ = function () {
@@ -454,19 +457,26 @@
     return { x: cv.x + h[0] * s * cv.facing, y: cv.y + h[1] * s - (cv.hopY || 0), s };
   };
 
-  Scene.prototype.say = function (text, ms) {
+  // A speech bubble, or (thought) a round thought bubble with a trail of dots, for what the cat is thinking of.
+  Scene.prototype.say = function (text, ms, thought) {
     if (!text) return;
     const len = Math.max(2, [...text].length);
-    const w = Math.min(220, 22 + len * 10.5);
-    this.bubble.innerHTML =
-      `<rect x="${-w / 2}" y="-40" width="${w}" height="34" rx="14" fill="#fcfcfc" stroke="#1b1714" stroke-width="3"/>` +
-      `<path d="M -6 -7 L 0 4 L 7 -7 Z" fill="#fcfcfc" stroke="#1b1714" stroke-width="3" stroke-linejoin="round"/>` +
-      `<rect x="-8" y="-10" width="16" height="5" fill="#fcfcfc"/>` +
-      `<text x="0" y="-17" text-anchor="middle" font-size="17" font-weight="800" fill="#1b1714" font-family="'M PLUS Rounded 1c', Nunito, system-ui, sans-serif">${text.replace(/[<&]/g, '')}</text>`;
+    const w = thought ? 52 : Math.min(220, 22 + len * 10.5);
+    const font = `font-family="'M PLUS Rounded 1c', Nunito, system-ui, sans-serif"`;
+    this.bubble.innerHTML = thought
+      ? `<circle cx="3" cy="-3" r="3.4" fill="#fcfcfc" stroke="#1b1714" stroke-width="2.4"/><circle cx="8" cy="-13" r="5" fill="#fcfcfc" stroke="#1b1714" stroke-width="2.6"/>` +
+        `<rect x="${-w / 2 + 6}" y="-52" width="${w}" height="36" rx="18" fill="#fcfcfc" stroke="#1b1714" stroke-width="3"/>` +
+        `<text x="6" y="-27" text-anchor="middle" font-size="21" font-weight="800" fill="#1b1714" ${font}>${text.replace(/[<&]/g, '')}</text>`
+      : `<rect x="${-w / 2}" y="-40" width="${w}" height="34" rx="14" fill="#fcfcfc" stroke="#1b1714" stroke-width="3"/>` +
+        `<path d="M -6 -7 L 0 4 L 7 -7 Z" fill="#fcfcfc" stroke="#1b1714" stroke-width="3" stroke-linejoin="round"/>` +
+        `<rect x="-8" y="-10" width="16" height="5" fill="#fcfcfc"/>` +
+        `<text x="0" y="-17" text-anchor="middle" font-size="17" font-weight="800" fill="#1b1714" ${font}>${text.replace(/[<&]/g, '')}</text>`;
     this.bubble.setAttribute('display', 'inline');
     this.bubbleUntil = performance.now() + (ms || 2200);
-    this.overrides.mouth = 'open';
-    this.overrides.mouthUntil = performance.now() + 600;
+    if (!thought) {
+      this.overrides.mouth = 'open';
+      this.overrides.mouthUntil = performance.now() + 600;
+    }
     this.updateBubble();
   };
 
@@ -518,6 +528,7 @@
       this.overrides.mouthUntil = now + (r.eyes === 'angry' ? 3200 : 1800);
     }
     if (r.say) this.say(r.say);
+    else if (r.thought) this.say(r.thought, 2800, true);
     if (r.hearts) this.hearts(r.hearts);
     switch (r.anim) {
       case 'earTwitch':
@@ -1030,8 +1041,21 @@
   // ---- Photo ----------------------------------------------------------------------------
 
   // Returns a JPEG data URL of what's on screen right now.
-  Scene.prototype.snapshot = function (caption) {
+  // Dark enough that a photo needs a flash (lights off, or night).
+  Scene.prototype.isDark = function () {
+    const t = this.svg.querySelector('#tint');
+    return !!t && Number(t.getAttribute('opacity')) >= 0.3;
+  };
+
+  Scene.prototype.snapshot = function (caption, opts) {
+    const flash = !!(opts && opts.flash);
     const clone = this.svg.cloneNode(true);
+    // A flash lights the room up: most of the dark tint goes.
+    if (flash) {
+      const tint = clone.querySelector('#tint');
+      if (tint) tint.setAttribute('opacity', Math.min(Number(tint.getAttribute('opacity')), 0.14));
+      clone.querySelectorAll('#lamp-glow, #tv-glow').forEach((n) => n.remove());
+    }
     // Frame the cat, like a real photo would.
     const hp = this.headPoint();
     const vw = 440;
@@ -1061,6 +1085,19 @@
         g.fillStyle = '#fffdf6';
         g.fillRect(0, 0, c.width, c.height);
         g.drawImage(img, pad, pad, W, ph);
+        if (flash) {
+          // direct flash: a bright middle and dark corners
+          g.save();
+          g.beginPath();
+          g.rect(pad, pad, W, ph);
+          g.clip();
+          const gr = g.createRadialGradient(pad + W / 2, pad + ph / 2, W * 0.12, pad + W / 2, pad + ph / 2, W * 0.62);
+          gr.addColorStop(0, 'rgba(255,252,235,0.16)');
+          gr.addColorStop(1, 'rgba(20,16,44,0.5)');
+          g.fillStyle = gr;
+          g.fillRect(pad, pad, W, ph);
+          g.restore();
+        }
         g.strokeStyle = '#1b1714';
         g.lineWidth = 3;
         g.strokeRect(pad, pad, W, ph);
