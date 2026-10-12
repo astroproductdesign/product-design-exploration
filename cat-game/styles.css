@@ -282,7 +282,7 @@ button {
 
 .toolbar {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
 }
 .toolbar[hidden] {
@@ -1062,19 +1062,18 @@ input:focus {
     max-width: 88%;
   }
   .toolbar {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 5px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
   }
   .tool {
-    flex-direction: row;
-    justify-content: center;
-    padding: 6px 4px;
-    gap: 4px;
-    font-size: 13px;
+    padding: 5px 0 4px;
+    gap: 1px;
+    font-size: 12px;
+    border-radius: 14px;
   }
   .tool svg {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
   }
   .modal {
     padding: 14px 14px 16px;
@@ -1082,12 +1081,6 @@ input:focus {
   .profile {
     flex-direction: column;
     text-align: center;
-  }
-}
-
-@media (max-width: 380px) {
-  .tool span {
-    display: none;
   }
 }
 
@@ -1611,5 +1604,158 @@ body.no-anim *::before {
   .cat.angry .tail-wag,
   .cat.recoil .breathe {
     animation: none;
+  }
+}
+
+
+/* ---- Things you can tap in the room ----------------------------------------------------- */
+
+/* The thing under the pointer (or a finger) glows warm. */
+.act.hot,
+#cat.hot,
+.act:focus-visible {
+  filter: url(#hot-glow);
+  outline: none;
+}
+
+/* Something needs you (an empty bowl, a dirty litter box): a dashed ring breathes around it. */
+.nudge {
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: nudge 1.8s ease-in-out infinite;
+}
+@keyframes nudge {
+  0%, 100% { opacity: 0.45; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+/* Small menu that opens on the food bowl. */
+.thing-menu {
+  position: absolute;
+  z-index: 5;
+  width: min(300px, calc(100% - 16px));
+  padding: 10px;
+  background: var(--paper);
+  border: var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  animation: bm-in 0.16s ease-out;
+}
+.thing-menu[hidden] {
+  display: none;
+}
+@keyframes bm-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+}
+.thing-menu.below {
+  animation-name: bm-in-down;
+}
+@keyframes bm-in-down {
+  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+}
+.bm-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 4px 8px;
+}
+.bm-head b {
+  font-size: 16px;
+}
+.bm-head small {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.bm-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.bm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  min-width: 0;
+  background: var(--paper-2);
+  border: var(--line);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.bm-item:hover:not(:disabled),
+.bm-item:focus-visible {
+  background: #fff;
+  outline: none;
+  box-shadow: 0 0 0 3px #ffd23f;
+}
+.bm-item:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.bm-item.locked {
+  opacity: 0.5;
+  cursor: default;
+}
+.bm-item .swatch {
+  flex: none;
+  width: 24px;
+  height: 15px;
+}
+.bm-ico {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+.bm-ico svg {
+  width: 100%;
+  height: 100%;
+}
+.bm-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.bm-txt b {
+  font-size: 14px;
+  line-height: 1.15;
+}
+.bm-txt small {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  line-height: 1.2;
+}
+.bm-item.treat {
+  background: #fff3c9;
+}
+.bm-arrow {
+  position: absolute;
+  left: var(--arrow, 50%);
+  bottom: -9px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  background: var(--paper);
+  border-right: var(--line);
+  border-bottom: var(--line);
+  transform: rotate(45deg);
+}
+.thing-menu.below .bm-arrow {
+  bottom: auto;
+  top: -9px;
+  transform: rotate(225deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nudge,
+  .thing-menu {
+    animation: none;
+  }
+  .nudge {
+    opacity: 0.8;
   }
 }

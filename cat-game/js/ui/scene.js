@@ -55,7 +55,9 @@
     this.garden = el('g', { id: 'garden' }); // the intro's garden, drawn over the room
     this.over = el('g', { id: 'over' }, A.overlay());
     this.top = el('g', { id: 'top' });
-    svg.append(this.back, this.mid, this.garden, this.fx, this.over, this.top);
+    // Warm halo for whatever the pointer is over (the .hot class, see styles.css).
+    const defs = el('defs', {}, `<filter id="hot-glow" x="-30%" y="-30%" width="160%" height="160%"><feMorphology in="SourceAlpha" operator="dilate" radius="3" result="fat"/><feGaussianBlur in="fat" stdDeviation="4.5" result="soft"/><feFlood flood-color="#ffd23f" flood-opacity=".95"/><feComposite in2="soft" operator="in" result="halo"/><feMerge><feMergeNode in="halo"/><feMergeNode in="halo"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`);
+    svg.append(defs, this.back, this.mid, this.garden, this.fx, this.over, this.top);
 
     this.catG = el('g', { id: 'cat' });
     this.catShadow = el('ellipse', { cx: 0, cy: 2, rx: 46, ry: 8, fill: '#000', opacity: 0.12 });
@@ -81,7 +83,7 @@
   Scene.prototype.renderRoom = function (force, t) {
     const s = this.getState();
     const seasons = this.seasonList(t);
-    const sig = JSON.stringify([s.room, s.bowl, seasons]);
+    const sig = JSON.stringify([s.room, s.bowl, seasons, (s.unseenUnlocks || []).length > 0]);
     if (!force && sig === this.roomSig) return;
     // The background holds the framed photo of the cat, so a new look redraws it too.
     const coatSig = JSON.stringify(s.cat.coat || null);

@@ -25,7 +25,7 @@
       unlocked: C.unlocksAt(1),
       unseenUnlocks: [],
       favorites: { spots: {}, toys: {}, foods: {}, pets: {} },
-      flags: { breakfastDay: null, bondDay: today, litterTip: false },
+      flags: { breakfastDay: null, bondDay: today, litterTip: false, bowlTip: false },
       log: [],
       journal: [],
       treasures: {},

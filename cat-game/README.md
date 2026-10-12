@@ -20,15 +20,15 @@ When choosing a look, pick a breed (Tabby & white, Calico, Tuxedo, Siamese, Ragd
 | Tap / stroke the cat | Petting, and where you touch matters. Head, chin and **ears** get purrs. The belly is a gamble (bunny kicks!). Grab the **tail** or a **paw** and the cat may hiss, swat and sulk with its back to you for a minute, which costs a little bond. Too much petting may earn a swat, and nobody wants to be petted in the litter box. |
 | Drag the room (phone) | When the room doesn't fit the screen, drag it sideways to look around. A **Follow** button brings the camera back to the cat. |
 | Tap the **litter box** | Scoops it. The cat uses it now and then and leaves clumps. If it's left dirty (4 or more) the cat gets a bit grumpier and may go beside it, and a puddle appears (tap to mop up). Nothing is ever harmful, and it never builds up past a small cap while you're away. |
-| **Feed** | Fills the bowl. The cat reacts based on how hungry it is, and eats from the bowl by itself while you're away. |
-| **Treat** | A small happiness boost. After 5 a day you'll get A Look. |
-| **Play** | Pick the feather wand or the laser, then drag it around (or move your mouse). Wiggle it fast to make the cat pounce. |
+| Tap the **food bowl** | Opens a small menu right above it. Pick a food to fill the bowl (the cat reacts based on how hungry it is, and eats from the bowl by itself while you're away), or give a **Treat**: a small happiness boost, and after 5 a day you'll get A Look. An empty bowl or a dirty litter box gets a pulsing dashed ring. |
+| Hover (or press) something | Anything you can tap, plus the cat, glows warmly under the pointer: the food bowl, toy basket, diary, portrait, litter box, TV, gifts and a knocked-over cup. |
+| Tap the **toy basket** | Pick the feather wand or the laser, then drag it around (or move your mouse). Wiggle it fast to make the cat pounce. |
 | **Call** | Sometimes the cat comes. Sometimes it slow-blinks. Sometimes it ignores you. |
 | **Room** | Place a box, beds and toys. The cat may or may not use them. |
 | Tap the **TV** | Flips to a random channel: fish, birds, a cooking show, the weather, space, football, a cartoon mouse, or your own cat. It also changes channel by itself now and then, and your cat may perk up at the fish, birds and mice. |
 | **Photo** | Snaps the cat into your album (it's in the Diary). |
-| **Diary** | The cat's own diary, your photo album, treasures (gifts) and unlocks. |
-| **Me** (or tap the name) | Profile, favourites, rename, **change look**, sound, **start a new game**, and testing tools. |
+| Tap the **diary** on the wall shelf | The cat's own diary, your photo album, treasures (gifts) and unlocks. A pulsing ring shows when something new has unlocked. |
+| Tap the **framed portrait** (or the name) | Profile, favourites, rename, **change look**, sound, **start a new game**, and testing tools. |
 
 Gifts and knocked-over cups show up on the floor; tap them. Bond mostly goes up and it unlocks new food, toys and furniture. A grumpy cat can take a little back, but never below the start of your current level, so nothing you've unlocked is lost.
 

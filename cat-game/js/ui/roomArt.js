@@ -170,7 +170,7 @@
   function portrait() {
     // A framed photo of the cat on the wall.
     return (
-      `<g transform="translate(118 140)">` +
+      `<g class="portrait act" data-act="portrait" role="button" tabindex="0" aria-label="Profile and settings" style="cursor:pointer" transform="translate(118 140)">` +
       `<rect x="-40" y="-48" width="80" height="96" rx="4" fill="${K.woodLight}" stroke="${K.line}" stroke-width="3"/>` +
       `<rect x="-30" y="-38" width="60" height="76" fill="#cfe6e0" stroke="${K.line}" stroke-width="2"/>` +
       `<clipPath id="portrait-clip"><rect x="-30" y="-38" width="60" height="76"/></clipPath>` +
@@ -230,7 +230,7 @@
   function desk() {
     return (
       // TV: tap it to change the channel (the scene fills #tv-show).
-      `<g class="tv" style="cursor:pointer">` +
+      `<g class="tv act" data-act="tv" style="cursor:pointer">` +
       `<rect x="96" y="314" width="56" height="10" rx="2" fill="${K.frame}" stroke="${K.line}" stroke-width="2.5"/>` +
       `<rect x="116" y="300" width="16" height="16" fill="${K.frame}"/>` +
       R(56, 206, 136, 98, K.frame, 6, 3) +
@@ -308,7 +308,7 @@
     const SAND = '#f3e3bb';
     const MINT = '#8fd3c6';
     let back =
-      `<g class="litter" style="cursor:pointer">` +
+      `<g class="litter act" data-act="litter" style="cursor:pointer">` +
       S(`M ${x - 56} ${y - 36} L ${x - 50} ${y - 52} L ${x + 50} ${y - 52} L ${x + 56} ${y - 36} Z`, '#6fb8a9', 3) +
       S(`M ${x - 49} ${y - 38} L ${x - 44} ${y - 49} L ${x + 44} ${y - 49} L ${x + 49} ${y - 38} Z`, SAND, 2.5);
     L.clumps.forEach((kind, i) => {
@@ -322,9 +322,10 @@
     if (G.Sim.isDirty(state)) {
       back += [-22, 0, 22].map((dx, i) => `<path class="stink" style="animation-delay:${i * 0.5}s" d="M ${x + dx} ${y - 58} q 6 -8 0 -16 t 0 -16" fill="none" stroke="#9aa83e" stroke-width="3" stroke-linecap="round"/>`).join('');
     }
+    if (G.Sim.isDirty(state)) back += `<ellipse class="nudge" cx="${x}" cy="${y - 22}" rx="74" ry="40" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
     back += `</g>`;
     const front =
-      `<g class="litter" style="cursor:pointer">` +
+      `<g class="litter act" data-act="litter" style="cursor:pointer">` +
       R(x - 56, y - 36, 112, 36, MINT, 6, 3) +
       `<rect x="${x - 56}" y="${y - 36}" width="112" height="9" rx="5" fill="#b6e6dc" stroke="${K.line}" stroke-width="${ow(3)}"/>` +
       // a little paw print
@@ -337,7 +338,7 @@
       const px = 724;
       const py = 502;
       mess =
-        `<g class="litter" style="cursor:pointer">` +
+        `<g class="litter act" data-act="litter" style="cursor:pointer">` +
         E(px, py, 26, 7, '#efe08a', 2.4) +
         (L.mess > 1 ? E(px + 30, py + 5, 15, 4.5, '#efe08a', 2.2) : '') +
         `<path class="stink" d="M ${px - 6} ${py - 12} q 6 -8 0 -16" fill="none" stroke="#9aa83e" stroke-width="3" stroke-linecap="round"/></g>`;
@@ -345,10 +346,56 @@
     return [back, front, mess];
   }
 
+
+  // The toy basket tucked beside the TV desk. Tap it to pick a toy and play.
+  function toyBasket() {
+    const x = 290;
+    const y = 502;
+    const WICKER = '#d9a96a';
+    let g = `<g class="toys act" data-act="toys" role="button" tabindex="0" aria-label="Toy basket: play" style="cursor:pointer">`;
+    g += `<rect x="${x - 40}" y="${y - 96}" width="86" height="104" rx="12" fill="#fff" opacity="0"/>`;
+    // feather wand and a laser pen poking out
+    g += L(`M ${x + 8} ${y - 30} L ${x + 30} ${y - 82}`, K.line, 6);
+    g += L(`M ${x + 8} ${y - 30} L ${x + 30} ${y - 82}`, '#e9c78d', 3);
+    g += S(`M ${x + 30} ${y - 82} C ${x + 22} ${y - 98} ${x + 36} ${y - 108} ${x + 46} ${y - 100} C ${x + 52} ${y - 92} ${x + 42} ${y - 80} ${x + 30} ${y - 82} Z`, '#7fb4d9', 2.4);
+    g += L(`M ${x + 31} ${y - 84} L ${x + 44} ${y - 98}`, '#4f83b0', 2);
+    g += S(`M ${x - 14} ${y - 30} L ${x - 22} ${y - 62} L ${x - 14} ${y - 64} L ${x - 6} ${y - 32} Z`, K.red, 2.2);
+    // a yarn ball
+    g += E(x - 4, y - 32, 11, 11, '#f4accc', 2.4) + L(`M ${x - 11} ${y - 34} Q ${x - 4} ${y - 28} ${x + 3} ${y - 36}`, K.line, 1.6);
+    // basket
+    g += S(`M ${x - 32} ${y - 30} L ${x + 32} ${y - 30} L ${x + 26} ${y} Q ${x} ${y + 7} ${x - 26} ${y} Z`, WICKER, 3);
+    g += [-14, 0, 14].map((dx) => L(`M ${x + dx} ${y - 28} L ${x + dx * 0.8} ${y + 2}`, '#b98445', 2)).join('');
+    g += L(`M ${x - 30} ${y - 14} Q ${x} ${y - 8} ${x + 30} ${y - 14}`, '#b98445', 2);
+    g += E(x, y - 30, 33, 6, '#e8c48a', 3);
+    return g + `</g>`;
+  }
+
+  // A small wall shelf with your diary on it. Tap it to open the diary.
+  function diaryShelf(state) {
+    const unread = state.unseenUnlocks && state.unseenUnlocks.length > 0;
+    let g = `<g class="diary act" data-act="diary" role="button" tabindex="0" aria-label="Diary" style="cursor:pointer">`;
+    g += `<rect x="744" y="196" width="118" height="68" rx="10" fill="#fff" opacity="0"/>`;
+    g += S('M 764 256 L 764 270 L 774 256 Z M 842 256 L 842 270 L 832 256 Z', K.woodDark, 2.4);
+    // teal book leaning on the diary
+    g += S('M 800 248 L 806 208 L 822 211 L 818 248 Z', '#8fd3c6', 2.6) + L('M 808 220 L 819 222', '#fcfcfc', 2);
+    // the diary: pink cover, gold clasp, heart
+    g += R(768, 206, 32, 42, '#f4accc', 3, 2.8) + `<rect x="768" y="206" width="6" height="42" fill="#e58db3" stroke="${K.line}" stroke-width="${ow(2)}"/>`;
+    g += `<path d="M 787 232 C 780 227 780 220 785 220 C 787 220 787 222 787 222 C 787 222 788 220 790 220 C 795 220 794 227 787 232 Z" fill="#fff" stroke="${K.line}" stroke-width="1.6" stroke-linejoin="round"/>`;
+    g += R(796, 223, 6, 10, '#ecbc44', 1.5, 2);
+    // a tiny plant
+    g += S('M 834 248 L 836 234 L 850 234 L 852 248 Z', K.red, 2.4) + S('M 843 234 Q 836 222 840 214 Q 846 222 843 234 Z M 843 234 Q 851 224 848 216 Q 841 224 843 234 Z', K.olive, 2);
+    // the shelf board
+    g += R(752, 247, 108, 9, K.woodLight, 3, 2.8);
+    if (unread) g += `<ellipse class="nudge" cx="806" cy="230" rx="62" ry="36" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
+    return g + `</g>`;
+  }
+
   function bowls(state) {
     const f = G.Catalog.FOODS[state.bowl.food];
     const p = state.bowl.portions;
-    let s = '';
+    let s = `<g class="bowl act" data-act="bowl" role="button" tabindex="0" aria-label="Food bowl: feed or give a treat" style="cursor:pointer">`;
+    // a generous invisible target around both bowls
+    s += `<rect x="246" y="514" width="122" height="46" rx="14" fill="#fff" opacity="0"/>`;
     s += `<rect x="256" y="532" width="104" height="22" rx="8" fill="#f6c9cf" stroke="${K.line}" stroke-width="2.5"/>`;
     s += L('M 266 543 L 350 543', '#fff', 2, 'stroke-dasharray="4 6"');
     // food bowl
@@ -363,7 +410,9 @@
     // water
     s += S('M 314 536 Q 316 550 334 550 Q 352 550 354 536 Z', '#7fb4d9', 2.6);
     s += `<ellipse cx="334" cy="536" rx="20" ry="5" fill="#bfe2f5" stroke="${K.line}" stroke-width="2.6"/>`;
-    return s;
+    // An empty bowl pulses a little ring: this is where food comes from.
+    if (p <= 0) s += `<ellipse class="nudge" cx="308" cy="540" rx="68" ry="24" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
+    return s + `</g>`;
   }
 
   // ---- TV channels ------------------------------------------------------------------
@@ -681,7 +730,7 @@
       return {
         z: y + 2,
         svg:
-          `<g class="gift" data-gift="${i}" transform="translate(${x} ${y})" style="cursor:pointer">` +
+          `<g class="gift act" data-act="gift${i}" data-gift="${i}" transform="translate(${x} ${y})" style="cursor:pointer">` +
           `<circle r="22" fill="#fff" opacity="0"/>` +
           (GIFT_ART[g.id] || GIFT_ART.leaf)() +
           `<g class="sparkle"><path d="M 14 -16 l 2 5 l 5 2 l -5 2 l -2 5 l -2 -5 l -5 -2 l 5 -2 Z" fill="#fff6b0" stroke="#e0b84a" stroke-width="1"/></g>` +
@@ -694,7 +743,7 @@
     return {
       z: 590,
       svg:
-        `<g class="cup" style="cursor:pointer" transform="translate(770 590)">` +
+        `<g class="cup act" data-act="cup" style="cursor:pointer" transform="translate(770 590)">` +
         `<ellipse cx="18" cy="2" rx="26" ry="6" fill="#bfe2f5" opacity=".8"/>` +
         `<circle r="24" fill="#fff" opacity="0"/>` +
         mug(0, 0, 100) +
@@ -709,6 +758,8 @@
     out.push({ z: 480, svg: chair() });
     out.push({ z: 494, svg: table(state) });
     out.push({ z: 530, svg: bowls(state) });
+    out.push({ z: 500, svg: toyBasket() });
+    out.push({ z: 300, svg: diaryShelf(state) });
     const [litterBack, litterFront, litterMess] = litterBox(state);
     out.push({ z: 483, svg: litterBack }, { z: 485, svg: litterFront });
     if (litterMess) out.push({ z: 499, svg: litterMess });

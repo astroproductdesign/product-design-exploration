@@ -151,6 +151,11 @@
       const res = G.Progression.dailyVisit(state, t);
       if (res) celebrate(res);
     }
+    // Feeding lives on the bowl now: say so once, when nothing else is going on.
+    if (!state.flags.bowlTip && state.named && !introActive && !panel && !modalOpen && performance.now() > 8000) {
+      state.flags.bowlTip = true;
+      toast(nm('Tap things in the room: the food bowl to feed {name}, the toy basket to play, the diary on the shelf.'), 7000);
+    }
     scene.renderRoom(false, t);
     scene.updateLighting(t);
     updateHUD();
@@ -161,6 +166,7 @@
     const dt = lastFrame ? Math.min(0.1, (ts - lastFrame) / 1000) : 0;
     lastFrame = ts;
     if (scene && !document.hidden) scene.frame(dt, ts);
+    if (menuOpen) positionMenu();
     requestAnimationFrame(frame);
   }
 
@@ -236,8 +242,6 @@
     $('status').textContent = play ? (play.joined ? nm('{name} is in hunting mode! Wiggle the toy.') : nm('Wiggle the toy to tempt {name}…')) : nm(G.Sim.describe(state));
     $('muteBtn').innerHTML = state.settings.muted ? ICONS.soundOff : ICONS.soundOn;
     $('muteBtn').setAttribute('aria-label', state.settings.muted ? 'Sound off' : 'Sound on');
-    const dot = $('bookDot');
-    if (dot) dot.hidden = !state.unseenUnlocks.length;
     updateFollowBtn();
   }
 
@@ -294,18 +298,13 @@
 
   function buildToolbar() {
     const btns = [
-      ['feed', 'Feed', openFeed],
-      ['treat', 'Treat', giveTreat],
-      ['play', 'Play', openPlay],
       ['call', 'Call', callCat],
       ['room', 'Room', openRoom],
       ['photo', 'Photo', takePhoto],
-      ['book', 'Diary', () => openBook('diary')],
-      ['settings', 'Me', openSettings],
     ];
     const tb = $('toolbar');
     tb.innerHTML = btns
-      .map(([icon, label]) => `<button class="tool" data-tool="${icon}">${ICONS[icon]}<span>${label}</span>${icon === 'book' ? '<i class="dot" id="bookDot" hidden></i>' : ''}</button>`)
+      .map(([icon, label]) => `<button class="tool" data-tool="${icon}">${ICONS[icon]}<span>${label}</span></button>`)
       .join('');
     for (const [icon, , fn] of btns) tb.querySelector(`[data-tool="${icon}"]`).addEventListener('click', () => {
       G.Sound.unlock();
@@ -343,6 +342,8 @@
     const svg = $('scene');
     svg.addEventListener('pointerdown', (e) => {
       G.Sound.unlock();
+      const hadMenu = closeMenu();
+      if (e.pointerType !== 'mouse') setHot(e.target);
       const p = scene.toScene(e.clientX, e.clientY);
       // In the box: the eyes follow taps, and a tap on the cat gets a purr.
       if (introActive) {
@@ -366,7 +367,7 @@
       }
       // Anywhere else: a tap uses what's under it (gift, cup, TV, litter box), and
       // a drag looks around the room when it doesn't all fit on screen.
-      gesture = { x: e.clientX, y: e.clientY, lastX: e.clientX, moved: false, target: e.target };
+      gesture = { x: e.clientX, y: e.clientY, lastX: e.clientX, moved: false, target: e.target, hadMenu };
       svg.setPointerCapture(e.pointerId);
     });
     svg.addEventListener('pointermove', (e) => {
@@ -388,7 +389,8 @@
         return;
       }
       if (!petting) {
-        svg.style.cursor = e.target.closest('#cat') ? 'grab' : e.target.closest('.tv, .litter, .gift, .cup') ? 'pointer' : '';
+        if (e.pointerType === 'mouse') setHot(e.target);
+        svg.style.cursor = e.target.closest('#cat') ? 'grab' : e.target.closest('.act') ? 'pointer' : '';
         return;
       }
       petting.dist += Math.hypot(e.clientX - petting.x, e.clientY - petting.y);
@@ -409,10 +411,24 @@
         const g = gesture;
         gesture = null;
         scene.dragging = false;
-        if (!g.moved) tapRoom(g.target);
+        if (!g.moved) tapRoom(g.target, g.hadMenu);
       }
+      if (e.pointerType !== 'mouse') setTimeout(() => setHot(null), 280);
     };
     svg.addEventListener('pointerup', end);
+    svg.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'mouse' && !petting && !gesture) setHot(null);
+    });
+    // Keyboard: the bowl, toy basket, diary and portrait are the way in, so they take Tab and Enter.
+    svg.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.closest && e.target.closest('.act[tabindex]')) {
+        e.preventDefault();
+        tapRoom(e.target, false);
+      }
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if (!e.target.closest('#thingMenu') && !e.target.closest('#scene')) closeMenu();
+    });
     svg.addEventListener('pointercancel', () => {
       petting = null;
       gesture = null;
@@ -426,12 +442,23 @@
       if (e.target.id === 'modal' || e.target.closest('[data-close]')) closeModal();
     });
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && closeMenu()) return;
       if (e.key === 'Escape' && !$('modal').hidden && state.named) closeModal();
     });
   }
 
   // A tap (not a drag) on something in the room.
-  function tapRoom(target) {
+  function tapRoom(target, hadMenu) {
+    if (target.closest('.bowl')) {
+      if (!hadMenu) openFeedMenu();
+      return;
+    }
+    if (target.closest('.toys')) {
+      if (!hadMenu) openPlayMenu();
+      return;
+    }
+    if (target.closest('.diary')) return void (sound('pop'), openBook('diary'));
+    if (target.closest('.portrait')) return void (sound('pop'), openSettings());
     const gift = target.closest('.gift');
     if (gift) return collectGift(Number(gift.getAttribute('data-gift')));
     if (target.closest('.cup')) {
@@ -475,52 +502,135 @@
 
   // ---- Actions -----------------------------------------------------------------------------
 
-  function giveTreat() {
-    const prev = state.activity;
-    apply(G.Interactions.treat(state, now()), prev);
-  }
-
   function callCat() {
     const prev = state.activity;
     toast(`"${state.cat.name}!"`, 1200);
     setTimeout(() => apply(G.Interactions.call(state, now()), prev), 700);
   }
 
-  function openFeed() {
-    const C = G.Catalog;
-    const cards = Object.entries(C.FOODS)
-      .map(([id, f]) => {
-        const ok = G.Progression.isUnlocked(state, 'food:' + id);
-        return `<button class="pick ${ok ? '' : 'locked'}" data-food="${id}" ${ok ? '' : 'disabled'}>
-          <span class="swatch" style="background:${f.color}"></span><b>${esc(f.name)}</b>
-          <small>${ok ? (f.portions > 1 ? `Fills the bowl (${f.portions} meals)` : 'One tasty meal') : `Bond Lv ${f.level}`}</small></button>`;
-      })
-      .join('');
-    const b = state.bowl;
-    const bowlTxt = b.portions > 0 ? `The bowl has ${C.FOODS[b.food].name.toLowerCase()} in it (${b.portions} meal${b.portions > 1 ? 's' : ''} left).` : 'The bowl is empty.';
-    openModal(`<h2>Feed ${esc(state.cat.name)}</h2><p class="small">${bowlTxt} ${esc(nm('{name} eats from the bowl by themselves while you are away.'))}</p><div class="grid">${cards}</div><button class="btn" data-close>Close</button>`, (box) => {
-      box.querySelectorAll('[data-food]').forEach((el) =>
-        el.addEventListener('click', () => {
-          closeModal();
-          const prev = state.activity;
-          sound('bell');
-          apply(G.Interactions.feed(state, now(), el.getAttribute('data-food')), prev);
-          scene.renderRoom(true, now());
-        })
-      );
-    });
+  // ---- Things you can tap in the room ------------------------------------------------------
+  // Whatever is under the pointer glows. A tap on the food bowl opens a small menu right
+  // above it: the foods, and a quick treat.
+
+  let hotKey = null;
+  function setHot(target) {
+    const svg = $('scene');
+    const node = target && target.closest ? target.closest('.act, #cat') : null;
+    const key = node ? (node.id === 'cat' ? 'cat' : node.getAttribute('data-act')) : null;
+    if (introActive || play) return setHot.clear();
+    if (key === hotKey && (key === null || node.classList.contains('hot'))) return;
+    setHot.clear();
+    hotKey = key;
+    if (!key) return;
+    if (key === 'cat') node.classList.add('hot');
+    else svg.querySelectorAll(`[data-act="${key}"]`).forEach((n) => n.classList.add('hot'));
+  }
+  setHot.clear = () => {
+    hotKey = null;
+    $('scene').querySelectorAll('.hot').forEach((n) => n.classList.remove('hot'));
+  };
+
+  let menuOpen = false;
+  let menuAnchor = '.bowl'; // what the open menu points at
+
+  function closeMenu() {
+    if (!menuOpen) return false;
+    menuOpen = false;
+    $('thingMenu').hidden = true;
+    return true;
   }
 
-  function openPlay() {
-    const cards = Object.entries(G.Catalog.TOYS)
-      .map(([id, toy]) => {
-        const ok = G.Progression.isUnlocked(state, 'toy:' + id);
-        return `<button class="pick ${ok ? '' : 'locked'}" data-toy="${id}" ${ok ? '' : 'disabled'}><b>${esc(toy.name)}</b><small>${ok ? (id === 'laser' ? 'Impossible to catch. Chaos.' : 'Drag it around. Pounce!') : `Bond Lv ${toy.level}`}</small></button>`;
+  function openFeedMenu() {
+    if (introActive || play || panel) return;
+    const C = G.Catalog;
+    const menu = $('thingMenu');
+    const b = state.bowl;
+    const left = b.portions > 0 ? `${C.FOODS[b.food].name} in the bowl, ${b.portions} meal${b.portions > 1 ? 's' : ''} left.` : 'The bowl is empty.';
+    const foods = Object.entries(C.FOODS)
+      .map(([id, f]) => {
+        const ok = G.Progression.isUnlocked(state, 'food:' + id);
+        return `<button class="bm-item ${ok ? '' : 'locked'}" data-food="${id}" ${ok ? '' : 'disabled'}>
+          <span class="swatch" style="background:${f.color}"></span>
+          <span class="bm-txt"><b>${esc(f.name)}</b><small>${ok ? (f.portions > 1 ? `Fills it (${f.portions} meals)` : 'One tasty meal') : `Bond Lv ${f.level}`}</small></span></button>`;
       })
       .join('');
-    openModal(`<h2>Play time</h2><p class="small">Pick a toy, then drag it around the room (or move your mouse). Wiggle it fast to make ${esc(state.cat.name)} pounce.</p><div class="grid">${cards}</div><button class="btn" data-close>Close</button>`, (box) => {
-      box.querySelectorAll('[data-toy]').forEach((el) => el.addEventListener('click', () => startPlay(el.getAttribute('data-toy'))));
+    menu.innerHTML =
+      `<div class="bm-head"><b>Feed ${esc(state.cat.name)}</b><small>${esc(left)}</small></div>` +
+      `<div class="bm-list">${foods}<button class="bm-item treat" data-treat><span class="bm-ico">${ICONS.treat}</span><span class="bm-txt"><b>Treat</b><small>A quick snack</small></span></button></div>` +
+      `<i class="bm-arrow"></i>`;
+    menu.hidden = false;
+    menuOpen = true;
+    menuAnchor = '.bowl';
+    sound('pop');
+    menu.querySelectorAll('[data-food]').forEach((el) =>
+      el.addEventListener('click', () => {
+        closeMenu();
+        const prev = state.activity;
+        sound('bell');
+        apply(G.Interactions.feed(state, now(), el.getAttribute('data-food')), prev);
+        scene.renderRoom(true, now());
+      })
+    );
+    menu.querySelector('[data-treat]').addEventListener('click', () => {
+      closeMenu();
+      const prev = state.activity;
+      apply(G.Interactions.treat(state, now()), prev);
     });
+    positionMenu();
+    const first = menu.querySelector('.bm-item:not([disabled])');
+    if (first && document.activeElement && document.activeElement.closest && document.activeElement.closest('.bowl')) first.focus();
+  }
+
+  // Keep the menu on its object (bowl or toy basket) while the camera moves; close it if that scrolls out of view.
+  function positionMenu() {
+    if (!menuOpen) return;
+    const menu = $('thingMenu');
+    const bowl = $('scene').querySelector(menuAnchor);
+    if (!bowl) return void closeMenu();
+    const st = $('stage').getBoundingClientRect();
+    const r = bowl.getBoundingClientRect();
+    const cx = r.left + r.width / 2 - st.left;
+    if (cx < 12 || cx > st.width - 12) return void closeMenu();
+    const w = menu.offsetWidth;
+    const h = menu.offsetHeight;
+    const x = Math.max(8, Math.min(st.width - w - 8, cx - w / 2));
+    const above = r.top - st.top - h - 12;
+    const below = r.bottom - st.top + 12;
+    const up = above >= 8 || below + h > st.height;
+    menu.style.left = `${x.toFixed(1)}px`;
+    menu.style.top = `${Math.max(8, up ? above : below).toFixed(1)}px`;
+    menu.classList.toggle('below', !up);
+    menu.style.setProperty('--arrow', `${Math.max(16, Math.min(w - 16, cx - x)).toFixed(1)}px`);
+  }
+
+  // Tap the toy basket: pick a toy, then drag it around the room.
+  function openPlayMenu() {
+    if (introActive || play || panel) return;
+    const menu = $('thingMenu');
+    const items = Object.entries(G.Catalog.TOYS)
+      .map(([id, toy]) => {
+        const ok = G.Progression.isUnlocked(state, 'toy:' + id);
+        return `<button class="bm-item ${ok ? '' : 'locked'}" data-toy="${id}" ${ok ? '' : 'disabled'}>
+          <span class="bm-ico">${ICONS.play}</span>
+          <span class="bm-txt"><b>${esc(toy.name)}</b><small>${ok ? (id === 'laser' ? 'Impossible to catch. Chaos.' : 'Drag it around. Pounce!') : `Bond Lv ${toy.level}`}</small></span></button>`;
+      })
+      .join('');
+    menu.innerHTML =
+      `<div class="bm-head"><b>Play with ${esc(state.cat.name)}</b><small>Pick a toy, then drag it around the room. Wiggle it fast to make ${esc(state.cat.name)} pounce.</small></div>` +
+      `<div class="bm-list">${items}</div><i class="bm-arrow"></i>`;
+    menu.hidden = false;
+    menuOpen = true;
+    menuAnchor = '.toys';
+    sound('pop');
+    menu.querySelectorAll('[data-toy]').forEach((el) =>
+      el.addEventListener('click', () => {
+        closeMenu();
+        startPlay(el.getAttribute('data-toy'));
+      })
+    );
+    positionMenu();
+    const first = menu.querySelector('.bm-item:not([disabled])');
+    if (first && document.activeElement && document.activeElement.closest && document.activeElement.closest('.toys')) first.focus();
   }
 
   function startPlay(toy) {
