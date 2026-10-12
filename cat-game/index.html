@@ -16,8 +16,14 @@
     <div class="app">
       <header class="topbar">
         <button class="namecard" id="nameBtn" aria-label="Profile and settings">
-          <span class="mood-face" id="moodFace"></span>
-          <span class="name-text"><b id="catName">…</b><small id="moodText"></small></span>
+          <span class="nc-row">
+            <span class="mood-face" id="moodFace"></span>
+            <span class="name-text"><b id="catName">…</b><small id="moodText"></small></span>
+          </span>
+          <span class="nc-bond" id="bondRow" title="Bond grows as you care for your cat">
+            <span class="ico" id="bondIco"></span><span class="bond-lv">Lv <b id="bondLv">1</b></span>
+            <span class="bond-track"><i id="bondFill"></i></span>
+          </span>
         </button>
         <div class="meters" aria-label="How your cat is doing">
           <div class="meter" title="Tummy"><span class="ico" id="mFullIco"></span><i><b id="mFull"></b></i></div>
@@ -30,22 +36,16 @@
         </div>
       </header>
 
-      <div class="bondbar" title="Bond grows as you care for your cat">
-        <span class="ico" id="bondIco"></span><span>Bond <b>Lv <span id="bondLv">1</span></b></span>
-        <span class="bond-track"><i id="bondFill"></i></span><small id="bondNext"></small>
-      </div>
-
       <main class="stage" id="stage">
         <svg id="scene" role="img" aria-label="Your cat's room"></svg>
         <div class="thing-menu" id="thingMenu" hidden></div>
         <div class="toast" id="toast" role="status" aria-live="polite"></div>
         <div class="flash" id="flash"></div>
+        <p class="status" id="status"></p>
+        <nav class="fab" id="toolbar" aria-label="Actions"></nav>
         <button class="btn follow-btn" id="followBtn" hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg><span>Follow cat</span></button>
       </main>
 
-      <p class="status" id="status"></p>
-
-      <nav class="toolbar" id="toolbar" aria-label="Actions"></nav>
       <nav class="decorbar" id="decorbar" aria-label="Arrange the room" hidden>
         <div class="decor-head"><p id="decorHint"></p><button class="btn primary" id="decorDone">Done</button></div>
         <div class="decor-tray" id="decorTray"></div>

@@ -33,6 +33,7 @@
     feed: I('<path d="M2.5 11h19a9.5 7 0 0 1-19 0z" fill="#f2a28f"/><path d="M7 8.6c1.2-1.4 2.6-1.4 3.8 0M12.6 7.6c1.2-1.4 2.6-1.4 3.8 0"/>'),
     treat: I('<path d="M2.5 12c3-5.5 9.5-6.5 13.5-2l4.5-3.5v11L16 14c-4 4.5-10.5 3.5-13.5-2z" fill="#f3c66b"/><circle cx="7" cy="11.2" r=".9" fill="currentColor"/>'),
     play: I('<path d="M3 21 14 10"/><path d="M14 10c1-5 7-7 7-7s-1 6-6 7.5" fill="#7fb4d9"/><path d="M14 10c-1 4 1 7 1 7" fill="none"/>'),
+    paw: I('<ellipse cx="12" cy="16" rx="5" ry="4" fill="#fffdf6"/><circle cx="5.5" cy="10.5" r="2" fill="#fffdf6"/><circle cx="9.5" cy="6.5" r="2" fill="#fffdf6"/><circle cx="14.5" cy="6.5" r="2" fill="#fffdf6"/><circle cx="18.5" cy="10.5" r="2" fill="#fffdf6"/>'),
     call: I('<path d="M3.5 4.5h17v11H10l-5 4v-4H3.5z" fill="#fffdf6"/><path d="M8.5 10h.01M12 10h.01M15.5 10h.01" stroke-width="2.8"/>'),
     room: I('<path d="M4 20v-6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v6" fill="#e2b078"/><path d="M2.5 15.5h3v4.5M21.5 15.5h-3v4.5M6.5 11V8a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3"/>'),
     photo: I('<rect x="2.5" y="7" width="19" height="13.5" rx="3" fill="#9fd9cf"/><path d="M8 7l1.8-3h4.4L16 7"/><circle cx="12" cy="13.6" r="3.6" fill="#fffdf6"/>'),
@@ -246,14 +247,27 @@
     const p = G.Progression.progress(state);
     $('bondLv').textContent = p.level;
     $('bondFill').style.width = (p.max ? 100 : Math.round((p.into / p.need) * 100)) + '%';
-    $('bondNext').textContent = p.max ? 'Best friends!' : `${Math.floor(p.into)}/${p.need}`;
+    $('bondRow').title = p.max ? 'Bond: best friends!' : `Bond Lv ${p.level}: ${Math.floor(p.into)}/${p.need} to the next level`;
     $('clockTime').textContent = G.Clock.formatTime(t);
     const seasons = scene ? scene.seasons : [];
     $('clockPhase').textContent = G.Clock.PHASE_LABEL[G.Clock.phaseAt(t)] + (seasons.length ? ' · ' + seasons.map((x) => G.Clock.SEASON_LABEL[x]).join(' & ') : '');
-    $('status').textContent = play ? (play.joined ? nm('{name} is in hunting mode! Wiggle the toy.') : nm('Wiggle the toy to tempt {name}…')) : nm(G.Sim.describe(state));
+    setCaption(play ? (play.joined ? nm('{name} is in hunting mode! Wiggle the toy.') : nm('Wiggle the toy to tempt {name}…')) : nm(G.Sim.describe(state)));
     $('muteBtn').innerHTML = state.settings.muted ? ICONS.soundOff : ICONS.soundOn;
     $('muteBtn').setAttribute('aria-label', state.settings.muted ? 'Sound off' : 'Sound on');
     updateFollowBtn();
+  }
+
+  // The line under the room fades away a few seconds after it changes.
+  let captionText = '';
+  let captionTimer = 0;
+  function setCaption(text) {
+    if (text === captionText) return;
+    captionText = text;
+    const el = $('status');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(captionTimer);
+    captionTimer = setTimeout(() => el.classList.remove('show'), 6000);
   }
 
   function setMeter(id, v) {
@@ -314,13 +328,24 @@
       ['photo', 'Photo', takePhoto],
     ];
     const tb = $('toolbar');
-    tb.innerHTML = btns
-      .map(([icon, label]) => `<button class="tool" data-tool="${icon}">${ICONS[icon]}<span>${label}</span></button>`)
-      .join('');
+    tb.innerHTML =
+      `<div class="fab-list">${btns
+        .map(([icon, label]) => `<button class="fab-opt" data-tool="${icon}"><span>${label}</span><i>${ICONS[icon]}</i></button>`)
+        .join('')}</div>` +
+      `<button class="fab-main" id="fabMain" aria-expanded="false" aria-label="Actions">${ICONS.paw}${ICONS.close}</button>`;
+    $('fabMain').addEventListener('click', () => {
+      G.Sound.unlock();
+      sound('pop');
+      toggleFab();
+    });
     for (const [icon, , fn] of btns) tb.querySelector(`[data-tool="${icon}"]`).addEventListener('click', () => {
       G.Sound.unlock();
+      closeFab();
       if (icon !== 'photo') sound('pop');
       fn();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeFab();
     });
     $('mFullIco').innerHTML = ICONS.tummy;
     $('mEnergyIco').innerHTML = ICONS.energy;
@@ -338,6 +363,17 @@
     });
     $('nameBtn').addEventListener('click', openSettings);
     $('doneBtn').addEventListener('click', () => finishPlay(false));
+  }
+
+  function toggleFab() {
+    const open = !$('toolbar').classList.contains('open');
+    $('toolbar').classList.toggle('open', open);
+    $('fabMain').setAttribute('aria-expanded', String(open));
+  }
+
+  function closeFab() {
+    $('toolbar').classList.remove('open');
+    $('fabMain').setAttribute('aria-expanded', 'false');
   }
 
   let lastTvTap = 0;
@@ -461,6 +497,10 @@
         tapRoom(e.target, false);
       }
     });
+    const touching = (on) => document.body.classList.toggle('touching', on);
+    svg.addEventListener('pointerdown', () => touching(true));
+    document.addEventListener('pointerup', () => touching(false));
+    document.addEventListener('pointercancel', () => touching(false));
     document.addEventListener('pointerdown', (e) => {
       if (!e.target.closest('#thingMenu') && !e.target.closest('#scene')) closeMenu();
     });
@@ -489,6 +529,7 @@
 
   // A tap (not a drag) on something in the room.
   function tapRoom(target, hadMenu) {
+    closeFab();
     if (target.closest('.bowl')) {
       if (!hadMenu) openFeedMenu();
       return;
@@ -703,6 +744,7 @@
     if (state.activity !== prev) scene.cv.act = state.activity.id + state.activity.start;
     scene.startPlay(toy, r.joined);
     $('toolbar').hidden = true;
+    document.body.classList.add('playing');
     $('playbar').hidden = false;
     $('playHint').textContent = toy === 'laser' ? 'Move the red dot around!' : 'Drag the feather around!';
     updateHUD();
@@ -735,6 +777,7 @@
     scene.endPlay();
     const r = G.Interactions.endPlay(state, now(), p.toy, p.stats);
     $('toolbar').hidden = false;
+    document.body.classList.remove('playing');
     $('playbar').hidden = true;
     scene.onActivity(state.activity);
     const caught = p.stats.catches ? `Caught it ${p.stats.catches} time${p.stats.catches > 1 ? 's' : ''}! ` : '';

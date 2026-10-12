@@ -45,33 +45,47 @@ button {
 }
 
 .app {
+  position: relative;
   height: 100vh;
   height: 100dvh;
-  max-width: 1120px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  padding: max(8px, env(safe-area-inset-top)) 10px max(8px, env(safe-area-inset-bottom));
-  gap: 6px;
+  overflow: hidden;
 }
 
-/* ---- Top bar ------------------------------------------------------------------- */
+/* ---- Heads-up display: floating pills over the full-screen room ------------------------ */
 
 .topbar {
+  position: absolute;
+  z-index: 5;
+  top: max(10px, env(safe-area-inset-top));
+  left: max(10px, env(safe-area-inset-left));
+  right: max(10px, env(safe-area-inset-right));
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+.topbar > * {
+  pointer-events: auto;
+}
+.namecard,
+.meters,
+.right {
+  background: rgba(252, 244, 236, 0.9);
+  border: var(--line);
+  box-shadow: var(--shadow);
 }
 
 .namecard {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--paper);
-  border: var(--line);
-  border-radius: 999px;
-  padding: 3px 14px 3px 4px;
-  box-shadow: var(--shadow);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  border-radius: 20px;
+  padding: 3px 14px 6px 4px;
   cursor: pointer;
   min-width: 0;
   max-width: 46%;
@@ -80,6 +94,48 @@ button {
 .namecard:active {
   transform: translateY(2px);
   box-shadow: 0 2px 0 rgba(27, 23, 20, 0.85);
+}
+.nc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.nc-bond {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+.nc-bond .ico {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.nc-bond .ico svg {
+  width: 100%;
+  height: 100%;
+}
+.bond-lv {
+  white-space: nowrap;
+}
+.bond-track {
+  flex: 1;
+  min-width: 46px;
+  max-width: 90px;
+  height: 10px;
+  border: 2.5px solid var(--ink);
+  border-radius: 99px;
+  background: #fff;
+  overflow: hidden;
+}
+.bond-track i {
+  display: block;
+  height: 100%;
+  background: var(--pink);
+  transition: width 0.6s;
 }
 .mood-face {
   width: 44px;
@@ -111,30 +167,36 @@ button {
 }
 
 .meters {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  gap: 8px;
-  flex: 1;
-  justify-content: center;
+  gap: 14px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 7px 16px;
 }
 .meter {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex: 1;
-  max-width: 150px;
+  width: 104px;
 }
-.meter .ico,
-.bondbar .ico {
+.meter .ico {
   width: 24px;
   height: 24px;
   flex: none;
+}
+.meter .ico svg {
+  width: 100%;
+  height: 100%;
 }
 .meter i {
   flex: 1;
   height: 13px;
   border: 2.5px solid var(--ink);
   border-radius: 99px;
-  background: var(--paper);
+  background: #fff;
   overflow: hidden;
 }
 .meter b {
@@ -152,6 +214,8 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
+  border-radius: 999px;
+  padding: 4px 5px 4px 14px;
 }
 .clock {
   display: flex;
@@ -160,7 +224,7 @@ button {
   line-height: 1.1;
 }
 .clock b {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 900;
 }
 .clock small {
@@ -170,43 +234,14 @@ button {
   white-space: nowrap;
 }
 .iconbtn {
-  width: 42px;
-  height: 42px;
-  border: var(--line);
+  width: 36px;
+  height: 36px;
+  border: 2.5px solid var(--ink);
   border-radius: 50%;
-  background: var(--paper);
-  box-shadow: var(--shadow);
-  padding: 7px;
+  background: #fff;
+  padding: 5px;
   cursor: pointer;
   flex: none;
-}
-
-.bondbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 800;
-  padding: 0 4px;
-}
-.bond-track {
-  flex: 1;
-  max-width: 260px;
-  height: 10px;
-  border: 2.5px solid var(--ink);
-  border-radius: 99px;
-  background: var(--paper);
-  overflow: hidden;
-}
-.bond-track i {
-  display: block;
-  height: 100%;
-  background: var(--pink);
-  transition: width 0.6s;
-}
-.bondbar small {
-  color: var(--ink-soft);
-  font-weight: 700;
 }
 
 /* ---- Stage ------------------------------------------------------------------------- */
@@ -215,11 +250,8 @@ button {
   position: relative;
   flex: 1;
   min-height: 0;
-  border: var(--line);
-  border-radius: 22px;
   overflow: hidden;
   background: var(--letterbox, #f2e4cc);
-  box-shadow: var(--shadow);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -234,7 +266,8 @@ button {
 .toast {
   position: absolute;
   left: 50%;
-  top: 12px;
+  top: calc(max(10px, env(safe-area-inset-top)) + 64px);
+  z-index: 6;
   transform: translate(-50%, -20px);
   max-width: min(92%, 560px);
   background: var(--paper);
@@ -270,15 +303,128 @@ button {
 }
 
 .status {
+  position: absolute;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(6px);
+  z-index: 4;
   margin: 0;
+  max-width: min(56%, 520px);
+  padding: 5px 14px;
+  background: rgba(252, 244, 236, 0.9);
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
   text-align: center;
   font-weight: 800;
-  font-size: 15px;
-  min-height: 1.3em;
+  font-size: 14px;
+  line-height: 1.25;
   color: var(--ink);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s, transform 0.4s;
+}
+.status.show {
+  opacity: 1;
+  transform: translateX(-50%);
 }
 
-/* ---- Toolbar ------------------------------------------------------------------------ */
+/* ---- Paw button: Call, Room and Photo live behind it ---------------------------------- */
+
+.fab {
+  position: absolute;
+  z-index: 6;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+.fab[hidden] {
+  display: none;
+}
+.fab-main {
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: var(--line);
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.fab-main svg {
+  grid-area: 1 / 1;
+  width: 30px;
+  height: 30px;
+  transition: opacity 0.2s, transform 0.25s;
+}
+.fab-main svg:last-child,
+.fab.open .fab-main svg:first-child {
+  opacity: 0;
+  transform: rotate(-60deg) scale(0.5);
+}
+.fab.open .fab-main svg:last-child {
+  opacity: 1;
+  transform: none;
+}
+.fab-main:active,
+.fab-opt:active i {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(27, 23, 20, 0.85);
+}
+.fab-list {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 10px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px) scale(0.92);
+  transform-origin: bottom right;
+  transition: opacity 0.2s, transform 0.2s, visibility 0s 0.2s;
+}
+.fab.open .fab-list {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.fab-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.fab-opt span {
+  padding: 3px 12px;
+  background: rgba(252, 244, 236, 0.92);
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 14px;
+}
+.fab-opt i {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: var(--paper);
+  border: var(--line);
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+}
+.fab-opt svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* ---- Toolbar (play mode) ------------------------------------------------------------ */
 
 .toolbar {
   display: grid;
@@ -288,30 +434,6 @@ button {
 .toolbar[hidden] {
   display: none;
 }
-.tool {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 7px 2px 5px;
-  background: var(--paper);
-  border: var(--line);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  font-weight: 800;
-  font-size: 13px;
-  min-width: 0;
-}
-.tool svg {
-  width: 30px;
-  height: 30px;
-}
-.tool:hover {
-  background: #fcfcfc;
-}
-.tool:active,
 .btn:active,
 .iconbtn:active {
   transform: translateY(2px);
@@ -1029,11 +1151,6 @@ input:focus {
 /* ---- Phones ------------------------------------------------------------------------------ */
 
 @media (max-width: 640px) {
-  .app {
-    padding-left: 8px;
-    padding-right: 8px;
-    gap: 5px;
-  }
   .topbar {
     flex-wrap: wrap;
     row-gap: 6px;
@@ -1047,33 +1164,30 @@ input:focus {
     margin-left: auto;
   }
   .meters {
+    position: static;
+    transform: none;
     order: 3;
     flex-basis: 100%;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 12px;
+  }
+  .meter {
+    flex: 1;
+    width: auto;
   }
   .clock b {
-    font-size: 16px;
+    font-size: 15px;
   }
   .status {
-    font-size: 14px;
+    max-width: 52%;
+    font-size: 13px;
   }
   .toast {
+    top: calc(max(10px, env(safe-area-inset-top)) + 112px);
     font-size: 14px;
     padding: 6px 12px;
     max-width: 88%;
-  }
-  .toolbar {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-  }
-  .tool {
-    padding: 5px 0 4px;
-    gap: 1px;
-    font-size: 12px;
-    border-radius: 14px;
-  }
-  .tool svg {
-    width: 26px;
-    height: 26px;
   }
   .modal {
     padding: 14px 14px 16px;
@@ -1086,16 +1200,14 @@ input:focus {
 
 /* Short landscape phones: give the room as much height as possible. */
 @media (max-height: 520px) and (orientation: landscape) {
-  .bondbar,
   .status {
     display: none;
   }
-  .tool span {
+  .nc-bond {
     display: none;
   }
-  .tool svg {
-    width: 22px;
-    height: 22px;
+  .fab-opt span {
+    display: none;
   }
 }
 
@@ -1317,30 +1429,37 @@ input:focus {
 /* The HUD and toolbar fold away so the room fills the screen; the stage stays
    the same element, so nothing cuts — the camera just zooms. */
 
+/* While the intro or the look picker is up, the HUD, caption and paw button fade out
+   so the room is all there is. Arranging the room hides them too (they'd cover the spots),
+   and a finger on the room dims the HUD so it never hides the cat. */
+
 .topbar,
-.bondbar,
 .status,
-.toolbar {
-  transition: max-height 0.6s ease, opacity 0.4s ease, margin 0.6s ease, padding 0.6s ease;
-  max-height: 220px;
+.fab {
+  transition: opacity 0.4s ease;
 }
 body.intro-mode .topbar,
-body.intro-mode .bondbar,
 body.intro-mode .status,
-body.intro-mode .toolbar,
-body.look-mode .toolbar,
-body.look-mode .status,
+body.intro-mode .fab,
 body.look-mode .topbar,
-body.look-mode .bondbar {
-  max-height: 0;
+body.look-mode .status,
+body.look-mode .fab,
+body.decorating .topbar,
+body.decorating .status {
   opacity: 0;
-  margin-top: 0;
-  margin-bottom: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  overflow: hidden;
   pointer-events: none;
-  border-width: 0;
+}
+body.intro-mode .topbar > *,
+body.look-mode .topbar > *,
+body.decorating .topbar > * {
+  pointer-events: none;
+}
+body.touching .topbar {
+  opacity: 0.4;
+}
+.app > .playbar,
+.app > .decorbar {
+  margin: 6px max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
 }
 body.no-anim *,
 body.no-anim *::before {
@@ -1529,9 +1648,8 @@ body.no-anim *::before {
   .adopt,
   .intro-ui,
   .topbar,
-  .bondbar,
   .status,
-  .toolbar {
+  .fab {
     transition: opacity 0.3s ease !important;
   }
   .intro-logo svg,
@@ -1586,7 +1704,7 @@ body.no-anim *::before {
 .follow-btn {
   position: absolute;
   left: 50%;
-  bottom: 12px;
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 44px);
   transform: translateX(-50%);
   z-index: 4;
   padding: 7px 16px;
