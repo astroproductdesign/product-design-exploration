@@ -24,9 +24,9 @@ When choosing a look, pick a breed (Tabby & white, Calico, Tuxedo, Siamese, Ragd
 | Hover (or press) something | Anything you can tap, plus the cat, glows warmly under the pointer: the food bowl, toy basket, diary, portrait, litter box, TV, gifts and a knocked-over cup. |
 | Tap the **toy basket** | Pick the feather wand or the laser, then drag it around (or move your mouse). Wiggle it fast to make the cat pounce. |
 | **Call** | Sometimes the cat comes. Sometimes it slow-blinks. Sometimes it ignores you. |
-| **Room** | Place a box, beds and toys. The cat may or may not use them. |
+| **Room** | Arrange the room. The camera pulls back to show everything, with three numbered spots. Tap a spot, then tap an item in the tray below (or drag an item onto a spot, between spots to swap, or back onto the tray to put it away). Locked items show the bond level they need. The cat may or may not use what you place. |
 | Tap the **TV** | Flips to a random channel: fish, birds, a cooking show, the weather, space, football, a cartoon mouse, or your own cat. It also changes channel by itself now and then, and your cat may perk up at the fish, birds and mice. |
-| **Photo** | Snaps the cat into your album (it's in the Diary). |
+| **Photo** | Snaps the cat into your album (it's in the Diary). Photos look like polaroids, and **Save to device** saves a polaroid card with the picture, what the cat was doing and when. With more than one photo in the album, use the arrows (or ← → keys, or swipe) to flip through them. |
 | Tap the **diary** on the wall shelf | The cat's own diary, your photo album, treasures (gifts) and unlocks. A pulsing ring shows when something new has unlocked. |
 | Tap the **framed portrait** (or the name) | Profile, favourites, rename, **change look**, sound, **start a new game**, and testing tools. |
 

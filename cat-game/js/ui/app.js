@@ -29,6 +29,7 @@
 
   const I = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
   const ICONS = {
+    close: I('<path d="M6 6l12 12M18 6L6 18" stroke-width="3"/>'),
     feed: I('<path d="M2.5 11h19a9.5 7 0 0 1-19 0z" fill="#f2a28f"/><path d="M7 8.6c1.2-1.4 2.6-1.4 3.8 0M12.6 7.6c1.2-1.4 2.6-1.4 3.8 0"/>'),
     treat: I('<path d="M2.5 12c3-5.5 9.5-6.5 13.5-2l4.5-3.5v11L16 14c-4 4.5-10.5 3.5-13.5-2z" fill="#f3c66b"/><circle cx="7" cy="11.2" r=".9" fill="currentColor"/>'),
     play: I('<path d="M3 21 14 10"/><path d="M14 10c1-5 7-7 7-7s-1 6-6 7.5" fill="#7fb4d9"/><path d="M14 10c-1 4 1 7 1 7" fill="none"/>'),
@@ -76,6 +77,7 @@
 
     buildToolbar();
     bindInput();
+    bindDecor();
     updateHUD();
 
     const welcomeBack = () => {
@@ -342,6 +344,7 @@
     const svg = $('scene');
     svg.addEventListener('pointerdown', (e) => {
       G.Sound.unlock();
+      if (decor) return; // arranging the room has its own handler
       const hadMenu = closeMenu();
       if (e.pointerType !== 'mouse') setHot(e.target);
       const p = scene.toScene(e.clientX, e.clientY);
@@ -371,6 +374,7 @@
       svg.setPointerCapture(e.pointerId);
     });
     svg.addEventListener('pointermove', (e) => {
+      if (decor) return;
       if (introActive) return scene.lookAtPoint(scene.toScene(e.clientX, e.clientY));
       if (play) {
         if (e.pointerType === 'mouse' || e.buttons) scene.moveToy(scene.toScene(e.clientX, e.clientY));
@@ -443,7 +447,12 @@
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && closeMenu()) return;
+      if (e.key === 'Escape' && decor && $('modal').hidden) return endDecorate();
       if (e.key === 'Escape' && !$('modal').hidden && state.named) closeModal();
+      if (photoView >= 0 && !$('modal').hidden && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        openPhoto(photoView + (e.key === 'ArrowRight' ? 1 : -1));
+      }
     });
   }
 
@@ -477,7 +486,7 @@
   function updateFollowBtn() {
     const b = $('followBtn');
     if (!b) return;
-    b.hidden = scene.userPan == null || introActive || !!play;
+    b.hidden = scene.userPan == null || introActive || !!play || !!decor;
     b.querySelector('span').textContent = `Follow ${state.cat.name}`;
   }
 
@@ -517,7 +526,7 @@
     const svg = $('scene');
     const node = target && target.closest ? target.closest('.act, #cat') : null;
     const key = node ? (node.id === 'cat' ? 'cat' : node.getAttribute('data-act')) : null;
-    if (introActive || play) return setHot.clear();
+    if (introActive || play || decor) return setHot.clear();
     if (key === hotKey && (key === null || node.classList.contains('hot'))) return;
     setHot.clear();
     hotKey = key;
@@ -541,7 +550,7 @@
   }
 
   function openFeedMenu() {
-    if (introActive || play || panel) return;
+    if (introActive || play || panel || decor) return;
     const C = G.Catalog;
     const menu = $('thingMenu');
     const b = state.bowl;
@@ -605,7 +614,7 @@
 
   // Tap the toy basket: pick a toy, then drag it around the room.
   function openPlayMenu() {
-    if (introActive || play || panel) return;
+    if (introActive || play || panel || decor) return;
     const menu = $('thingMenu');
     const items = Object.entries(G.Catalog.TOYS)
       .map(([id, toy]) => {
@@ -687,58 +696,207 @@
 
   // ---- Room -----------------------------------------------------------------------------
 
+  // ---- Arranging the room -------------------------------------------------------------------
+  // The camera pulls back to the whole room. Tap a numbered spot, then tap an item below to put
+  // it there, or drag an item from the tray (or from one spot) onto a spot. Dropping a placed
+  // item back on the tray puts it away.
+
+  const SPOT_NAMES = ['Left corner', 'By the chair', 'By the table'];
+  let decor = null; // {sel: the spot being filled}
+  let drag = null;
+
   function openRoom() {
-    const C = G.Catalog;
-    const owned = Object.keys(C.ITEMS).filter((id) => G.Progression.isUnlocked(state, 'item:' + id));
-    const names = ['Left corner', 'By the chair', 'By the table'];
-    const slotHtml = state.room.slots
-      .map((cur, i) => {
-        const opts = ['', ...owned]
-          .map((id) => {
-            const usedElsewhere = id && state.room.slots.some((x, j) => x === id && j !== i);
-            return `<button class="chip ${cur === id || (!cur && !id) ? 'on' : ''}" data-slot="${i}" data-item="${id}" ${usedElsewhere ? 'disabled' : ''}>${id ? `<span class="chip-ico">${G.RoomArt.itemIcon(id)}</span>${esc(C.ITEMS[id].name)}` : 'Empty'}</button>`;
-          })
-          .join('');
-        return `<div class="slot"><h3>${names[i]}</h3><div class="chips">${opts}</div></div>`;
-      })
-      .join('');
-    const perchOk = G.Progression.isUnlocked(state, 'item:perch');
-    const fav = G.Progression.favorite(state, 'spots');
-    const favTxt = fav ? `Favourite spot so far: ${(C.ITEMS[fav] || C.SPOTS[fav]).label}.` : '';
-    openModal(
-      `<h2>Arrange the room</h2><p class="small">Place toys and beds. ${esc(nm('{name} may or may not use them. (Probably later, when you are not looking.)'))} ${esc(favTxt)}</p>
-       ${slotHtml}
-       <div class="slot"><h3>Window</h3><div class="chips"><button class="chip ${state.room.perch ? 'on' : ''}" id="perchBtn" ${perchOk ? '' : 'disabled'}>${perchOk ? (state.room.perch ? 'Window hammock: on' : 'Window hammock: off') : `Window hammock (Bond Lv ${C.PERCH.level})`}</button></div></div>
-       <p class="small muted">More things unlock as your bond grows.</p><button class="btn primary" data-close>Done</button>`,
-      (box) => {
-        box.querySelectorAll('[data-slot]').forEach((el) =>
-          el.addEventListener('click', () => {
-            const i = Number(el.getAttribute('data-slot'));
-            const id = el.getAttribute('data-item') || null;
-            setSlot(i, id);
-            openRoom();
-          })
-        );
-        const pb = box.querySelector('#perchBtn');
-        if (pb)
-          pb.addEventListener('click', () => {
-            state.room.perch = !state.room.perch;
-            if (!state.room.perch && state.activity.spot === 'sill' && state.activity.id === 'nap') G.Sim.setActivity(state, now(), 'sit', 'rug');
-            refreshRoom();
-            openRoom();
-          });
-      },
-      true
-    );
+    if (decor || introActive || play || panel) return;
+    closeMenu();
+    setHot.clear();
+    const slots = state.room.slots;
+    const empty = slots.findIndex((x) => !x);
+    decor = { sel: empty >= 0 ? empty : 0 };
+    document.body.classList.add('decorating');
+    $('toolbar').hidden = true;
+    $('decorbar').hidden = false;
+    scene.setDecorate(true);
+    drawDecor();
+    updateFollowBtn();
   }
 
-  function setSlot(i, id) {
+  function endDecorate() {
+    if (!decor) return;
+    decor = null;
+    cancelDrag();
+    document.body.classList.remove('decorating');
+    $('toolbar').hidden = false;
+    $('decorbar').hidden = true;
+    scene.setDecorate(false);
+    updateFollowBtn();
+  }
+
+  function drawDecor() {
+    if (!decor) return;
+    const C = G.Catalog;
+    const slots = state.room.slots;
+    const sel = decor.sel;
+    const cur = slots[sel];
+    $('decorHint').innerHTML = cur
+      ? `<b>${sel + 1} · ${SPOT_NAMES[sel]}</b> has ${esc(C.ITEMS[cur].label)}. Pick another item to swap it, or drag it somewhere else.`
+      : `<b>${sel + 1} · ${SPOT_NAMES[sel]}</b> is empty. Tap an item below, or drag one onto a spot.`;
+    const cards = [];
+    cards.push(
+      `<button class="dcard clear" data-clear ${cur ? '' : 'disabled'} aria-label="Take away what is in spot ${sel + 1}"><span class="dcard-ico"><svg viewBox="-30 -30 60 60"><circle r="20" fill="none" stroke="#1b1714" stroke-width="3.5" stroke-dasharray="6 6"/><path d="M-8-8L8 8M8-8L-8 8" stroke="#1b1714" stroke-width="4" stroke-linecap="round"/></svg></span><b>Clear</b><small>Spot ${sel + 1}</small></button>`
+    );
+    for (const [id, it] of Object.entries(C.ITEMS)) {
+      const ok = G.Progression.isUnlocked(state, 'item:' + id);
+      const at = slots.indexOf(id);
+      cards.push(
+        `<button class="dcard ${at >= 0 ? 'placed' : ''} ${ok ? '' : 'locked'}" data-item="${id}" ${ok ? '' : 'aria-disabled="true"'}>${at >= 0 ? `<i class="dcard-badge">${at + 1}</i>` : ''}<span class="dcard-ico">${G.RoomArt.itemIcon(id)}</span><b>${esc(it.name)}</b><small>${ok ? (at >= 0 ? `In spot ${at + 1}` : 'Tap or drag') : `Bond Lv ${it.level}`}</small></button>`
+      );
+    }
+    const perchOk = G.Progression.isUnlocked(state, 'item:perch');
+    cards.push(
+      `<button class="dcard ${state.room.perch ? 'placed' : ''} ${perchOk ? '' : 'locked'}" data-perch ${perchOk ? '' : 'aria-disabled="true"'}><span class="dcard-ico">${G.RoomArt.itemIcon('perch')}</span><b>Window hammock</b><small>${perchOk ? (state.room.perch ? 'On: tap to remove' : 'Tap to add') : `Bond Lv ${C.PERCH.level}`}</small></button>`
+    );
+    const tray = $('decorTray');
+    const keep = tray.scrollLeft;
+    tray.innerHTML = cards.join('');
+    tray.scrollLeft = keep;
+    scene.drawSpots(sel);
+  }
+
+  // Which numbered spot is under this screen point, if any.
+  function spotAt(x, y) {
+    for (const n of document.elementsFromPoint(x, y)) if (n.classList && n.classList.contains('spot-hit')) return Number(n.getAttribute('data-spot'));
+    return null;
+  }
+
+  function putItem(id, i) {
+    const slots = state.room.slots;
+    const from = slots.indexOf(id);
+    if (from === i) return;
+    const prev = slots[i];
+    if (from >= 0) {
+      // moving between spots swaps whatever was in the way
+      if (state.activity.spot === 'slot' + from) G.Sim.setActivity(state, now(), 'sit', 'rug');
+      slots[from] = prev || null;
+    }
+    setSlot(i, id, true);
+    sound('pop');
+    const next = slots.findIndex((x) => !x);
+    decor.sel = next >= 0 ? next : i;
+    drawDecor();
+  }
+
+  function clearSpot(i) {
+    if (!state.room.slots[i]) return;
+    setSlot(i, null, true);
+    sound('pop');
+    drawDecor();
+  }
+
+  function togglePerch() {
+    if (!G.Progression.isUnlocked(state, 'item:perch')) return toast(`The window hammock unlocks at bond level ${G.Catalog.PERCH.level}.`);
+    state.room.perch = !state.room.perch;
+    if (!state.room.perch && state.activity.spot === 'sill' && state.activity.id === 'nap') G.Sim.setActivity(state, now(), 'sit', 'rug');
+    sound('pop');
+    refreshRoom();
+    drawDecor();
+  }
+
+  // One pointer-down on a tray card or a spot: a tap acts at once on release, a drag carries the item.
+  function beginDecorPress(e, press) {
+    if (e.button > 0) return;
+    drag = { ...press, sx: e.clientX, sy: e.clientY, moved: false, ghost: null, over: null };
+    document.addEventListener('pointermove', onDragMove);
+    document.addEventListener('pointerup', onDragEnd);
+    document.addEventListener('pointercancel', cancelDrag);
+  }
+
+  function onDragMove(e) {
+    if (!drag) return;
+    if (!drag.moved) {
+      if (!drag.item || Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 8) return;
+      drag.moved = true;
+      drag.ghost = document.createElement('div');
+      drag.ghost.className = 'drag-ghost';
+      drag.ghost.innerHTML = G.RoomArt.itemIcon(drag.item);
+      document.body.append(drag.ghost);
+      document.body.classList.add('dragging-item');
+    }
+    drag.ghost.style.left = e.clientX + 'px';
+    drag.ghost.style.top = e.clientY + 'px';
+    const over = spotAt(e.clientX, e.clientY);
+    if (over !== drag.over) {
+      drag.over = over;
+      scene.dropOn(over);
+    }
+    $('decorbar').classList.toggle('drop-away', drag.from != null && !!document.elementsFromPoint(e.clientX, e.clientY).find((n) => n.id === 'decorbar'));
+  }
+
+  function onDragEnd(e) {
+    const d = drag;
+    if (!d) return;
+    cancelDrag();
+    if (!decor) return;
+    if (!d.moved) {
+      // a tap
+      if (d.spot != null) {
+        decor.sel = d.spot;
+        sound('pop');
+        drawDecor();
+      } else if (d.item) {
+        if (!G.Progression.isUnlocked(state, 'item:' + d.item)) return toast(`${G.Catalog.ITEMS[d.item].name} unlocks at bond level ${G.Catalog.ITEMS[d.item].level}.`);
+        putItem(d.item, decor.sel);
+      } else if (d.clear) clearSpot(decor.sel);
+      else if (d.perch) togglePerch();
+      return;
+    }
+    const to = spotAt(e.clientX, e.clientY);
+    if (to != null) {
+      decor.sel = to;
+      putItem(d.item, to);
+    } else if (d.from != null && document.elementsFromPoint(e.clientX, e.clientY).find((n) => n.id === 'decorbar')) {
+      clearSpot(d.from);
+    }
+  }
+
+  function cancelDrag() {
+    document.removeEventListener('pointermove', onDragMove);
+    document.removeEventListener('pointerup', onDragEnd);
+    document.removeEventListener('pointercancel', cancelDrag);
+    if (drag && drag.ghost) drag.ghost.remove();
+    drag = null;
+    document.body.classList.remove('dragging-item');
+    if (scene) scene.dropOn(null);
+    const bar = $('decorbar');
+    if (bar) bar.classList.remove('drop-away');
+  }
+
+  function bindDecor() {
+    $('decorDone').addEventListener('click', endDecorate);
+    $('decorTray').addEventListener('pointerdown', (e) => {
+      const c = e.target.closest('.dcard');
+      if (!c || !decor) return;
+      G.Sound.unlock();
+      if (c.hasAttribute('data-clear')) beginDecorPress(e, { clear: true });
+      else if (c.hasAttribute('data-perch')) beginDecorPress(e, { perch: true });
+      else beginDecorPress(e, { item: c.getAttribute('data-item') });
+    });
+    $('scene').addEventListener('pointerdown', (e) => {
+      if (!decor) return;
+      const hit = e.target.closest('.spot-hit');
+      if (!hit) return;
+      const i = Number(hit.getAttribute('data-spot'));
+      const item = state.room.slots[i];
+      beginDecorPress(e, item ? { spot: i, item, from: i } : { spot: i });
+    });
+  }
+
+  function setSlot(i, id, quiet) {
     const prevItem = state.room.slots[i];
     state.room.slots[i] = id;
     if (id) G.Progression.bump(state, 'spots', id, 0.5);
     if (state.activity.spot === 'slot' + i && prevItem !== id) G.Sim.setActivity(state, now(), 'sit', 'rug');
     refreshRoom();
-    if (id && Math.random() < 0.45 && !G.Sim.isSleeping(state)) {
+    if (id && !quiet && Math.random() < 0.45 && !G.Sim.isSleeping(state)) {
       setTimeout(() => {
         const it = G.Catalog.ITEMS[id];
         const tag = it.tags.includes('hide') ? 'hide' : it.tags.includes('toy') ? 'toy' : it.tags.includes('nap') ? 'loaf' : 'sit';
@@ -771,18 +929,130 @@
       .then((url) => {
         const photo = { id: 'p' + t, t, url, caption, name: state.cat.name };
         openModal(
-          `<h2>Snap!</h2><figure class="photo-big"><img src="${url}" alt=""><figcaption>${esc(nm(caption))}</figcaption></figure>
-           <div class="row"><button class="btn primary" id="keepBtn">Keep in album</button><a class="btn" download="${esc(state.cat.name)}-${G.Clock.dayKey(t)}.jpg" href="${url}">Save to device</a><button class="btn" data-close>Discard</button></div>`,
-          (box) =>
+          `<h2>Snap!</h2>${polaroidHtml(photo)}
+           <div class="row"><button class="btn primary" id="keepBtn">Keep in album</button><button class="btn" id="saveBtn">Save to device</button></div>`,
+          (box) => {
+            box.querySelector('#saveBtn').addEventListener('click', (e) => saveToDevice(photo, e.currentTarget));
             box.querySelector('#keepBtn').addEventListener('click', () => {
               album.unshift(photo);
               while (album.length && !G.Storage.saveAlbum(album)) album.pop();
               closeModal();
               toast(album.includes(photo) ? 'Saved to the album (in your Diary).' : 'The album is full — delete some photos first.');
-            })
+            });
+          }
         );
       })
       .catch(() => toast('Could not take the photo on this browser, sorry!'));
+  }
+
+  const photoDate = (p) => new Date(p.t).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+  // A photo as a polaroid on screen: picture, then what the cat was doing and when.
+  function polaroidHtml(p) {
+    return `<figure class="photo-big"><img src="${p.url}" alt=""><figcaption>${esc(nm(p.caption))}<small>${esc(photoDate(p))}</small></figcaption></figure>`;
+  }
+
+  // Wrap text to at most `max` lines of `width` pixels.
+  function wrapLines(g, text, width, max) {
+    const words = text.split(/\s+/);
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (g.measureText(test).width > width && cur) {
+        lines.push(cur);
+        cur = w;
+      } else cur = test;
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > max) {
+      lines.length = max;
+      lines[max - 1] = lines[max - 1].replace(/\s*\S*$/, '') + '…';
+    }
+    return lines;
+  }
+
+  // Draw a photo onto a polaroid card (picture, caption, date and name) and return it as a PNG.
+  function polaroidBlob(p) {
+    const face = "'M PLUS Rounded 1c', Nunito, system-ui, sans-serif";
+    const loadFont = document.fonts && document.fonts.load ? Promise.all([document.fonts.load(`800 34px ${face}`), document.fonts.load(`700 24px ${face}`)]).catch(() => {}) : Promise.resolve();
+    const img = new Image();
+    const loaded = new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
+    img.src = p.url;
+    return Promise.all([loaded, loadFont]).then(
+      () =>
+        new Promise((resolve, reject) => {
+          const margin = 56; // backdrop around the card
+          const pad = 40; // card border around the picture
+          const pw = 680;
+          const ph = Math.round(pw * (img.naturalHeight / img.naturalWidth));
+          const footer = 230;
+          const cw = pw + pad * 2;
+          const ch = pad + ph + footer;
+          const c = document.createElement('canvas');
+          c.width = cw + margin * 2;
+          c.height = ch + margin * 2;
+          const g = c.getContext('2d');
+          g.fillStyle = '#f8e9b4';
+          g.fillRect(0, 0, c.width, c.height);
+          // card with a soft drop shadow
+          g.save();
+          g.shadowColor = 'rgba(60, 40, 28, 0.32)';
+          g.shadowBlur = 30;
+          g.shadowOffsetY = 12;
+          g.fillStyle = '#fffdf6';
+          g.fillRect(margin, margin, cw, ch);
+          g.restore();
+          g.strokeStyle = '#1b1714';
+          g.lineWidth = 5;
+          g.strokeRect(margin, margin, cw, ch);
+          // the picture, with an ink edge like the game's own art
+          g.drawImage(img, margin + pad, margin + pad, pw, ph);
+          g.lineWidth = 4;
+          g.strokeRect(margin + pad, margin + pad, pw, ph);
+          // caption, date and name
+          g.fillStyle = '#1b1714';
+          g.textAlign = 'center';
+          g.textBaseline = 'alphabetic';
+          g.font = `800 36px ${face}`;
+          const lines = wrapLines(g, nm(p.caption), pw, 2);
+          const mid = margin + cw / 2;
+          let y = margin + pad + ph + 62;
+          for (const line of lines) {
+            g.fillText(line, mid, y);
+            y += 44;
+          }
+          g.fillStyle = '#7d6e62';
+          g.font = `700 24px ${face}`;
+          g.fillText(`${photoDate(p)}  ·  ${p.name || state.cat.name}`, mid, margin + ch - 34);
+          c.toBlob((b) => (b ? resolve(b) : reject(new Error('no blob'))), 'image/png');
+        })
+    );
+  }
+
+  function saveToDevice(p, btn) {
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Developing…';
+    polaroidBlob(p)
+      .then((blob) => {
+        const a = document.createElement('a');
+        a.download = `${p.name || state.cat.name}-${G.Clock.dayKey(p.t)}.png`;
+        a.href = URL.createObjectURL(blob);
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        toast('Saved as a polaroid.');
+      })
+      .catch(() => toast('Could not save the photo on this browser, sorry!'))
+      .finally(() => {
+        btn.disabled = false;
+        btn.textContent = label;
+      });
   }
 
   // ---- Diary / album / treasures ------------------------------------------------------------
@@ -794,6 +1064,7 @@
   }
 
   function openBook(tab) {
+    photoView = -1;
     const tabs = [
       ['diary', 'Diary'],
       ['album', 'Album'],
@@ -806,7 +1077,7 @@
       body = `<p class="small">Written by ${esc(state.cat.name)}, in paw.</p>` + entries.map(diaryCard).join('');
     } else if (tab === 'album') {
       body = album.length
-        ? `<div class="album">${album.map((p, i) => `<figure data-photo="${i}"><img src="${p.url}" alt=""><figcaption>${esc(nm(p.caption))}<small>${esc(new Date(p.t).toLocaleString([], { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }))}</small></figcaption></figure>`).join('')}</div>`
+        ? `<div class="album">${album.map((p, i) => `<figure data-photo="${i}"><img src="${p.url}" alt=""><figcaption>${esc(nm(p.caption))}<small>${esc(photoDate(p))}</small></figcaption></figure>`).join('')}</div>`
         : `<p class="empty">No photos yet. Tap <b>Photo</b> when ${esc(state.cat.name)} is being cute.</p>`;
     } else if (tab === 'treasures') {
       const G2 = G.Catalog.GIFTS;
@@ -833,7 +1104,7 @@
     const sitter = tab === 'diary' && !G.Sim.isSleeping(state) && Math.random() < 0.3;
     openModal(
       `<div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
-       <div class="book">${body}</div><button class="btn" data-close>Close</button>
+       <div class="book">${body}</div>
        ${sitter ? `<button class="sitter" id="sitter" aria-label="Shoo the cat off the diary"><svg viewBox="-80 -120 170 130">${G.CatArt.render('loaf', 'sitter')}</svg><span>${esc(state.cat.name)} is sitting on your diary. Tap to shoo.</span></button>` : ''}`,
       (box) => {
         box.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => openBook(b.getAttribute('data-tab'))));
@@ -852,18 +1123,35 @@
     );
   }
 
+  // One photo, big. With more than one in the album, the arrows (or ← →, or a swipe) cycle through them.
+  let photoView = -1;
   function openPhoto(i) {
-    const p = album[i];
-    if (!p) return;
+    const n = album.length;
+    if (!n) return openBook('album');
+    i = ((i % n) + n) % n;
+    const arrow = (dir) => `<button class="photo-arrow ${dir}" data-step="${dir === 'prev' ? -1 : 1}" aria-label="${dir === 'prev' ? 'Previous' : 'Next'} photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${dir === 'prev' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'}" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
     openModal(
-      `<figure class="photo-big"><img src="${p.url}" alt=""><figcaption>${esc(nm(p.caption))}</figcaption></figure>
-       <div class="row"><a class="btn primary" download="${esc(state.cat.name)}-${G.Clock.dayKey(p.t)}.jpg" href="${p.url}">Save to device</a><button class="btn" id="delBtn">Delete</button><button class="btn" id="backBtn">Back</button></div>`,
+      `<div class="photo-view ${n > 1 ? 'many' : ''}">${n > 1 ? arrow('prev') : ''}${polaroidHtml(album[i])}${n > 1 ? arrow('next') : ''}</div>
+       ${n > 1 ? `<p class="photo-count">${i + 1} of ${n}</p>` : ''}
+       <div class="row"><button class="btn primary" id="saveBtn">Save to device</button><button class="btn" id="delBtn">Delete</button><button class="btn" id="backBtn">Back to album</button></div>`,
       (box) => {
+        photoView = i;
         box.querySelector('#backBtn').addEventListener('click', () => openBook('album'));
+        box.querySelector('#saveBtn').addEventListener('click', (e) => saveToDevice(album[i], e.currentTarget));
         box.querySelector('#delBtn').addEventListener('click', () => {
           album.splice(i, 1);
           G.Storage.saveAlbum(album);
-          openBook('album');
+          if (album.length) openPhoto(Math.min(i, album.length - 1));
+          else openBook('album');
+        });
+        box.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => openPhoto(i + Number(b.getAttribute('data-step')))));
+        // swipe left / right
+        const view = box.querySelector('.photo-view');
+        let x0 = null;
+        view.addEventListener('pointerdown', (e) => (x0 = e.clientX));
+        view.addEventListener('pointerup', (e) => {
+          if (x0 != null && n > 1 && Math.abs(e.clientX - x0) > 45) openPhoto(i + (e.clientX < x0 ? 1 : -1));
+          x0 = null;
         });
       },
       true
@@ -899,8 +1187,7 @@
          <div class="row"><button class="btn" data-skip="1">+1 hour</button><button class="btn" data-skip="6">+6 hours</button><button class="btn" data-skip="24">+1 day</button><button class="btn" id="realTime" ${state.settings.timeOffset ? '' : 'disabled'}>Back to real time</button></div>
          <p class="small">Seasonal decor preview:</p>
          <div class="row">${[['', 'Auto'], ['none', 'None'], ['cny', 'CNY'], ['raya', 'Raya'], ['christmas', 'Christmas']].map(([k, l]) => `<button class="chip ${String(state.settings.seasonPreview || '') === k ? 'on' : ''}" data-season="${k}">${l}</button>`).join('')}</div>
-       </details>
-       <button class="btn" data-close>Close</button>`,
+       </details>`,
       (box) => {
         box.querySelector('#renameForm').addEventListener('submit', (e) => {
           e.preventDefault();
@@ -1463,7 +1750,8 @@
     modalOpen = true;
     modalLocked = !!locked;
     const box = $('modalBox');
-    box.innerHTML = html;
+    // Every card closes with the X in its top right corner (not the naming card, which must be filled in).
+    box.innerHTML = (locked ? '' : `<button class="modal-x" data-close aria-label="Close">${ICONS.close}</button>`) + html;
     $('modal').hidden = false;
     if (onOpen) onOpen(box);
   }
@@ -1473,6 +1761,7 @@
     if (modalLocked && !(state && state.named)) return;
     modalLocked = false;
     modalOpen = false;
+    photoView = -1;
     $('modal').hidden = true;
     $('modalBox').innerHTML = '';
     const next = modalQueue.shift();

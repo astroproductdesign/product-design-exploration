@@ -57,7 +57,8 @@
     this.top = el('g', { id: 'top' });
     // Warm halo for whatever the pointer is over (the .hot class, see styles.css).
     const defs = el('defs', {}, `<filter id="hot-glow" x="-30%" y="-30%" width="160%" height="160%"><feMorphology in="SourceAlpha" operator="dilate" radius="3" result="fat"/><feGaussianBlur in="fat" stdDeviation="4.5" result="soft"/><feFlood flood-color="#ffd23f" flood-opacity=".95"/><feComposite in2="soft" operator="in" result="halo"/><feMerge><feMergeNode in="halo"/><feMergeNode in="halo"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`);
-    svg.append(defs, this.back, this.mid, this.garden, this.fx, this.over, this.top);
+    this.edit = el('g', { id: 'edit' }); // spots shown while arranging the room
+    svg.append(defs, this.back, this.mid, this.garden, this.fx, this.over, this.edit, this.top);
 
     this.catG = el('g', { id: 'cat' });
     this.catShadow = el('ellipse', { cx: 0, cy: 2, rx: 46, ry: 8, fill: '#000', opacity: 0.12 });
@@ -558,6 +559,48 @@
     this.applyFace(true);
   };
 
+
+  // ---- Arranging the room ---------------------------------------------------------------
+  // The camera pulls back to show the whole room, and each place an item can go
+  // gets a dashed ring with a number (and a + when it's empty).
+
+  Scene.prototype.setDecorate = function (on) {
+    this.decorating = on;
+    if (on) {
+      this.userPan = null;
+      this.focus = { cx: A.W / 2, cy: A.H / 2 + 10, spanW: A.W, spanH: A.H - 40, safe: { l: 0, r: 0, t: 0.02, b: 0.02 } };
+    } else {
+      this.focus = null;
+      this.zoomingOut = true;
+      this.edit.innerHTML = '';
+    }
+  };
+
+  Scene.prototype.drawSpots = function (sel) {
+    if (!this.decorating) return;
+    const slots = this.getState().room.slots;
+    // On a small screen the whole room is tiny, so the markers grow to stay easy to hit.
+    const r = this.svg.getBoundingClientRect();
+    const k = r.width ? Math.min(r.width / A.W, r.height / (A.H - 40)) : 1;
+    const u = Math.max(1, Math.min(1.9, 0.62 / k)).toFixed(2);
+    this.edit.innerHTML = A.SLOTS.map(({ x, y }, i) => {
+      const has = !!slots[i];
+      return (
+        `<g class="spot ${has ? 'has' : ''} ${i === sel ? 'sel' : ''}" data-spot="${i}">` +
+        `<ellipse class="spot-ring" cx="${x}" cy="${y - 4}" rx="70" ry="20"/>` +
+        (has ? '' : `<g class="spot-plus" transform="translate(${x} ${y - 42}) scale(${u})"><circle r="21"/><path d="M -8 0 H 8 M 0 -8 V 8"/></g>`) +
+        `<g class="spot-num" transform="translate(${x + 60} ${y - 22}) scale(${u})"><circle r="13"/><text y="5" text-anchor="middle">${i + 1}</text></g>` +
+        `<rect class="spot-hit" data-spot="${i}" x="${x - 76}" y="${y - 164}" width="152" height="190"/>` +
+        `</g>`
+      );
+    }).join('');
+  };
+
+  // Highlight the spot a dragged item would land on (null for none).
+  Scene.prototype.dropOn = function (i) {
+    this.edit.querySelectorAll('.spot').forEach((g) => g.classList.toggle('drop', Number(g.getAttribute('data-spot')) === i));
+  };
+
   // ---- Petting zones ------------------------------------------------------------------
 
   Scene.prototype.toScene = function (clientX, clientY) {
@@ -1000,7 +1043,7 @@
     clone.setAttribute('xmlns', NS);
     clone.setAttribute('width', vb[2]);
     clone.setAttribute('height', vb[3]);
-    clone.querySelectorAll('#toy, .float').forEach((n) => n.remove());
+    clone.querySelectorAll('#toy, .float, .nudge').forEach((n) => n.remove());
     const xml = new XMLSerializer().serializeToString(clone);
     const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
     return new Promise((resolve, reject) => {
