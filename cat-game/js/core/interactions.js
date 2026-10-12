@@ -192,6 +192,14 @@
 
   // ---- Litter box -----------------------------------------------------------
 
+  // The first bit of cleaning up each day earns an extra bond point (outside the daily cap).
+  function firstCare(s, t) {
+    G.State.ensureDay(s, t);
+    if (s.daily.careBonus) return null;
+    s.daily.careBonus = true;
+    return G.Progression.addBond(s, 1, t);
+  }
+
   // Scoop the box (and mop up any accident).
   function scoop(s, t) {
     const L = s.room.litter;
@@ -200,10 +208,10 @@
     L.clumps = [];
     L.mess = 0;
     G.State.log(s, { t, type: 'scoop', live: true });
-    let res = null;
+    let res = firstCare(s, t);
     if (wasDirty) {
       joy(s, 4);
-      res = G.Progression.addBond(s, 1, t, 'care');
+      res = G.Progression.addBond(s, 1, t, 'care') || res;
     }
     return withBond({ ok: true, say: '', sound: 'scoop', hearts: wasDirty ? 1 : 0, toast: wasDirty ? '{name} approves of the fresh litter. Much better.' : 'Scooped. Fresh and tidy.' }, res);
   }
@@ -215,6 +223,7 @@
     list.splice(i, 1);
     G.State.log(s, { t, type: 'cleaned', live: true });
     joy(s, 2);
+    firstCare(s, t);
     const res = G.Progression.addBond(s, 1, t, 'care');
     return withBond({ ok: true, say: '', sound: 'scoop', hearts: 1, toast: R.pick(rngFor(s, t, 'clean'), ['All cleaned up. {name} pretends nothing happened.', 'Wiped away. {name} looks a little embarrassed.', 'Spotless again. {name} says thank you (by ignoring you).']) }, res);
   }

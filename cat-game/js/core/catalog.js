@@ -3,7 +3,7 @@
   'use strict';
 
   // Bond levels: points needed to reach each level (index = level - 1).
-  const LEVELS = [0, 30, 80, 150, 250, 380, 550, 760, 1000, 1300];
+  const LEVELS = [0, 25, 60, 110, 180, 270, 390, 540, 740, 1000];
 
   const FOODS = {
     kibble: { name: 'Crunchy kibble', fill: 35, portions: 3, joy: 2, level: 1, color: '#c98b4e' },
@@ -27,6 +27,13 @@
     tower: { name: 'Cat tower', label: 'the cat tower', at: 'on top of the cat tower', tags: ['nap', 'watch', 'sit', 'scratch'], level: 5 },
     fishToy: { name: 'Fish kicker', label: 'the fish kicker', at: 'with the fish kicker', tags: ['toy'], level: 6 },
     tent: { name: 'Cat tent', label: 'the cat tent', at: 'in the cat tent', tags: ['hide', 'nap'], level: 7 },
+    // From the gachapon machine (no bond level: you win them).
+    mouse: { name: 'Toy mouse', label: 'the toy mouse', at: 'with the toy mouse', tags: ['toy'], gacha: true },
+    ball: { name: 'Jingle ball', label: 'the jingle ball', at: 'with the jingle ball', tags: ['toy'], gacha: true },
+    banana: { name: 'Catnip banana', label: 'the catnip banana', at: 'with the catnip banana', tags: ['toy', 'knead', 'roll'], gacha: true },
+    duck: { name: 'Rubber duck', label: 'the rubber duck', at: 'next to the rubber duck', tags: ['toy', 'sit'], gacha: true },
+    donut: { name: 'Donut bed', label: 'the donut bed', at: 'in the donut bed', tags: ['nap', 'loaf', 'knead'], gacha: true },
+    tunnel: { name: 'Crinkle tunnel', label: 'the crinkle tunnel', at: 'in the crinkle tunnel', tags: ['hide', 'nap'], gacha: true },
   };
 
   // Not placed in a slot — it upgrades the windowsill into a nap spot.

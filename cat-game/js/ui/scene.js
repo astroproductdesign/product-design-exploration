@@ -87,7 +87,8 @@
     const seasons = this.seasonList(t);
     const noteFresh = G.Notes.fresh(s, t);
     const noteText = G.Notes.today(s, t).text; // the sticky note shows its first words
-    const sig = JSON.stringify([s.room, s.bowl, seasons, (s.unseenUnlocks || []).length > 0, (s.achUnseen || 0) > 0, noteFresh, noteText]);
+    const canSpin = (s.coins || 0) >= G.Gacha.COST;
+    const sig = JSON.stringify([s.room, s.bowl, seasons, (s.unseenUnlocks || []).length > 0, (s.achUnseen || 0) > 0, noteFresh, noteText, canSpin, s.flags.learned || null, s.coins || 0]);
     if (!force && sig === this.roomSig) return;
     // The background holds the framed photo of the cat, so a new look redraws it too.
     const coatSig = JSON.stringify(s.cat.coat || null);
@@ -101,7 +102,7 @@
       this.lastLightMin = -1;
     }
     this.mid.innerHTML = '';
-    const items = A.midLayer(s, seasons, { noteFresh, noteText }).sort((a, b) => a.z - b.z);
+    const items = A.midLayer(s, seasons, { noteFresh, noteText, canSpin }).sort((a, b) => a.z - b.z);
     // The intro's box, left on the rug for a moment after the cat hops out.
     const tb = this.tempBox;
     if (tb) {

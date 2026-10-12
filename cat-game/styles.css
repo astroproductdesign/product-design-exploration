@@ -2708,3 +2708,326 @@ body.decorating #scene {
 .trophy .tbar {
   margin: 2px 0 3px;
 }
+
+/* ---- Cat coins in the HUD, and the little numbers that float up ------------------------------ */
+
+.nc-bond {
+  position: relative;
+}
+.hud-float {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  z-index: 8;
+  font-weight: 900;
+  font-size: 15px;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+  animation: hudFloat 1.3s ease-out forwards;
+}
+.hud-float.bond {
+  color: #d44c7a;
+}
+.hud-float.coin {
+  color: #a87a12;
+}
+.hud-float.spent {
+  color: var(--ink-soft);
+}
+@keyframes hudFloat {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.8); }
+  20% { opacity: 1; transform: translate(-50%, -6px) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -30px) scale(1); }
+}
+/* ---- The gachapon window --------------------------------------------------------------------- */
+
+.gacha h2 {
+  margin-top: 0;
+  text-align: center;
+}
+.g-stage {
+  position: relative;
+  width: min(240px, 70%);
+  margin: 0 auto;
+}
+.g-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.g-svg .g-crank,
+.g-svg .g-out,
+.g-svg .g-top,
+.g-svg .g-bot,
+.g-svg .g-coin,
+.g-svg .g-caps {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.g-coin,
+.g-out {
+  opacity: 0;
+}
+/* 1: the coin drops into the slot */
+.s1 .g-coin {
+  animation: gCoin 0.6s ease-in forwards;
+}
+@keyframes gCoin {
+  0% { opacity: 1; transform: translateY(-46px) rotate(-20deg); }
+  70% { opacity: 1; transform: translateY(30px) rotate(0) scaleX(0.6); }
+  100% { opacity: 0; transform: translateY(34px) scaleX(0.2); }
+}
+/* 2: the crank turns and the capsules rattle */
+.s2 .g-crank {
+  animation: gCrank 0.9s ease-in-out;
+}
+@keyframes gCrank {
+  to { transform: rotate(540deg); }
+}
+.s2 .g-caps {
+  animation: gRattle 0.15s linear 6;
+}
+@keyframes gRattle {
+  25% { transform: translate(-3px, 1px) rotate(-2deg); }
+  75% { transform: translate(3px, -1px) rotate(2deg); }
+}
+/* 3: a capsule rolls out of the chute and bounces */
+.s3 .g-out {
+  animation: gOut 0.95s cubic-bezier(0.3, 0.7, 0.4, 1) forwards;
+}
+@keyframes gOut {
+  0% { opacity: 1; transform: translateY(-22px) scale(0.5); }
+  45% { opacity: 1; transform: translateY(16px) scale(1.25); }
+  65% { transform: translateY(2px) scale(1.25); }
+  82% { transform: translateY(16px) scale(1.25); }
+  91% { transform: translateY(11px) scale(1.25) rotate(-6deg); }
+  100% { opacity: 1; transform: translateY(16px) scale(1.25) rotate(0); }
+}
+.s4 .g-out {
+  opacity: 1;
+  transform: translateY(16px) scale(1.25);
+}
+/* 4: it pops open and the prize jumps out */
+.s4 .g-top {
+  animation: gTop 0.6s ease-out forwards;
+}
+@keyframes gTop {
+  to { transform: translate(-26px, -46px) rotate(-70deg); opacity: 0; }
+}
+.s4 .g-bot {
+  animation: gBot 0.6s ease-out 0.2s forwards;
+}
+@keyframes gBot {
+  to { opacity: 0; transform: translateY(8px); }
+}
+.g-prize {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: 62%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+}
+.s4 .g-prize {
+  animation: gPrize 0.7s cubic-bezier(0.2, 1.6, 0.4, 1) 0.15s forwards;
+}
+@keyframes gPrize {
+  0% { transform: translate(-50%, 40%) scale(0); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+.g-icon {
+  position: absolute;
+  inset: 12%;
+  display: grid;
+  place-items: center;
+  background: #fffdf6;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+}
+.g-icon svg {
+  width: 78%;
+  height: 78%;
+}
+.g-burst {
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(#fff2a6 0 10deg, transparent 10deg 30deg);
+  animation: gSpin 6s linear infinite;
+  opacity: 0.9;
+}
+.g-burst.rare {
+  background: repeating-conic-gradient(#d9ccff 0 10deg, transparent 10deg 30deg);
+}
+.g-burst.legendary {
+  background: repeating-conic-gradient(#ffd34d 0 8deg, #ff9ec4 8deg 16deg, transparent 16deg 30deg);
+}
+@keyframes gSpin {
+  to { transform: rotate(360deg); }
+}
+.g-result {
+  min-height: 3em;
+  text-align: center;
+}
+.g-card {
+  margin: 6px 0;
+  padding: 10px 14px;
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+}
+.g-card.rare {
+  background: #efe8ff;
+}
+.g-card.legendary {
+  background: #fff3c4;
+}
+.g-card small {
+  display: block;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.g-card b {
+  display: block;
+  font-size: 20px;
+}
+.g-card p {
+  margin: 4px 0 8px;
+  font-weight: 700;
+}
+.g-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+.g-coins,
+#gSpin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 900;
+}
+.g-coins svg,
+#gSpin svg {
+  width: 22px;
+  height: 22px;
+}
+#gSpin.nope {
+  animation: gNope 0.4s;
+}
+@keyframes gNope {
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+.g-list summary {
+  cursor: pointer;
+  font-weight: 800;
+  margin: 8px 0;
+}
+.g-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+.g-cell {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  text-align: center;
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  opacity: 0.6;
+}
+.g-cell.got {
+  opacity: 1;
+  background: #fffdf6;
+}
+.g-cell span {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  font-size: 24px;
+  font-weight: 900;
+}
+.g-cell span svg {
+  width: 100%;
+  height: 100%;
+}
+.g-cell b {
+  font-size: 12.5px;
+  line-height: 1.2;
+}
+.g-cell small {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.g-cell.legendary small {
+  color: #b8860b;
+}
+.g-cell.rare small {
+  color: #7b61c9;
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-burst,
+  .hud-float {
+    animation: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-stage * {
+    animation: none !important;
+  }
+  .s4 .g-prize {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .s4 .g-out,
+  .s4 .g-coin {
+    opacity: 0;
+  }
+}
+
+/* ---- The piggy bank by the TV ---------------------------------------------------------------- */
+
+.scene-float {
+  position: absolute;
+  top: 0;
+  transform: translate(-50%, 0);
+}
+.piggy .piggy-body,
+.piggy .piggy-tag {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.piggy.jiggle .piggy-body {
+  animation: piggyJiggle 0.6s ease-in-out;
+}
+.piggy.jiggle .piggy-tag {
+  animation: piggyTag 0.6s ease-out;
+}
+@keyframes piggyJiggle {
+  20% { transform: rotate(-8deg) scale(1.05); }
+  45% { transform: rotate(7deg) scale(1.05); }
+  70% { transform: rotate(-4deg); }
+}
+@keyframes piggyTag {
+  30% { transform: scale(1.25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .piggy.jiggle .piggy-body,
+  .piggy.jiggle .piggy-tag {
+    animation: none;
+  }
+}

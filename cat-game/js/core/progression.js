@@ -18,7 +18,17 @@
 
   // cap: name of a daily counter ('pet' | 'play' | 'feed') and its daily max,
   // so spamming one button doesn't race through the levels.
-  const CAPS = { pet: 15, play: 15, feed: 6, care: 4, invite: 3 };
+  const CAPS = { pet: 20, play: 20, feed: 8, care: 4, invite: 4 };
+
+  // Cat coins (spent on the gachapon): one for each day you check in, a bonus at streak
+  // milestones, three for every bond level, and some for achievements (achievements.js).
+  const LEVEL_COINS = 3;
+  const STREAK_COINS = { 3: 2, 7: 4, 14: 6, 30: 10 };
+
+  function addCoins(s, n) {
+    s.coins = (s.coins || 0) + n;
+    return n;
+  }
 
   function addBond(s, amount, t, capKey) {
     G.State.ensureDay(s, t);
@@ -43,7 +53,10 @@
       }
       G.State.log(s, { t, type: 'levelup', level: lv });
     }
-    if (after > before) res.levelUp = after;
+    if (after > before) {
+      res.levelUp = after;
+      res.coins = addCoins(s, LEVEL_COINS * (after - before));
+    }
     return res;
   }
 
@@ -56,13 +69,23 @@
     return lost;
   }
 
-  // +5 the first time you check in each day.
+  // The first check-in each day: +5 bond, plus 1 more for every day in a row before it (up to
+  // +5), and a cat coin (more at streak milestones).
   function dailyVisit(s, t) {
     const k = G.Clock.dayKey(t);
     if (s.lastVisitDay === k) return null;
+    const yesterday = G.Clock.dayKey(t - 24 * 60 * 60 * 1000);
+    s.flags.streak = s.lastVisitDay === yesterday ? (s.flags.streak || 1) + 1 : 1;
+    s.flags.bestStreak = Math.max(s.flags.bestStreak || 0, s.flags.streak);
     s.lastVisitDay = k;
-    G.State.log(s, { t, type: 'visit' });
-    return addBond(s, 5, t);
+    const extra = Math.min(5, s.flags.streak - 1);
+    const res = addBond(s, 5 + extra, t);
+    const coins = addCoins(s, 1 + (STREAK_COINS[s.flags.streak] || 0));
+    res.coins = (res.coins || 0) + coins;
+    res.streak = s.flags.streak;
+    res.streakBonus = extra;
+    G.State.log(s, { t, type: 'visit', streak: s.flags.streak });
+    return res;
   }
 
   // +2 for every day you spend together, visited or not. Called by the
@@ -97,5 +120,5 @@
     return best;
   }
 
-  G.Progression = { level, progress, addBond, loseBond, dailyVisit, passiveDay, isUnlocked, bump, favorite, CAPS };
+  G.Progression = { level, progress, addBond, addCoins, loseBond, dailyVisit, LEVEL_COINS, STREAK_COINS, passiveDay, isUnlocked, bump, favorite, CAPS };
 })(globalThis.CatGame = globalThis.CatGame || {});

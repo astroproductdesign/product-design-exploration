@@ -322,6 +322,48 @@
     return `<g class="flower">${petals}<circle cx="36" cy="-36" r="3.6" fill="#ecbc44" stroke="${C.line}" stroke-width="2"/></g>`;
   }
 
+  // Head extras from the gachapon. Hats sit between the ears (so they show from behind too);
+  // sunglasses only on the face.
+  function hat() {
+    const L = C.line;
+    switch (ACC.extra) {
+      case 'partyHat':
+        return (
+          `<g class="hat">` +
+          shape('M -16 -36 L 4 -84 L 18 -37 Z', '#7fb4d9', 3.4) +
+          line('M -11 -48 L 12 -52 M -5 -62 L 9 -65 M 0 -74 L 6 -76', 4, '#f4accc') +
+          `<circle cx="4" cy="-86" r="6" fill="#ecbc44" stroke="${L}" stroke-width="2.6"/></g>`
+        );
+      case 'crown':
+        return (
+          `<g class="hat">` +
+          shape('M -20 -34 L -23 -58 L -11 -46 L 0 -62 L 11 -46 L 23 -58 L 20 -34 Q 0 -38 -20 -34 Z', '#ecbc44', 3.4) +
+          `<circle cx="0" cy="-44" r="3.6" fill="#d44c34" stroke="${L}" stroke-width="1.8"/><circle cx="-12" cy="-40" r="2.6" fill="#6ca4e4" stroke="${L}" stroke-width="1.6"/><circle cx="12" cy="-40" r="2.6" fill="#8fd3c6" stroke="${L}" stroke-width="1.6"/></g>`
+        );
+      case 'headBow':
+        return (
+          `<g class="hat">` +
+          shape('M -34 -44 L -58 -60 L -56 -30 Z M -34 -44 L -14 -64 L -10 -36 Z', '#f4accc', 3.2) +
+          `<circle cx="-34" cy="-45" r="6" fill="#e58db3" stroke="${L}" stroke-width="3"/></g>`
+        );
+      case 'leaf':
+        return (
+          `<g class="hat">` +
+          shape('M 0 -36 Q -24 -52 -6 -72 Q 4 -60 0 -36 Z', '#7cb356', 3) +
+          shape('M 0 -36 Q 22 -50 10 -68 Q -2 -58 0 -36 Z', '#8fc566', 3) +
+          line('M 0 -36 L 0 -42', 3) +
+          `</g>`
+        );
+      default:
+        return '';
+    }
+  }
+  function sunnies() {
+    if (ACC.extra !== 'sunnies') return '';
+    const lens = (x) => `<ellipse cx="${x}" cy="2" rx="14" ry="11" fill="#2d2a33" stroke="${C.line}" stroke-width="3"/><path d="M ${x - 8} -2 Q ${x - 4} -7 ${x + 2} -6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>`;
+    return `<g class="sunnies">${lens(-22)}${lens(22)}${line('M -8 0 Q 0 -4 8 0', 3.4)}${line('M -36 -2 L -48 -6 M 36 -2 L 48 -6', 3.4)}</g>`;
+  }
+
   function eyeSet(x) {
     const y = 2;
     // Ink dot, or a coloured eye with an ink outline and pupil on dark/pointed faces.
@@ -375,7 +417,7 @@
     o = o || {};
     const band = o.noCollar ? '' : collar();
     if (o.back) {
-      return `<g class="cat-head">${band}${part(uid, 'head', HEAD, C.tabby, headMarks(true))}${earZone()}${flower()}</g>`;
+      return `<g class="cat-head">${band}${part(uid, 'head', HEAD, C.tabby, headMarks(true))}${earZone()}${flower()}${hat()}</g>`;
     }
     const L = eyeSet(-22);
     const R = eyeSet(22);
@@ -393,7 +435,7 @@
     const faceWhite = WH === 'face';
     const coat = (faceWhite ? fillPath(COAT_TOP, C.tabby) : '') + headMarks(false);
     const shapeD = o.earFlick ? HEAD_NO_LEFT_EAR : HEAD;
-    return `<g class="cat-head">${band}${part(uid, 'head', shapeD, faceWhite ? C.white : C.tabby, coat)}${o.earFlick ? leftEar() : ''}${earZone()}${eyes}${mouths}${nose()}${flower()}</g>`;
+    return `<g class="cat-head">${band}${part(uid, 'head', shapeD, faceWhite ? C.white : C.tabby, coat)}${o.earFlick ? leftEar() : ''}${earZone()}${eyes}${mouths}${nose()}${flower()}${sunnies()}${hat()}</g>`;
   }
 
   function placeHead(uid, x, y, o) {
@@ -646,8 +688,8 @@
   }
 
   // Just the face, for the mood badge and menus.
-  function renderHead(uid, eyes, mouth) {
-    let h = head(uid || 'face', { noCollar: true });
+  function renderHead(uid, eyes, mouth, withCollar) {
+    let h = head(uid || 'face', { noCollar: !withCollar });
     h = h.replace(/<g class="eyes eyes-(\w+)"( display="none")?>/g, (m, k) => `<g class="eyes eyes-${k}"${k === (eyes || 'open') ? '' : ' display="none"'}>`);
     h = h.replace(/<g class="mouth mouth-(\w+)"( display="none")?>/g, (m, k) => `<g class="mouth mouth-${k}"${k === (mouth || 'normal') ? '' : ' display="none"'}>`);
     return h;

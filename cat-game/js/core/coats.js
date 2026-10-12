@@ -78,6 +78,10 @@
     { id: 'blue', name: 'Blue', hex: '#6ca4e4' },
     { id: 'pink', name: 'Pink', hex: '#f4accc' },
     { id: 'black', name: 'Black', hex: '#3a3330' },
+    // From the gachapon
+    { id: 'purple', name: 'Purple', hex: '#a98bd9', gacha: true },
+    { id: 'orange', name: 'Orange', hex: '#f39a3a', gacha: true },
+    { id: 'gold', name: 'Gold', hex: '#e8b923', gacha: true },
   ];
   const EXTRAS = [
     { id: 'none', name: 'None' },
@@ -85,6 +89,12 @@
     { id: 'bow', name: 'Bow tie' },
     { id: 'bandana', name: 'Bandana' },
     { id: 'flower', name: 'Flower' },
+    // From the gachapon
+    { id: 'partyHat', name: 'Party hat', gacha: true },
+    { id: 'headBow', name: 'Big bow', gacha: true },
+    { id: 'leaf', name: 'Leaf hat', gacha: true },
+    { id: 'sunnies', name: 'Sunglasses', gacha: true },
+    { id: 'crown', name: 'Crown', gacha: true },
   ];
   const DEFAULT_ACCESSORY = { collar: 'mint', extra: 'bell' };
 

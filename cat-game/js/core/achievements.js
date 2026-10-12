@@ -91,6 +91,15 @@
     { id: 'days7', icon: '🏠', name: 'Roommates', desc: 'Live together for 7 days.', calc: (s, t) => Math.floor((t - s.createdAt) / DAY), goal: 7 },
     { id: 'days30', icon: '🎂', name: 'Cat-versary', desc: 'Live together for 30 days.', calc: (s, t) => Math.floor((t - s.createdAt) / DAY), goal: 30 },
 
+    // ---- Coming back, and the gachapon
+    { id: 'streak3', icon: '🔥', name: 'Clingy', desc: 'Visit 3 days in a row.', calc: (s) => s.flags.bestStreak || 0, goal: 3 },
+    { id: 'streak7', icon: '🫶', name: 'Emotionally Dependent', desc: 'Visit 7 days in a row. The cat noticed. It will not say so.', calc: (s) => s.flags.bestStreak || 0, goal: 7 },
+    { id: 'gacha1', icon: '🎰', name: 'Gambling Is A Strong Word', desc: 'Spend cat coins on the gachapon.', key: 'gacha', goal: 1 },
+    { id: 'gacha10', icon: '🥚', name: 'Capsule Hoarder', desc: 'Spin the gachapon 10 times.', key: 'gacha', goal: 10 },
+    { id: 'gachaDup', icon: '🔁', name: 'Not Again', desc: 'Get something from the gachapon you already had.', key: 'gachaDup', goal: 1 },
+    { id: 'gachaCrown', icon: '👑', name: 'Royalty', desc: 'Win the tiny crown.', key: 'prize:extra:crown', goal: 1, secret: true },
+    { id: 'gachaAll', icon: '🧺', name: 'Gotta Catch Them All (Legally Distinct)', desc: 'Collect every prize in the gachapon.', calc: (s) => (s.gacha ? s.gacha.owned.length : 0), goal: 14 },
+
     // ---- Meta
     { id: 'meta5', icon: '🏆', name: 'Trophy Hoarder', desc: 'Unlock 5 achievements. Look at you go.', calc: (s) => unlockedCount(s, 'meta5'), goal: 5 },
     { id: 'meta20', icon: '🥇', name: 'Achievement Hunter', desc: 'Unlock 20 achievements. This is what you do now.', calc: (s) => unlockedCount(s, 'meta20'), goal: 20 },
@@ -180,7 +189,10 @@
       case 'birds': c('birds'); break;
       case 'hide': c('hide'); break;
       case 'played': c('play'); break;
-      case 'levelup': break; // the bond-level ones are worked out below
+      case 'gacha': c('gacha'); c('prize:' + e.prize); if (e.dup) c('gachaDup'); break;
+      case 'levelup': // the bond-level and streak ones are worked out below
+      case 'visit':
+        break;
       default:
         return;
     }
@@ -192,6 +204,30 @@
     const q = s.achQueue || [];
     s.achQueue = [];
     return q.map((id) => BY_ID[id]).filter(Boolean);
+  }
+
+  // What an achievement is worth: a little bond and a cat coin (more for the big "meta" ones).
+  const rewardOf = (d) => (d.id.startsWith('meta') ? { bond: 5, coins: 3 } : { bond: 2, coins: 1 });
+
+  // Announce-and-reward: takes the unlocked ones, adds their bond and coins. Returns the list and
+  // anything the bond did (a level-up, unlocks), so the screen can celebrate it.
+  function claim(s, t) {
+    const list = [];
+    const out = { list, bond: 0, coins: 0, levelUp: null, unlocked: [] };
+    let guard = 0;
+    while ((s.achQueue || []).length && guard++ < 20) {
+      for (const d of take(s)) {
+        const rw = rewardOf(d);
+        list.push(d);
+        out.bond += rw.bond;
+        out.coins += G.Progression.addCoins(s, rw.coins);
+        const res = G.Progression.addBond(s, rw.bond, t); // may unlock more (bond levels)
+        if (res.levelUp) out.levelUp = res.levelUp;
+        if (res.unlocked) out.unlocked.push(...res.unlocked);
+        if (res.coins) out.coins += res.coins;
+      }
+    }
+    return out;
   }
 
   // For the Trophies page: everything with how far along it is.
@@ -207,5 +243,5 @@
     return { done: Object.keys(s.achievements || {}).length, total: DEFS.length };
   }
 
-  G.Achievements = { DEFS, BY_ID, count, bump, mark, onEvent, evaluate, take, list, summary };
+  G.Achievements = { DEFS, BY_ID, count, bump, mark, onEvent, evaluate, take, claim, rewardOf, list, summary };
 })(globalThis.CatGame = globalThis.CatGame || {});

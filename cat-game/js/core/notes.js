@@ -210,10 +210,18 @@
     return (s.notes || []).filter((x) => x.day < key).slice(-(max || 14)).reverse();
   }
 
+  // Reading today's note for the first time: marks it read and earns a bond point.
+  function read(s, t) {
+    const was = fresh(s, t);
+    today(s, t);
+    s.flags.noteSeen = G.Clock.dayKey(t);
+    return { fresh: was, res: was ? G.Progression.addBond(s, 1, t) : null };
+  }
+
   // Unread until the player has opened today's note.
   function fresh(s, t) {
     return !s.flags || s.flags.noteSeen !== G.Clock.dayKey(t);
   }
 
-  G.Notes = { FACTS, ABOUT_ME, WISH, WISH_NEED, KINDS, today, earlier, fresh, write };
+  G.Notes = { FACTS, ABOUT_ME, WISH, WISH_NEED, KINDS, today, earlier, fresh, read, write };
 })(globalThis.CatGame = globalThis.CatGame || {});

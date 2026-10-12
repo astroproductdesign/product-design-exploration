@@ -35,8 +35,12 @@
   const W = 1248; // 30% wider than the original 960
   const H = 600;
   const FLOOR = 420;
-  const DX = { tv: 24, basket: 102, mid: 168, chair: 234, clock: 240, note: 252, right: 282 };
+  const DX = { tv: 24, basket: 140, mid: 168, chair: 234, clock: 240, note: 252, right: 282 };
+  const GACHA_X = 322; // the gachapon machine, between the TV desk and the toy basket
+  const PIGGY = { x: 248, y: 500 }; // the piggy bank of cat coins, on the floor by the TV cabinet
   const at = (dx, svg) => `<g transform="translate(${dx} 0)">${svg}</g>`;
+  // The dotted rings that point things out show until you've used that thing once.
+  const guide = (state, key) => !(state.flags && state.flags.learned && state.flags.learned[key]);
 
   // Outlines run ~30% heavier than the widths passed in (room line ≈ 4).
   const ow = (w) => ((w || 3) * 1.3).toFixed(2);
@@ -85,6 +89,12 @@
     tower: { dx: 0, dy: -131, high: true },
     fishToy: { dx: -52, dy: 0, face: 1 },
     tent: { dx: 0, dy: -6 },
+    mouse: { dx: -48, dy: 0, face: 1 },
+    ball: { dx: -44, dy: 0, face: 1 },
+    banana: { dx: 0, dy: -10 },
+    duck: { dx: -44, dy: 0, face: 1 },
+    donut: { dx: 0, dy: -12 },
+    tunnel: { dx: 0, dy: -4 },
   };
 
   function scaleAt(yFloor) {
@@ -418,7 +428,7 @@
     if (G.Sim.isDirty(state)) {
       back += [-22, 0, 22].map((dx, i) => `<path class="stink" style="animation-delay:${i * 0.5}s" d="M ${x + dx} ${y - 58} q 6 -8 0 -16 t 0 -16" fill="none" stroke="#9aa83e" stroke-width="3" stroke-linecap="round"/>`).join('');
     }
-    if (G.Sim.isDirty(state)) back += `<ellipse class="nudge" cx="${x}" cy="${y - 22}" rx="74" ry="40" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
+    if (G.Sim.isDirty(state) && guide(state, 'litter')) back += `<ellipse class="nudge" cx="${x}" cy="${y - 22}" rx="74" ry="40" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
     back += `</g>`;
     const front =
       `<g class="litter act" data-act="litter" style="cursor:pointer">` +
@@ -552,7 +562,7 @@
           `<ellipse cx="-6" cy="-1" rx="6" ry="2.6" fill="#b9c96e"/>` +
           [[-12, 3], [9, -2], [14, 5], [-1, 6]].map(([dx, dy]) => `<path d="M ${dx} ${dy} l 5 -2" stroke="#5f8f45" stroke-width="2.2" stroke-linecap="round"/>`).join('') +
           `<path class="stink" d="M 2 -14 q 6 -8 0 -16" fill="none" stroke="#9aa83e" stroke-width="3" stroke-linecap="round"/>` +
-          `<ellipse class="nudge" cx="0" cy="-1" rx="38" ry="22" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>` +
+          (guide(state, 'vomit') ? `<ellipse class="nudge" cx="0" cy="-1" rx="38" ry="22" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>` : '') +
           `</g>`,
       };
     });
@@ -574,7 +584,7 @@
     g += S('M 834 248 L 836 234 L 850 234 L 852 248 Z', K.red, 2.4) + S('M 843 234 Q 836 222 840 214 Q 846 222 843 234 Z M 843 234 Q 851 224 848 216 Q 841 224 843 234 Z', K.olive, 2);
     // the shelf board
     g += R(752, 247, 108, 9, K.woodLight, 3, 2.8);
-    if (unread) g += `<ellipse class="nudge" cx="806" cy="230" rx="62" ry="36" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
+    if (unread && guide(state, 'diary')) g += `<ellipse class="nudge" cx="806" cy="230" rx="62" ry="36" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
     return g + `</g>`;
   }
 
@@ -599,7 +609,7 @@
     s += S('M 314 536 Q 316 550 334 550 Q 352 550 354 536 Z', '#7fb4d9', 2.6);
     s += `<ellipse cx="334" cy="536" rx="20" ry="5" fill="#bfe2f5" stroke="${K.line}" stroke-width="2.6"/>`;
     // An empty bowl pulses a little ring: this is where food comes from.
-    if (p <= 0) s += `<ellipse class="nudge" cx="308" cy="540" rx="68" ry="24" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
+    if (p <= 0 && guide(state, 'bowl')) s += `<ellipse class="nudge" cx="308" cy="540" rx="68" ry="24" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
     return s + `</g>`;
   }
 
@@ -806,7 +816,100 @@
         `<path d="M ${x - 6} ${y - 92} L ${x + 6} ${y - 92} L ${x} ${y - 104} Z" fill="#f3c66b"/>`;
       return [back, front];
     },
+    // ---- from the gachapon
+    mouse(x, y) {
+      const c =
+        L(`M ${x + 14} ${y - 6} Q ${x + 30} ${y - 2} ${x + 32} ${y - 14} Q ${x + 34} ${y - 24} ${x + 44} ${y - 20}`, '#e98aa0', 2.5) +
+        S(`M ${x - 18} ${y - 4} Q ${x - 16} ${y - 22} ${x + 2} ${y - 20} Q ${x + 18} ${y - 18} ${x + 16} ${y - 4} Q ${x} ${y + 2} ${x - 18} ${y - 4} Z`, '#b8b4ad', 2.6) +
+        E(x - 10, y - 21, 6, 6, '#f4accc', 2.2) +
+        `<circle cx="${x - 14}" cy="${y - 10}" r="2" fill="${K.line}"/><circle cx="${x - 20}" cy="${y - 6}" r="2" fill="#e98aa0"/>`;
+      return [c, ''];
+    },
+    ball(x, y) {
+      const c =
+        E(x, y - 13, 13, 13, '#f4accc', 2.6) +
+        `<circle cx="${x}" cy="${y - 13}" r="5" fill="#ecbc44" stroke="${K.line}" stroke-width="1.8"/>` +
+        L(`M ${x - 13} ${y - 13} Q ${x} ${y - 6} ${x + 13} ${y - 13} M ${x} ${y - 26} Q ${x - 6} ${y - 13} ${x} ${y}`, '#c9677f', 2);
+      return [c, ''];
+    },
+    banana(x, y) {
+      const c =
+        S(`M ${x - 38} ${y - 16} Q ${x} ${y + 16} ${x + 38} ${y - 16} Q ${x} ${y - 14} ${x - 38} ${y - 16} Z`, '#f3d55b', 2.6) +
+        S(`M ${x - 38} ${y - 16} L ${x - 45} ${y - 20} L ${x - 41} ${y - 12} Z`, '#8a5a3a', 2) +
+        `<circle cx="${x - 7}" cy="${y - 8}" r="2" fill="${K.line}"/><circle cx="${x + 7}" cy="${y - 8}" r="2" fill="${K.line}"/>` +
+        L(`M ${x - 3.5} ${y - 4} Q ${x} ${y - 1} ${x + 3.5} ${y - 4}`, K.line, 1.8);
+      return [c, ''];
+    },
+    duck(x, y) {
+      const c =
+        S(`M ${x - 16} ${y - 6} Q ${x - 18} ${y - 20} ${x - 2} ${y - 18} L ${x + 14} ${y - 16} Q ${x + 22} ${y - 8} ${x + 12} ${y} L ${x - 10} ${y} Q ${x - 16} ${y} ${x - 16} ${y - 6} Z`, '#f3d55b', 2.6) +
+        E(x - 4, y - 26, 9, 9, '#f3d55b', 2.6) +
+        S(`M ${x - 13} ${y - 27} L ${x - 21} ${y - 24} L ${x - 13} ${y - 22} Z`, '#f39a3a', 1.8) +
+        `<circle cx="${x - 6}" cy="${y - 28}" r="1.8" fill="${K.line}"/>`;
+      return [c, ''];
+    },
+    donut(x, y) {
+      const back = E(x, y - 18, 62, 20, '#d9a46a', 3) + `<ellipse cx="${x}" cy="${y - 18}" rx="34" ry="9" fill="#a8743f"/>`;
+      const front =
+        S(`M ${x - 62} ${y - 18} Q ${x - 62} ${y + 4} ${x} ${y + 4} Q ${x + 62} ${y + 4} ${x + 62} ${y - 18} Q ${x + 52} ${y - 4} ${x} ${y - 4} Q ${x - 52} ${y - 4} ${x - 62} ${y - 18} Z`, '#f4accc', 3) +
+        [[-44, -8, '#7fb4d9'], [-22, -2, '#ecbc44'], [4, -1, '#8fd3c6'], [26, -3, '#fff'], [46, -9, '#ecbc44'], [-34, -1, '#fff']]
+          .map(([dx, dy, col]) => `<rect x="${x + dx - 4}" y="${y + dy - 1.5}" width="8" height="3" rx="1.5" fill="${col}" stroke="${K.line}" stroke-width="1" transform="rotate(${dx % 3 ? 25 : -20} ${x + dx} ${y + dy})"/>`)
+          .join('');
+      return [back, front];
+    },
+    tunnel(x, y) {
+      const back = `<path d="M ${x - 50} ${y + 2} Q ${x - 50} ${y - 74} ${x} ${y - 74} Q ${x + 50} ${y - 74} ${x + 50} ${y + 2} Z" fill="#3c3a52"/>`;
+      const front =
+        S(`M ${x - 64} ${y + 2} Q ${x - 64} ${y - 88} ${x} ${y - 88} Q ${x + 64} ${y - 88} ${x + 64} ${y + 2} L ${x + 50} ${y + 2} Q ${x + 50} ${y - 74} ${x} ${y - 74} Q ${x - 50} ${y - 74} ${x - 50} ${y + 2} Z`, '#8f7fd0', 3) +
+        L(`M ${x - 57} ${y - 30} Q ${x - 50} ${y - 50} ${x - 40} ${y - 66} M ${x + 57} ${y - 30} Q ${x + 50} ${y - 50} ${x + 40} ${y - 66} M ${x - 18} ${y - 80} L ${x + 18} ${y - 80}`, '#b6aae6', 2.5);
+      return [back, front];
+    },
   };
+
+  // The piggy bank: where your cat coins live. A little tag above it shows how many.
+  function piggyBank(coins) {
+    const { x, y } = PIGGY;
+    const n = Math.max(0, Math.floor(coins || 0));
+    let g = `<g class="piggy act" data-act="piggy" role="button" tabindex="0" aria-label="Piggy bank: ${n} cat coin${n === 1 ? '' : 's'}" style="cursor:pointer" transform="translate(${x} ${y}) scale(1.3) translate(${-x} ${-y})">`;
+    g += `<rect x="${x - 36}" y="${y - 76}" width="72" height="82" rx="10" fill="none" pointer-events="all"/>`;
+    g += `<g class="piggy-body">`;
+    g += R(x - 17, y - 10, 8, 11, '#e98aa0', 2, 2.2) + R(x + 9, y - 10, 8, 11, '#e98aa0', 2, 2.2);
+    g += L(`M ${x - 26} ${y - 22} q -9 -3 -6 -10 q 3 -6 -4 -8`, K.line, 4.4) + L(`M ${x - 26} ${y - 22} q -9 -3 -6 -10 q 3 -6 -4 -8`, '#e98aa0', 2.2);
+    g += E(x, y - 22, 27, 18, '#f4accc', 2.6);
+    g += S(`M ${x + 3} ${y - 37} L ${x + 9} ${y - 49} L ${x + 15} ${y - 36} Z`, '#e98aa0', 2);
+    g += E(x + 26, y - 21, 6, 7.5, '#f7c6d8', 2.2) + `<circle cx="${x + 24.5}" cy="${y - 22}" r="1.3" fill="${K.line}"/><circle cx="${x + 27.5}" cy="${y - 19}" r="1.3" fill="${K.line}"/>`;
+    g += `<circle cx="${x + 14}" cy="${y - 27}" r="2.2" fill="${K.line}"/>`;
+    g += `<ellipse cx="${x + 10}" cy="${y - 17}" rx="3.5" ry="2" fill="#f08cae" opacity=".7"/>`;
+    g += L(`M ${x - 9} ${y - 39} L ${x + 1} ${y - 39}`, K.line, 3.4);
+    g += `</g>`;
+    // the coin count
+    g += `<g class="piggy-tag"><rect x="${x - 24}" y="${y - 74}" width="48" height="22" rx="11" fill="#fff6d6" stroke="${K.line}" stroke-width="2.6"/>`;
+    g += `<circle cx="${x - 12}" cy="${y - 63}" r="7" fill="#ecbc44" stroke="${K.line}" stroke-width="2"/><circle cx="${x - 12}" cy="${y - 63}" r="3.6" fill="none" stroke="#c99a2c" stroke-width="1.2"/>`;
+    g += `<text x="${x + 9}" y="${y - 57.5}" text-anchor="middle" font-family="'M PLUS Rounded 1c', 'Nunito', system-ui, sans-serif" font-size="14" font-weight="900" fill="${K.line}">${n}</text></g>`;
+    return g + `</g>`;
+  }
+
+  // The gachapon machine: a glass dome full of capsules on a pink stand, a coin slot, a crank
+  // and the chute the capsule rolls out of. It glows when you have enough coins for a spin.
+  function gachaMachine(canSpin) {
+    const x = GACHA_X;
+    const caps = [[-14, 350, '#7fb4d9'], [6, 344, '#f4accc'], [18, 356, '#ecbc44'], [-4, 362, '#8fd3c6'], [-18, 338, '#a98bd9'], [12, 334, '#e0735f'], [0, 328, '#fff']];
+    let g = `<g class="gacha act" data-act="gacha" role="button" tabindex="0" aria-label="Gachapon machine" style="cursor:pointer">`;
+    g += `<rect x="${x - 44}" y="296" width="88" height="170" rx="12" fill="none" pointer-events="all"/>`;
+    g += R(x - 34, 452, 68, 12, '#c9506d', 3, 2.6);
+    g += S(`M ${x - 30} 380 L ${x + 30} 380 L ${x + 32} 452 L ${x - 32} 452 Z`, '#ff6f91', 2.6);
+    // dome and capsules
+    g += `<circle cx="${x}" cy="346" r="34" fill="#e8f6fb" stroke="${K.line}" stroke-width="${ow(2.6)}"/>`;
+    for (const [dx, cy, col] of caps) g += `<g><circle cx="${x + dx}" cy="${cy}" r="8" fill="#fff" stroke="${K.line}" stroke-width="1.6"/><path d="M ${x + dx - 8} ${cy} A 8 8 0 0 1 ${x + dx + 8} ${cy} Z" fill="${col}" stroke="${K.line}" stroke-width="1.6"/></g>`;
+    g += `<path d="M ${x - 22} 330 Q ${x - 18} 318 ${x - 6} 316" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/>`;
+    g += R(x - 18, 306, 36, 10, '#ff6f91', 4, 2.4) + R(x - 26, 376, 52, 8, '#e05a7c', 3, 2.4);
+    // coin slot, crank, chute
+    g += R(x + 6, 392, 18, 14, '#ffd7e0', 3, 2) + L(`M ${x + 11} 399 L ${x + 19} 399`, K.line, 2.4);
+    g += `<circle cx="${x - 12}" cy="410" r="9" fill="#fff" stroke="${K.line}" stroke-width="${ow(2)}"/>` + L(`M ${x - 18} 410 L ${x - 6} 410`, K.line, 3);
+    g += R(x - 10, 428, 20, 14, '#5a3040', 4, 2.2);
+    if (canSpin) g += `<ellipse class="nudge" cx="${x}" cy="384" rx="52" ry="90" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
+    return g + `</g>`;
+  }
 
   function perch() {
     return (
@@ -945,8 +1048,10 @@
   // Everything that sorts with the cat, as [{z, svg}].
   function midLayer(state, seasons, opts) {
     const out = [];
-    out.push({ z: 299, svg: noteBoard(!!(opts && opts.noteFresh), opts && opts.noteText) });
+    out.push({ z: 299, svg: noteBoard(!!(opts && opts.noteFresh) && guide(state, 'note'), opts && opts.noteText) });
     out.push({ z: 460, svg: at(DX.tv, desk()) });
+    out.push({ z: PIGGY.y, svg: piggyBank(state.coins) });
+    out.push({ z: 463, svg: gachaMachine(!!(opts && opts.canSpin) && guide(state, 'gacha')) });
     out.push({ z: 480, svg: at(DX.chair, `<g class="item act" data-act="chair" data-spot="chair" style="cursor:pointer">${chair()}</g>`) });
     out.push({ z: 494, svg: at(DX.right, table(state)) });
     out.push({ z: 530, svg: at(DX.basket, bowls(state)) });
@@ -979,7 +1084,7 @@
     const art = ITEM_ART[id];
     if (!art) return '';
     const [b, f] = art(0, 0);
-    const vb = id === 'tower' ? '-70 -150 140 160' : '-75 -90 150 100';
+    const vb = { tower: '-70 -150 140 160', mouse: '-40 -45 95 55', ball: '-35 -40 70 50', duck: '-35 -45 70 55', banana: '-50 -40 100 50', tunnel: '-75 -100 150 110' }[id] || '-75 -90 150 100';
     return `<svg viewBox="${vb}">${b}${f}</svg>`;
   }
 

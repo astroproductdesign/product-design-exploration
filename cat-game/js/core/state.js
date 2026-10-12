@@ -25,11 +25,13 @@
       unlocked: C.unlocksAt(1),
       unseenUnlocks: [],
       favorites: { spots: {}, toys: {}, foods: {}, pets: {} },
-      flags: { breakfastDay: null, bondDay: today, litterTip: false, bowlTip: false, inviteTip: false, litterAt: 0, noteSeen: null, vomitAt: 0, vomitTip: false },
+      flags: { breakfastDay: null, bondDay: today, litterTip: false, bowlTip: false, inviteTip: false, litterAt: 0, noteSeen: null, vomitAt: 0, vomitTip: false, streak: 0, bestStreak: 0, learned: {} },
       log: [],
       journal: [],
       notes: [],
       counts: {}, // how many times things have happened (see achievements.js)
+      coins: 5, // cat coins for the gachapon (enough for one spin to start with)
+      gacha: { owned: [], spins: 0 },
       achievements: {}, // id -> when it was unlocked
       achQueue: [], // unlocked but not yet announced
       achUnseen: 0, // unlocked since the trophies page was last opened

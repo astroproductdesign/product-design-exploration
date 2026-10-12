@@ -28,7 +28,9 @@
   // ---- Icons ---------------------------------------------------------------------------
 
   const I = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  const COIN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#ecbc44" stroke="#1b1714" stroke-width="2.2"/><circle cx="12" cy="12" r="7" fill="none" stroke="#c99a2c" stroke-width="1.4"/><ellipse cx="12" cy="14" rx="2.6" ry="2.1" fill="#8a5a1a"/><circle cx="8.8" cy="10.6" r="1.2" fill="#8a5a1a"/><circle cx="10.9" cy="8.9" r="1.2" fill="#8a5a1a"/><circle cx="13.1" cy="8.9" r="1.2" fill="#8a5a1a"/><circle cx="15.2" cy="10.6" r="1.2" fill="#8a5a1a"/></svg>';
   const ICONS = {
+    coin: COIN_SVG,
     close: I('<path d="M6 6l12 12M18 6L6 18" stroke-width="3"/>'),
     feed: I('<path d="M2.5 11h19a9.5 7 0 0 1-19 0z" fill="#f2a28f"/><path d="M7 8.6c1.2-1.4 2.6-1.4 3.8 0M12.6 7.6c1.2-1.4 2.6-1.4 3.8 0"/>'),
     treat: I('<path d="M2.5 12c3-5.5 9.5-6.5 13.5-2l4.5-3.5v11L16 14c-4 4.5-10.5 3.5-13.5-2z" fill="#f3c66b"/><circle cx="7" cy="11.2" r=".9" fill="currentColor"/>'),
@@ -83,7 +85,7 @@
 
     const welcomeBack = () => {
       showAway(awayFrom, t);
-      if (res) celebrate(res);
+      visitReward(res);
     };
     if (withIntro) showIntro(!state.named, welcomeBack);
     else welcomeBack();
@@ -158,8 +160,7 @@
     if (day !== lastDay) {
       lastDay = day;
       G.Journal.finalize(state, t);
-      const res = G.Progression.dailyVisit(state, t);
-      if (res) celebrate(res);
+      visitReward(G.Progression.dailyVisit(state, t));
     }
     // Feeding lives on the bowl now: say so once, when nothing else is going on.
     if (!state.flags.bowlTip && state.named && !introActive && !panel && !modalOpen && performance.now() > 8000) {
@@ -274,6 +275,12 @@
     $('clockPhase').textContent = G.Clock.PHASE_LABEL[G.Clock.phaseAt(t)] + (wk ? ' · ' + G.Weather.LABEL[wk] : '') + (seasons.length ? ' · ' + seasons.map((x) => G.Clock.SEASON_LABEL[x]).join(' & ') : '');
     $('clockPhase').title = wk && last && !wcfg().preview && last.temp !== null ? `${last.temp}°C outside` : '';
     setCaption(play ? (play.joined ? nm('{name} is in hunting mode! Wiggle the toy.') : nm('Wiggle the toy to tempt {name}…')) : nm(G.Sim.describe(state)));
+    const b = state.stats.bond;
+    if (shownBond !== null && b - shownBond >= 0.5) floatUp($('bondRow'), `+${half(b - shownBond)} ♥`, 'bond');
+    shownBond = b;
+    const c = state.coins || 0;
+    if (shownCoins !== null && c !== shownCoins) piggyFloat((c > shownCoins ? '+' : '') + (c - shownCoins), c > shownCoins);
+    shownCoins = c;
     $('muteBtn').innerHTML = state.settings.muted ? ICONS.soundOff : ICONS.soundOn;
     $('muteBtn').setAttribute('aria-label', state.settings.muted ? 'Sound off' : 'Sound on');
     if (tipId) $('meterTip').innerHTML = meterTipHtml(tipId);
@@ -374,11 +381,11 @@
 
   // ---- Feedback ------------------------------------------------------------------------------
 
-  function sound(name) {
+  function sound(name, arg) {
     if (state.settings.muted) return;
     const S = G.Sound;
     if (name === 'purr') S.purr(2.4);
-    else if (S[name]) S[name]();
+    else if (S[name]) S[name](arg);
   }
 
   function toast(text, ms) {
@@ -401,11 +408,15 @@
   let achBusy = false;
   function flushAchievements() {
     if (achBusy || !state.achQueue || !state.achQueue.length) return;
-    const list = G.Achievements.take(state);
+    const got = G.Achievements.claim(state, now());
+    const list = got.list;
+    if (!list.length) return;
     achBusy = true;
+    if (got.levelUp) setTimeout(() => celebrate(got), 2400 + list.length * 4600);
     list.forEach((d, i) =>
       setTimeout(() => {
-        toast(`${d.icon} Achievement unlocked: ${d.name}`, 4200);
+        const rw = G.Achievements.rewardOf(d);
+        toast(`${d.icon} Achievement unlocked: ${d.name}  (+${rw.bond} ♥, +${rw.coins} coin${rw.coins > 1 ? 's' : ''})`, 4200);
         sound('chime');
         scene.renderRoom(true, now()); // the diary shelf starts glowing
         if (i === list.length - 1) setTimeout(() => (achBusy = false), 4400);
@@ -446,6 +457,49 @@
     save(true);
   }
 
+  // The first check-in of the day: bond and a coin, more for a streak of days in a row.
+  function visitReward(res) {
+    if (!res) return;
+    const bond = 5 + (res.streakBonus || 0);
+    const coins = res.coins || 0;
+    setTimeout(() => toast(res.streak > 1 ? `🔥 ${res.streak} days in a row! +${bond} ♥ and +${coins} cat coin${coins > 1 ? 's' : ''}` : `Welcome back! +${bond} ♥ and +${coins} cat coin${coins > 1 ? 's' : ''}`, 5000), 1200);
+    celebrate(res);
+  }
+
+  // A little "+1 ♥" (or "+2" coins) that floats up from the HUD when it changes.
+  function floatUp(host, text, cls) {
+    if (!host) return;
+    const f = document.createElement('span');
+    f.className = 'hud-float ' + (cls || '');
+    f.textContent = text;
+    host.append(f);
+    setTimeout(() => f.remove(), 1400);
+  }
+  const half = (n) => String(Math.round(n * 2) / 2);
+
+  // Coins in or out: the piggy bank wiggles and the amount floats up from it.
+  function piggyFloat(text, gained) {
+    scene.renderRoom(false, now()); // the piggy's tag shows the new count
+    const pig = $('scene').querySelector('.piggy');
+    if (!pig) return;
+    pig.classList.remove('jiggle');
+    void pig.getBoundingClientRect();
+    pig.classList.add('jiggle');
+    const st = $('stage').getBoundingClientRect();
+    const r = pig.getBoundingClientRect();
+    if (r.right < st.left || r.left > st.right) return; // off screen (a phone looking elsewhere)
+    const f = document.createElement('span');
+    f.className = 'hud-float scene-float ' + (gained ? 'coin' : 'spent');
+    f.textContent = text + ' 🪙';
+    f.style.left = r.left - st.left + r.width / 2 + 'px';
+    f.style.top = r.top - st.top + 'px';
+    $('stage').append(f);
+    if (gained) sound('coin');
+    setTimeout(() => f.remove(), 1400);
+  }
+  let shownBond = null;
+  let shownCoins = null;
+
   // Level-ups and unlocks get a little celebration card.
   function celebrate(r) {
     if (!r || !r.levelUp) return;
@@ -456,6 +510,7 @@
        <h2>Bond level ${r.levelUp}!</h2>
        <p>${esc(nm('{name} trusts you a little more.'))}</p>
        ${items ? `<p class="small">New things unlocked:</p><ul class="unlock-list">${items}</ul>` : ''}
+       <p class="small">+${G.Progression.LEVEL_COINS} cat coins for the gachapon by the TV.</p>
        <button class="btn primary" data-close>Yay!</button></div>`
     );
   }
@@ -683,10 +738,20 @@
     });
   }
 
+  // Once you've used something, its dotted guide ring stops showing.
+  function learn(key) {
+    const L = state.flags.learned || (state.flags.learned = {});
+    if (L[key]) return;
+    L[key] = true;
+    save(true);
+    scene.renderRoom(true, now());
+  }
+
   // A tap (not a drag) on something in the room.
   function tapRoom(target, hadMenu) {
     closeFab();
     if (target.closest('.bowl')) {
+      learn('bowl');
       if (!hadMenu) openFeedMenu();
       return;
     }
@@ -706,8 +771,10 @@
       scene.updateLighting(now(), true);
       return;
     }
-    if (target.closest('.note')) return void (sound('pop'), openNote());
-    if (target.closest('.diary')) return void (sound('pop'), ach('diaryOpen'), openBook('diary'));
+    if (target.closest('.gacha')) return void (sound('pop'), learn('gacha'), openGacha());
+    if (target.closest('.piggy')) return void (sound('pop'), openGacha());
+    if (target.closest('.note')) return void (sound('pop'), learn('note'), openNote());
+    if (target.closest('.diary')) return void (sound('pop'), learn('diary'), ach('diaryOpen'), openBook('diary'));
     if (target.closest('.portrait')) return void (sound('pop'), openSettings());
     const gift = target.closest('.gift');
     if (gift) return collectGift(Number(gift.getAttribute('data-gift')));
@@ -728,11 +795,13 @@
     }
     const puddle = target.closest('.vomit');
     if (puddle) {
+      learn('vomit');
       apply(G.Interactions.cleanVomit(state, now(), Number(puddle.getAttribute('data-vomit'))));
       scene.renderRoom(true, now());
       return;
     }
     if (target.closest('.litter')) {
+      learn('litter');
       apply(G.Interactions.scoop(state, now()));
       scene.renderRoom(true, now());
     }
@@ -1006,7 +1075,7 @@
       const ok = G.Progression.isUnlocked(state, 'item:' + id);
       const at = slots.indexOf(id);
       cards.push(
-        `<button class="dcard ${at >= 0 ? 'placed' : ''} ${ok ? '' : 'locked'}" data-item="${id}" ${ok ? '' : 'aria-disabled="true"'}>${at >= 0 ? `<i class="dcard-badge">${at + 1}</i>` : ''}<span class="dcard-ico">${G.RoomArt.itemIcon(id)}</span><b>${esc(it.name)}</b><small>${ok ? (at >= 0 ? `In spot ${at + 1}` : 'Tap or drag') : `Bond Lv ${it.level}`}</small></button>`
+        `<button class="dcard ${at >= 0 ? 'placed' : ''} ${ok ? '' : 'locked'}" data-item="${id}" ${ok ? '' : 'aria-disabled="true"'}>${at >= 0 ? `<i class="dcard-badge">${at + 1}</i>` : ''}<span class="dcard-ico">${G.RoomArt.itemIcon(id)}</span><b>${esc(it.name)}</b><small>${ok ? (at >= 0 ? `In spot ${at + 1}` : 'Tap or drag') : it.gacha ? 'Gachapon' : `Bond Lv ${it.level}`}</small></button>`
       );
     }
     const perchOk = G.Progression.isUnlocked(state, 'item:perch');
@@ -1103,7 +1172,7 @@
         sound('pop');
         drawDecor();
       } else if (d.item) {
-        if (!G.Progression.isUnlocked(state, 'item:' + d.item)) return toast(`${G.Catalog.ITEMS[d.item].name} unlocks at bond level ${G.Catalog.ITEMS[d.item].level}.`);
+        if (!G.Progression.isUnlocked(state, 'item:' + d.item)) return toast(G.Catalog.ITEMS[d.item].gacha ? `The ${G.Catalog.ITEMS[d.item].name.toLowerCase()} comes out of the gachapon machine by the TV.` : `${G.Catalog.ITEMS[d.item].name} unlocks at bond level ${G.Catalog.ITEMS[d.item].level}.`);
         putItem(d.item, decor.sel);
       } else if (d.clear) clearSpot(decor.sel);
       else if (d.perch) togglePerch();
@@ -1464,13 +1533,140 @@
 
   // ---- Settings / profile / naming ---------------------------------------------------------
 
+  // ---- The gachapon machine -----------------------------------------------------------------
+  // Put in two cat coins, turn the crank, a capsule rolls out and pops open.
+
+  const CAPSULE = { common: '#7fb4d9', rare: '#a98bd9', legendary: '#ecbc44' };
+  const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function gachaSvg() {
+    const ink = '#1b1714';
+    const caps = [[-34, 104, '#7fb4d9'], [-6, 116, '#f4accc'], [24, 108, '#ecbc44'], [40, 82, '#8fd3c6'], [-38, 72, '#a98bd9'], [-12, 86, '#e0735f'], [14, 72, '#fff'], [-20, 54, '#ecbc44'], [12, 46, '#7fb4d9'], [28, 128, '#a98bd9'], [-24, 130, '#8fd3c6']];
+    const cap = ([dx, cy, col]) => `<g><circle cx="${100 + dx}" cy="${cy}" r="14" fill="#fff" stroke="${ink}" stroke-width="2.6"/><path d="M ${86 + dx} ${cy} A 14 14 0 0 1 ${114 + dx} ${cy} Z" fill="${col}" stroke="${ink}" stroke-width="2.6"/></g>`;
+    const paw = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})" fill="#8a5a1a"><ellipse cx="0" cy="2" rx="3.2" ry="2.6"/><circle cx="-3.8" cy="-2" r="1.4"/><circle cx="-1.3" cy="-4" r="1.4"/><circle cx="1.3" cy="-4" r="1.4"/><circle cx="3.8" cy="-2" r="1.4"/></g>`;
+    return `<svg class="g-svg" viewBox="0 0 200 300" aria-hidden="true">
+      <ellipse cx="100" cy="290" rx="82" ry="8" fill="#000" opacity=".1"/>
+      <rect x="38" y="262" width="124" height="20" rx="7" fill="#c9506d" stroke="${ink}" stroke-width="3.4"/>
+      <path d="M 44 152 L 156 152 L 160 264 L 40 264 Z" fill="#ff6f91" stroke="${ink}" stroke-width="3.4" stroke-linejoin="round"/>
+      <circle cx="100" cy="92" r="62" fill="#e8f6fb" stroke="${ink}" stroke-width="3.4"/>
+      <g class="g-caps">${caps.map(cap).join('')}</g>
+      <path d="M 58 72 Q 64 46 86 38" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".85"/>
+      <rect x="62" y="22" width="76" height="16" rx="6" fill="#ff6f91" stroke="${ink}" stroke-width="3"/>
+      <rect x="52" y="146" width="96" height="12" rx="5" fill="#e05a7c" stroke="${ink}" stroke-width="3"/>
+      <rect x="114" y="168" width="32" height="24" rx="6" fill="#ffd7e0" stroke="${ink}" stroke-width="2.6"/>
+      <path d="M 122 180 L 138 180" stroke="${ink}" stroke-width="3.4" stroke-linecap="round"/>
+      <g class="g-crank"><circle cx="76" cy="200" r="18" fill="#fff" stroke="${ink}" stroke-width="3"/><rect x="60" y="196" width="32" height="9" rx="4.5" fill="#ecbc44" stroke="${ink}" stroke-width="2.4"/></g>
+      <rect x="80" y="226" width="40" height="28" rx="9" fill="#5a3040" stroke="${ink}" stroke-width="3"/>
+      <g class="g-coin"><circle cx="130" cy="146" r="10" fill="#ecbc44" stroke="${ink}" stroke-width="2.4"/>${paw(130, 147, 1)}</g>
+      <g class="g-out">
+        <g class="g-bot"><path d="M 84 262 A 16 16 0 0 0 116 262 Z" fill="#fff" stroke="${ink}" stroke-width="2.8"/></g>
+        <g class="g-top"><path id="gTopHalf" d="M 84 262 A 16 16 0 0 1 116 262 Z" fill="#7fb4d9" stroke="${ink}" stroke-width="2.8"/><circle cx="94" cy="254" r="2.6" fill="#fff" opacity=".8"/></g>
+      </g>
+    </svg>`;
+  }
+
+  // The prize's picture: the room item, or the cat's own face wearing the new accessory.
+  function prizeIcon(p, uid) {
+    if (p.kind === 'item') return G.RoomArt.itemIcon(p.id);
+    const acc = Object.assign({}, state.cat.accessory, p.kind === 'collar' ? { collar: p.ref } : { extra: p.ref });
+    if (p.kind === 'collar') acc.extra = 'none'; // show off the collar on its own
+    return `<svg viewBox="-64 -100 128 162">${G.CatArt.withCoat(state.cat.coat, () => G.CatArt.renderHead(uid, 'happy', 'normal', true), acc)}</svg>`;
+  }
+
+  function gachaListHtml() {
+    const P = G.Gacha.PRIZES;
+    const have = P.filter((p) => G.Gacha.owned(state, p.id)).length;
+    return `<summary>What's inside (${have} of ${P.length} collected)</summary><div class="g-grid">${P.map((p, i) => {
+      const got = G.Gacha.owned(state, p.id);
+      return `<div class="g-cell ${p.rarity} ${got ? 'got' : ''}"><span>${got ? prizeIcon(p, 'gl' + i) : '?'}</span><b>${got ? esc(p.name) : '???'}</b><small>${G.Gacha.RARITY_LABEL[p.rarity].replace(/!+$/, '')}</small></div>`;
+    }).join('')}</div>`;
+  }
+
+  function openGacha() {
+    const cost = G.Gacha.COST;
+    openModal(
+      `<div class="gacha"><h2>Gachapon</h2>
+        <div class="g-stage" id="gStage">${gachaSvg()}<div class="g-prize" id="gPrize"></div></div>
+        <div class="g-result" id="gResult"><p class="small">Every capsule holds something new for ${esc(state.cat.name)}: an accessory to wear, or a toy for the room.</p></div>
+        <div class="g-bar"><span class="g-coins">${ICONS.coin}<b id="gCoins">${state.coins || 0}</b> cat coins</span><button class="btn primary" id="gSpin">Spin for ${cost} ${ICONS.coin}</button></div>
+        <p class="small muted">Your coins live in the piggy bank by the TV. Earn more by visiting every day (streaks pay extra), unlocking achievements and levelling up your bond.</p>
+        <details class="g-list" id="gList">${gachaListHtml()}</details></div>`,
+      (box) => {
+        const stage = box.querySelector('#gStage');
+        const btn = box.querySelector('#gSpin');
+        const result = box.querySelector('#gResult');
+        let busy = false;
+        btn.addEventListener('click', () => {
+          if (busy) return;
+          G.Sound.unlock();
+          const r = G.Gacha.spin(state, now());
+          if (!r.ok) {
+            btn.classList.remove('nope');
+            void btn.offsetWidth;
+            btn.classList.add('nope');
+            result.innerHTML = `<p class="small">You need ${r.need} more cat coin${r.need > 1 ? 's' : ''}. Come back tomorrow, keep a streak going, or chase an achievement.</p>`;
+            return;
+          }
+          busy = true;
+          btn.disabled = true;
+          save(true);
+          updateHUD();
+          box.querySelector('#gCoins').textContent = state.coins;
+          const p = r.prize;
+          stage.querySelector('#gTopHalf').setAttribute('fill', CAPSULE[p.rarity]);
+          box.querySelector('#gPrize').innerHTML = `<div class="g-burst ${p.rarity}"></div><div class="g-icon">${prizeIcon(p, 'gp' + state.gacha.spins)}</div>`;
+          result.innerHTML = '';
+          stage.className = 'g-stage';
+          void stage.offsetWidth;
+          const quick = reduceMotion();
+          const at = quick ? [0, 0, 0, 0] : [0, 650, 1550, 2550];
+          setTimeout(() => (stage.classList.add('s1'), sound('coin')), at[0]);
+          setTimeout(() => (stage.classList.add('s2'), sound('crank')), at[1]);
+          setTimeout(() => (stage.classList.add('s3'), sound('capsule')), at[2]);
+          setTimeout(() => {
+            stage.classList.add('s4');
+            sound('reveal', p.rarity);
+            if (p.rarity === 'legendary') setTimeout(() => sound('bell'), 600);
+            const wear = p.kind !== 'item';
+            result.innerHTML =
+              `<div class="g-card ${p.rarity}"><small>${G.Gacha.RARITY_LABEL[p.rarity]}${r.dup ? '' : ' · New!'}</small><b>${esc(p.name)}</b><p>${esc(p.line)}</p>` +
+              (r.dup ? `<p class="small">You already had this one, so here are ${r.refund} coins back.</p>` : '') +
+              `<div class="row center">${wear ? `<button class="btn" id="gWear">Put it on ${esc(state.cat.name)}</button>` : `<button class="btn" id="gPlace">Put it in the room</button>`}</div></div>`;
+            const w = result.querySelector('#gWear');
+            if (w)
+              w.addEventListener('click', () => {
+                applyCoat(state.cat.coat, Object.assign({}, state.cat.accessory, p.kind === 'collar' ? { collar: p.ref } : { extra: p.ref }), state.cat.tail);
+                save(true);
+                w.textContent = 'Looking good!';
+                w.disabled = true;
+              });
+            const pl = result.querySelector('#gPlace');
+            if (pl)
+              pl.addEventListener('click', () => {
+                closeModal();
+                openRoom();
+              });
+            box.querySelector('#gCoins').textContent = state.coins;
+            const list = box.querySelector('#gList');
+            const open = list.open;
+            list.innerHTML = gachaListHtml();
+            list.open = open;
+            updateHUD();
+            btn.disabled = false;
+            busy = false;
+          }, at[3]);
+        });
+      }
+    );
+  }
+
   // The note on the wall: today's, and the ones before it.
   function openNote() {
     const t = now();
     const today = G.Notes.today(state, t);
-    const wasFresh = G.Notes.fresh(state, t);
-    state.flags.noteSeen = G.Clock.dayKey(t);
+    const { fresh: wasFresh, res: noteBond } = G.Notes.read(state, t); // +1 bond the first time each day
     if (wasFresh) ach('noteDays');
+    if (noteBond && noteBond.levelUp) setTimeout(() => celebrate(noteBond), 600);
     save(true);
     if (wasFresh) scene.renderRoom(true, t); // the ring goes away
     const past = G.Notes.earlier(state, t, 14);
@@ -2130,8 +2326,8 @@
         const A = draft.accessory;
         body =
           `<h2>Collar &amp; extras</h2><p class="small muted">Optional, and you can change them later.</p>` +
-          `<p class="look-label">Collar</p><div class="swatches">${G.Coats.COLLARS.map((c) => `<button type="button" class="sw ${c.hex ? '' : 'sw-none'} ${A.collar === c.id ? 'on' : ''}" data-collar="${c.id}" style="--c:${c.hex || '#fcfcfc'}" title="${c.name}" aria-label="${c.name}"></button>`).join('')}</div>` +
-          `<p class="look-label">Extra</p><div class="row center">${G.Coats.EXTRAS.map((x) => `<button type="button" class="chip ${A.extra === x.id ? 'on' : ''}" data-extra="${x.id}">${esc(x.name)}</button>`).join('')}</div>`;
+          `<p class="look-label">Collar</p><div class="swatches">${G.Coats.COLLARS.filter((c) => G.Gacha.canWear(state, 'collar', c.id)).map((c) => `<button type="button" class="sw ${c.hex ? '' : 'sw-none'} ${A.collar === c.id ? 'on' : ''}" data-collar="${c.id}" style="--c:${c.hex || '#fcfcfc'}" title="${c.name}" aria-label="${c.name}"></button>`).join('')}</div>` +
+          `<p class="look-label">Extra</p><div class="row center">${G.Coats.EXTRAS.filter((x) => G.Gacha.canWear(state, 'extra', x.id)).map((x) => `<button type="button" class="chip ${A.extra === x.id ? 'on' : ''}" data-extra="${x.id}">${esc(x.name)}</button>`).join('')}</div>`;
       }
       const back = i > 0 ? '<button type="button" class="btn" id="pBack">Back</button>' : mode === 'look' ? '<button type="button" class="btn" id="pCancel">Cancel</button>' : '<span></span>';
       const next = last ? `<button type="button" class="btn primary" id="pNext">${mode === 'adopt' ? 'Adopt!' : 'Save look'}</button>` : '<button type="button" class="btn primary" id="pNext">Next</button>';

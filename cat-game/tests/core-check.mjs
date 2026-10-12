@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
-const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'achievements', 'weather', 'sim', 'interactions', 'journal', 'notes'];
+const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'achievements', 'weather', 'sim', 'interactions', 'gacha', 'journal', 'notes'];
 const ctx = vm.createContext({ console, Math, Date, JSON });
 for (const f of files) vm.runInContext(readFileSync(path.join(dir, '../js/core', f + '.js'), 'utf8'), ctx, { filename: f });
 const G = ctx.CatGame;
@@ -65,19 +65,20 @@ test('bond only goes up when you are kind (head, chin, back, belly, ears)', () =
 
 test('pet zones: tail and paws upset the cat, ears are loved', () => {
   const s = fresh();
-  s.stats.bond = 40; // level 2: starts at 30
+  const L2 = G.Catalog.LEVELS[1]; // where level 2 starts
+  s.stats.bond = L2 + 10;
   s.activity = { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t0, end: t0 + HOUR, facing: 1 };
   const r = G.Interactions.pet(s, t0, 'tail', 0);
   assert.ok(r.angry && r.eyes === 'angry' && r.mouth === 'hiss', 'the tail gets a hiss and an angry face');
   assert.equal(s.activity.id, 'sulk', 'then it sulks');
-  assert.ok(s.stats.bond < 40, 'a little bond is lost');
+  assert.ok(s.stats.bond < L2 + 10, 'a little bond is lost');
   const hit = G.Interactions.pet(s, t0 + 1000, 'head', 0);
   assert.ok(hit.angry, 'petting a sulking cat gets another hiss');
   // Bond never drops below the start of the level, so nothing unlocked can be lost.
-  s.stats.bond = 30;
+  s.stats.bond = L2;
   s.activity = { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t0, end: t0 + HOUR, facing: 1 };
   G.Interactions.pet(s, t0 + 2000, 'tail', 0);
-  assert.equal(s.stats.bond, 30, 'no loss below the level floor');
+  assert.equal(s.stats.bond, L2, 'no loss below the level floor');
   assert.equal(G.Progression.level(s), 2);
 
   // Paws: either a polite pull-away or a warning swat.
@@ -636,6 +637,106 @@ test('achievements: silly goals, counted from what happens, announced once', () 
   const old = G.State.migrate({ ...fresh(), counts: undefined, achievements: undefined, achQueue: undefined });
   assert.equal(A.summary(old).done, 0);
   assert.ok(Array.isArray(old.achQueue));
+});
+
+
+test('bond: a gentler curve, roomier daily limits, streaks, and coins', () => {
+  assert.deepEqual([...G.Catalog.LEVELS], [0, 25, 60, 110, 180, 270, 390, 540, 740, 1000]);
+  const C = G.Progression.CAPS;
+  assert.ok(C.pet === 20 && C.play === 20 && C.feed === 8 && C.invite === 4);
+  // checking in on days in a row: more bond each day (up to +5 extra) and a coin, more at milestones
+  const s = fresh();
+  const coins0 = s.coins;
+  const got = [];
+  for (let d = 1; d <= 8; d++) {
+    const b = s.stats.bond;
+    const r = G.Progression.dailyVisit(s, t0 + d * DAY);
+    got.push([r.streak, s.stats.bond - b]);
+    assert.equal(G.Progression.dailyVisit(s, t0 + d * DAY + HOUR), null, 'once a day');
+  }
+  // (the day the cat arrived counts as the first day)
+  assert.deepEqual(got.map((g) => g[0]), [2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.ok(got[0][1] === 6 && got[3][1] === 9 && got[4][1] === 10 && got[7][1] === 10, 'streak bonus, capped at +5: ' + JSON.stringify(got));
+  assert.ok(s.coins - coins0 >= 8 + 2 + 4, 'a coin a day, plus streak bonuses (and level-ups): ' + (s.coins - coins0));
+  // missing a day starts the streak again
+  const r = G.Progression.dailyVisit(s, t0 + 11 * DAY);
+  assert.equal(r.streak, 1);
+  assert.equal(s.flags.bestStreak, 9);
+  // a level-up pays three coins
+  const u = fresh();
+  const c = u.coins;
+  const res = G.Progression.addBond(u, G.Catalog.LEVELS[1], t0);
+  assert.equal(res.levelUp, 2);
+  assert.equal(u.coins - c, G.Progression.LEVEL_COINS);
+  // reading the day's note: +1, once
+  const n = fresh();
+  const nb = n.stats.bond;
+  assert.ok(G.Notes.read(n, t0).fresh);
+  assert.equal(n.stats.bond, nb + 1);
+  assert.equal(G.Notes.read(n, t0 + HOUR).fresh, false);
+  assert.equal(n.stats.bond, nb + 1);
+  // the first bit of cleaning each day: +1 extra
+  const k = fresh();
+  k.room.litter.clumps.push('pee');
+  const kb = k.stats.bond;
+  G.Interactions.scoop(k, t0);
+  assert.equal(k.stats.bond, kb + 1, 'tidy box, first care of the day');
+  k.room.litter.clumps.push('pee');
+  G.Interactions.scoop(k, t0 + MIN);
+  assert.equal(k.stats.bond, kb + 1, 'only the first one');
+  // achievements pay bond and coins when they are claimed
+  const a = fresh();
+  G.Achievements.bump(a, 'photo', 5, t0);
+  const ab = a.stats.bond;
+  const ac = a.coins;
+  const cl = G.Achievements.claim(a, t0);
+  assert.ok(cl.list.some((d) => d.id === 'photo5'));
+  assert.ok(a.stats.bond >= ab + 2 && a.coins >= ac + 1);
+  assert.equal(G.Achievements.claim(a, t0).list.length, 0, 'claimed once');
+});
+
+test('gachapon: costs coins, gives new things, duplicates pay some back', () => {
+  assert.ok(G.Gacha.COST >= 5, 'spins are not cheap');
+  const s = fresh();
+  assert.equal(s.coins, G.Gacha.COST, 'enough for one spin to start with');
+  const first = G.Gacha.spin(s, t0);
+  assert.ok(first.ok && first.prize && !first.dup);
+  assert.equal(s.coins, 0);
+  assert.ok(G.Gacha.owned(s, first.prize.id));
+  assert.equal(G.Gacha.spin(s, t0 + 1000).ok, false, 'no coins, no spin');
+  if (first.prize.kind === 'item') assert.ok(G.Progression.isUnlocked(s, 'item:' + first.prize.id), 'a toy is ready to place in the room');
+  // lots of spins: every prize shows up eventually, rarer ones less often, and repeats refund a coin
+  s.coins = 1000;
+  const seen = {};
+  let dups = 0;
+  for (let i = 0; i < 150; i++) {
+    const before = s.coins;
+    const r = G.Gacha.spin(s, t0 + i * 7000);
+    seen[r.prize.rarity] = (seen[r.prize.rarity] || 0) + 1;
+    if (r.dup) {
+      dups++;
+      assert.equal(s.coins, before - G.Gacha.COST + G.Gacha.REFUND);
+    }
+  }
+  assert.equal(s.gacha.owned.length, G.Gacha.PRIZES.length, 'everything collected');
+  assert.ok(seen.common > seen.rare && seen.rare > seen.legendary, JSON.stringify(seen));
+  assert.ok(dups > 0);
+  assert.ok(s.achievements.gacha1 && s.achievements.gacha10 && s.achievements.gachaDup && s.achievements.gachaAll);
+  // wearable only once won
+  const t = fresh();
+  assert.equal(G.Gacha.canWear(t, 'extra', 'crown'), false);
+  assert.equal(G.Gacha.canWear(t, 'extra', 'bell'), true, 'the usual extras are always there');
+  t.gacha.owned.push('extra:crown');
+  assert.equal(G.Gacha.canWear(t, 'extra', 'crown'), true);
+  // every prize has its catalogue entry
+  for (const p of G.Gacha.PRIZES) {
+    if (p.kind === 'item') assert.ok(G.Catalog.ITEMS[p.id] && G.Catalog.ITEMS[p.id].gacha, p.id);
+    else assert.ok((p.kind === 'extra' ? G.Coats.EXTRAS : G.Coats.COLLARS).some((x) => x.id === p.ref && x.gacha), p.id);
+  }
+  // old saves get enough for a spin and an empty collection
+  const old = G.State.migrate({ ...fresh(), coins: undefined, gacha: undefined });
+  assert.equal(old.coins, G.Gacha.COST);
+  assert.equal(old.gacha.owned.length, 0);
 });
 
 console.log(`\n${passed} checks passed`);

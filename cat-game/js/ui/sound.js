@@ -305,6 +305,61 @@
     burst(c, c.currentTime + 0.02, 0.18, 4500, 0.09);
   }
 
+  // ---- The gachapon machine -------------------------------------------------------
+
+  // A quick pitch drop, for thunks and bounces.
+  function thunk(start, from, to, len, peak) {
+    const c = ac();
+    if (!c) return;
+    const t = c.currentTime + start;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(from, t);
+    o.frequency.exponentialRampToValueAtTime(to, t + len);
+    env(g, t, 0.005, peak, len);
+    o.connect(g).connect(master);
+    o.start(t);
+    o.stop(t + len + 0.05);
+  }
+
+  // The coin: a bright clink, a little rattle down the slot, a soft landing.
+  function coin() {
+    tone(2350, 0, 0.14, 'triangle', 0.12);
+    tone(3520, 0.015, 0.2, 'sine', 0.07);
+    tone(2600, 0.17, 0.08, 'triangle', 0.06);
+    tone(2900, 0.25, 0.06, 'triangle', 0.04);
+    thunk(0.36, 260, 120, 0.09, 0.14);
+  }
+
+  // Turning the crank: a ratchet of clicks, and the capsules rattling round the dome.
+  function crank() {
+    const c = ac();
+    if (!c) return;
+    const t = c.currentTime;
+    for (let i = 0; i < 9; i++) {
+      burst(c, t + i * 0.085, 0.022, 2600, 0.28);
+      tone(150, i * 0.085, 0.03, 'square', 0.025);
+    }
+    for (let i = 0; i < 12; i++) tone(520 + Math.random() * 520, 0.08 + i * 0.06 + Math.random() * 0.02, 0.05, 'triangle', 0.045);
+  }
+
+  // The capsule drops out of the chute and bounces: thunk, bonk, bonk.
+  function capsule() {
+    thunk(0, 320, 110, 0.13, 0.22);
+    thunk(0.3, 360, 160, 0.09, 0.12);
+    thunk(0.46, 380, 200, 0.06, 0.06);
+  }
+
+  // The reveal: a pop, then a little fanfare. Rarer prizes get a longer, brighter one.
+  function reveal(rarity) {
+    thunk(0, 500, 1100, 0.07, 0.14);
+    const notes = rarity === 'legendary' ? [523, 659, 784, 1047, 1319, 1568] : rarity === 'rare' ? [659, 784, 988, 1319] : [784, 988, 1175];
+    notes.forEach((f, i) => tone(f, 0.1 + i * 0.075, 0.32, 'triangle', 0.11));
+    const end = 0.1 + notes.length * 0.075;
+    if (rarity !== 'common') for (let i = 0; i < (rarity === 'legendary' ? 8 : 4); i++) tone(2400 + Math.random() * 1600, end + i * 0.06, 0.18, 'sine', 0.035);
+  }
+
   function chime() {
     [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.09, 0.3, 'triangle', 0.12));
   }
@@ -326,5 +381,5 @@
     ac();
   }
 
-  G.Sound = { meow, purr, stopPurr, crunch, hiss, scoop, chirp, bell, pop, chime, shutter, tvClick, setMuted, unlock };
+  G.Sound = { meow, purr, stopPurr, crunch, hiss, scoop, chirp, bell, pop, chime, shutter, tvClick, coin, crank, capsule, reveal, setMuted, unlock };
 })(globalThis.CatGame = globalThis.CatGame || {});
