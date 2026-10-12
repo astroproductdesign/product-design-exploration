@@ -35,6 +35,7 @@
   // Fixed spots in the room.
   const SPOTS = {
     sill: { label: 'the windowsill', at: 'on the windowsill', tags: ['sun', 'watch', 'sit'] },
+    grass: { label: 'the cat grass', at: 'by the cat grass', tags: ['grass'] },
     chair: { label: 'the camping chair', at: 'on the camping chair', tags: ['nap', 'loaf', 'groom', 'knead', 'sit'] },
     table: { label: 'the dining table', at: 'on the dining table', tags: ['loaf', 'knock', 'sit', 'groom'] },
     laptop: { label: 'your laptop', at: 'on your laptop', tags: ['laptop'] },

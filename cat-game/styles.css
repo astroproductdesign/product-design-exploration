@@ -2541,3 +2541,88 @@ body.decorating #scene {
 .wx-msg.err {
   color: var(--accent-dark);
 }
+
+/* ---- The note on the wall ------------------------------------------------------------------ */
+
+.note-card .paper {
+  position: relative;
+  margin: 10px 4px 8px;
+  padding: 22px 20px 16px;
+  background: #fff2a6;
+  border: var(--line);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  transform: rotate(-0.8deg);
+}
+.note-card .paper::before {
+  content: '';
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  width: 70px;
+  height: 22px;
+  margin-left: -35px;
+  background: #b7e0d6;
+  border: 2.5px solid var(--ink);
+  border-radius: 3px;
+  transform: rotate(3deg);
+}
+.note-card .paper small {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.note-card .note-text {
+  margin: 0 0 10px;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.note-card .sign {
+  margin: 0;
+  text-align: right;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.note-card .sign::before {
+  content: '\2014\00a0';
+}
+.note-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.note-list li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  font-weight: 700;
+}
+.note-list li b {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+/* ---- Cat grass: the cat is sick (a quick shudder while it retches) ------------------------- */
+
+.retching {
+  animation: retch 0.18s ease-in-out infinite;
+}
+@keyframes retch {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2.5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .retching {
+    animation: none;
+  }
+}

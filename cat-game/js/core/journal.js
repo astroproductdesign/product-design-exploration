@@ -17,7 +17,7 @@
       napMins: 0, napSpots: {}, ateBowl: 0, fed: [], treats: 0, pets: {}, trap: 0, played: [], knock: 0,
       gifts: [], birds: 0, zoomies: 0, chaosZoomies: 0, stare: 0, yell: 0, askFood: 0, renames: [], rare: 0,
       levelups: 0, came: 0, ignored: 0, hide: {}, laptop: 0, sunbathe: 0, supervise: 0, groom: 0, hunt: 0,
-      knead: 0, roll: 0, toy: 0, scratch: 0, litter: 0, accidents: 0, scoops: 0, angry: {}, invited: 0, snubbed: 0, lightsOff: 0, lightsOn: 0, darkNight: 0,
+      knead: 0, roll: 0, toy: 0, scratch: 0, litter: 0, accidents: 0, scoops: 0, angry: {}, invited: 0, snubbed: 0, lightsOff: 0, lightsOn: 0, darkNight: 0, grass: 0, vomit: 0, cleaned: 0,
     };
     for (const e of events) {
       switch (e.type) {
@@ -59,6 +59,9 @@
         case 'scratch': c.scratch++; break;
         case 'litter': if (e.accident) c.accidents++; else c.litter++; break;
         case 'scoop': c.scoops++; break;
+        case 'grass': c.grass++; break;
+        case 'vomit': c.vomit++; break;
+        case 'cleaned': c.cleaned++; break;
         case 'invited': if (e.result === 'accepted') c.invited++; else if (e.result === 'declined') c.snubbed++; break;
         case 'dawnLights': if (e.rested) c.darkNight++; break;
         case 'lights': if (e.off) c.lightsOff++; else c.lightsOn++; break;
@@ -110,6 +113,9 @@
     if (c.angry.woken) add(6, 'I was asleep. The human poked a sensitive area. I remember.');
     if (c.accidents) add(7, 'The litter box was not up to standard, so I made a statement next to it.');
     if (c.scoops) add(5, 'The human scooped my litter box. About time.');
+    if (c.vomit) add(7, pk(['I ate the grass from the windowsill. Then I gave it back. On the floor. Art.', 'The windowsill grass and I had a disagreement. It lost. Then I did.']));
+    else if (c.grass) add(4, pk(['I ate some of the grass on the windowsill. It is called cat grass. It is MY grass.', 'The green stuff on the windowsill is delicious. I will say no more.']));
+    if (c.cleaned) add(6, 'The human cleaned up my masterpiece. Rude, but appreciated.');
     if (c.invited) add(5, 'The human kept pointing at things. One of them was a good idea. I decided it was mine.');
     if (c.snubbed) add(4, 'The human pointed at furniture. I looked at it. I stayed exactly where I was.');
     if (c.darkNight) add(6, 'The lights stayed off all night. Best sleep of my whole life. Please do this more.');
@@ -231,6 +237,9 @@
     if (c.groom) add(2, '🛁', 'had a good long wash');
     if (c.levelups) add(9, '💛', 'grew a little fonder of you');
     if (c.accidents) add(8, '💧', 'had an accident next to the litter box');
+    if (c.vomit) add(7, '🤢', 'was sick after eating cat grass');
+    else if (c.grass) add(3, '🌱', 'nibbled the cat grass');
+    if (s.room.vomit.length) add(7, '🧽', 'left a puddle that needs cleaning up');
     if (c.litter) add(2, '🧻', c.litter > 1 ? `used the litter box ${c.litter} times` : 'used the litter box');
     if (G.Sim.isDirty(s)) add(7, '🧹', 'left the litter box needing a scoop');
 

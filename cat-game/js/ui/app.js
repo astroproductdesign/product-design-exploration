@@ -169,6 +169,7 @@
       state.flags.inviteTip = true;
       toast(nm('Tap a bed, box or the chair to invite {name} over (they decide). Tap the lamp to switch the lights.'), 7000);
     }
+    G.Notes.today(state, t); // the day's note goes up, read or not
     checkWeather();
     if (state.named && !introActive && !panel && !modalOpen && !decor && !play && !wcfg().asked && !wcfg().place && performance.now() > 12000) openWeatherAsk();
     scene.renderRoom(false, t);
@@ -200,6 +201,13 @@
       toast(nm('{name} is using the litter box. Tap the box to scoop it afterwards.'), 6500);
     }
     if (prev && prev.id === 'litter') setTimeout(() => scene.react({ say: 'Mrrp.', eyes: 'happy' }), 600);
+    if (prev && prev.id === 'vomit') {
+      scene.renderRoom(true, now());
+      if (!state.flags.vomitTip) {
+        state.flags.vomitTip = true;
+        toast(nm('{name} was sick after the cat grass (it happens). Tap the puddle to clean it up.'), 7000);
+      }
+    }
     if (prev && prev.id === 'gift') {
       sound('bell');
       toast(nm('{name} left something on the floor for you! Tap it.'));
@@ -219,6 +227,12 @@
         break;
       case 'eat':
         setTimeout(() => sound('crunch'), 2600);
+        break;
+      case 'grass':
+        setTimeout(() => sound('crunch'), 1800);
+        break;
+      case 'vomit':
+        setTimeout(() => scene.say('hrk… hrk…', 1800), 700);
         break;
       case 'knock':
         setTimeout(() => scene.say('…', 1500), 1200);
@@ -641,6 +655,7 @@
       scene.updateLighting(now(), true);
       return;
     }
+    if (target.closest('.note')) return void (sound('pop'), openNote());
     if (target.closest('.diary')) return void (sound('pop'), openBook('diary'));
     if (target.closest('.portrait')) return void (sound('pop'), openSettings());
     const gift = target.closest('.gift');
@@ -658,6 +673,12 @@
       lastTvTap = ms;
       if (state.settings.tv === 'off' || dbl) return toggleTv();
       return flipTv();
+    }
+    const puddle = target.closest('.vomit');
+    if (puddle) {
+      apply(G.Interactions.cleanVomit(state, now(), Number(puddle.getAttribute('data-vomit'))));
+      scene.renderRoom(true, now());
+      return;
     }
     if (target.closest('.litter')) {
       apply(G.Interactions.scoop(state, now()));
@@ -1358,6 +1379,22 @@
   }
 
   // ---- Settings / profile / naming ---------------------------------------------------------
+
+  // The note on the wall: today's, and the ones before it.
+  function openNote() {
+    const t = now();
+    const today = G.Notes.today(state, t);
+    const wasFresh = G.Notes.fresh(state, t);
+    state.flags.noteSeen = G.Clock.dayKey(t);
+    save(true);
+    if (wasFresh) scene.renderRoom(true, t); // the ring goes away
+    const past = G.Notes.earlier(state, t, 14);
+    openModal(
+      `<div class="note-card"><div class="paper"><small>${esc(today.head)}</small><p class="note-text">${esc(today.text)}</p><p class="sign">${esc(state.cat.name)}</p></div>
+       <p class="small muted">A new note goes up every day.</p>
+       ${past.length ? `<h3>Earlier notes</h3><ul class="note-list">${past.map((n) => `<li><b>${esc(G.Clock.formatDay(n.day))}</b><span>${esc(n.text)}</span></li>`).join('')}</ul>` : ''}</div>`
+    );
+  }
 
   // Bond level card: how far along, and what each level up brings.
   function openBond() {

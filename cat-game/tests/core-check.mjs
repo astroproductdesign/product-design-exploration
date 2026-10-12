@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
-const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'weather', 'sim', 'interactions', 'journal'];
+const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'weather', 'sim', 'interactions', 'journal', 'notes'];
 const ctx = vm.createContext({ console, Math, Date, JSON });
 for (const f of files) vm.runInContext(readFileSync(path.join(dir, '../js/core', f + '.js'), 'utf8'), ctx, { filename: f });
 const G = ctx.CatGame;
@@ -481,6 +481,99 @@ test('the sun follows the real sunrise and sunset', () => {
   }
   // Nonsense sun times are ignored.
   assert.equal(G.Clock.sunHour(10, { rise: 9, set: 5 }), 10);
+});
+
+
+test('the wall note: a new one each day, kept, and in the cat\'s voice', () => {
+  const s = fresh();
+  const seen = [];
+  for (let d = 0; d < 60; d++) {
+    const t = t0 + d * DAY;
+    const n = G.Notes.today(s, t);
+    assert.ok(n.text.length > 10 && n.head.length > 3, 'has words');
+    assert.ok(!/[{}]/.test(n.text + n.head), 'no unfilled blanks: ' + n.text);
+    assert.ok(!/\s{2}|\bundefined\b|\bnull\b/.test(n.text), 'tidy: ' + n.text);
+    assert.equal(G.Notes.today(s, t + HOUR).text, n.text, 'the same note all day');
+    if (d) assert.notEqual(n.text, seen[d - 1], 'a different note from yesterday');
+    seen.push(n.text);
+  }
+  assert.ok(new Set(seen).size >= 52, 'rarely repeats within two months (' + new Set(seen).size + ' of 60)');
+  const kinds = new Set(s.notes.map((n) => n.kind));
+  assert.deepEqual([...kinds].sort(), ['fact', 'me', 'wish'], 'a mix of facts, things about the cat, and wishes');
+  assert.ok(s.notes.length <= 60, 'old notes are trimmed');
+  // today's is unread until it has been opened
+  assert.equal(G.Notes.fresh(s, t0), true);
+  s.flags.noteSeen = G.Clock.dayKey(t0);
+  assert.equal(G.Notes.fresh(s, t0), false);
+  assert.equal(G.Notes.fresh(s, t0 + DAY), true);
+  // earlier notes, newest first, never including today
+  const e = G.Notes.earlier(s, t0 + 10 * DAY, 5);
+  assert.equal(e.length, 5);
+  assert.ok(e[0].day > e[4].day && e.every((x) => x.day < G.Clock.dayKey(t0 + 10 * DAY)));
+  // a wish follows how the cat is doing right now
+  const hungry = fresh();
+  hungry.stats.fullness = 20;
+  hungry.bowl.portions = 0;
+  let sawBowl = false;
+  for (let d = 0; d < 6; d++) if (/bowl/.test(G.Notes.write(hungry, G.Clock.dayKey(t0 + d * DAY), t0 + d * DAY).text)) sawBowl = true;
+  assert.ok(sawBowl, 'an empty bowl and a hungry cat gets a mention');
+  // an old save without notes still works
+  const old = G.State.migrate({ ...fresh(), notes: undefined });
+  assert.ok(G.Notes.today(old, t0).text);
+});
+
+
+test('cat grass: eaten, grows back, sometimes comes back up, and is cleaned away', () => {
+  let sick = 0;
+  let fine = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = fresh();
+    s.seed = seed;
+    G.Sim.setActivity(s, t0, 'grass', 'grass');
+    G.Sim.advance(s, s.activity.end + 1000, { live: true });
+    assert.ok(Math.abs(s.room.grass - 0.7) < 0.01, 'it ate a little: ' + s.room.grass);
+    assert.ok(s.stats.fullness >= 0 && s.stats.fullness <= 100);
+    const willBeSick = s.flags.vomitAt > 0;
+    G.Sim.advance(s, s.lastSimAt + 3 * HOUR, { live: false });
+    assert.ok(s.room.vomit.length <= G.Sim.MAX_VOMIT);
+    if (willBeSick) {
+      sick++;
+      // (it may have nibbled again in those three hours, so a second puddle is possible)
+      assert.ok(s.room.vomit.length >= 1, 'a puddle was left (seed ' + seed + ')');
+      assert.ok(s.room.vomit.every((v) => ['rug', 'floorL', 'floorR'].includes(v.spot)));
+    } else {
+      fine++;
+    }
+  }
+  assert.ok(sick > 5 && fine > 5, `about two in five are sick (${sick} sick, ${fine} fine)`);
+  // cleaning it up: gone, a little bond, and the cat is happier
+  const s = fresh();
+  s.room.vomit.push({ spot: 'rug', dx: 4 });
+  const bond = s.stats.bond;
+  const r = G.Interactions.cleanVomit(s, t0, 0);
+  assert.ok(r.ok && s.room.vomit.length === 0 && s.stats.bond > bond);
+  assert.equal(G.Interactions.cleanVomit(s, t0, 0).ok, false, 'nothing left to clean');
+  // grass that is nibbled down is not eaten again until it grows back, which takes hours
+  s.room.grass = 0;
+  assert.equal(G.Sim.behaviorAt(s, t0, 'grass'), null);
+  assert.ok(/nibbled right down/.test(G.Interactions.invite(s, t0, 'grass').toast));
+  G.Sim.advance(s, t0 + 4 * HOUR, { live: false });
+  assert.ok(s.room.grass > 0.2 && s.room.grass < 1, 'growing back: ' + s.room.grass);
+  G.Sim.advance(s, t0 + 14 * HOUR, { live: false });
+  assert.equal(s.room.grass, 1);
+  // a puddle left lying about makes the cat a little less happy than a clean room
+  const messy = fresh();
+  messy.room.vomit.push({ spot: 'rug', dx: 0 });
+  messy.stats.happiness = 90;
+  const tidy = fresh();
+  tidy.stats.happiness = 90;
+  G.Sim.drift(messy, { id: 'sit' }, 600);
+  G.Sim.drift(tidy, { id: 'sit' }, 600);
+  assert.ok(messy.stats.happiness < tidy.stats.happiness);
+  // old saves get a full pot of grass and no puddles
+  const old = G.State.migrate({ ...fresh(), room: { slots: ['scratcher', null, 'box'], perch: false, cupOnFloor: false, gifts: [], litter: { clumps: [], mess: 0 } } });
+  assert.equal(old.room.grass, 1);
+  assert.ok(Array.isArray(old.room.vomit) && old.room.vomit.length === 0);
 });
 
 console.log(`\n${passed} checks passed`);

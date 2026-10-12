@@ -208,6 +208,17 @@
     return withBond({ ok: true, say: '', sound: 'scoop', hearts: wasDirty ? 1 : 0, toast: wasDirty ? '{name} approves of the fresh litter. Much better.' : 'Scooped. Fresh and tidy.' }, res);
   }
 
+  // Clean up after the cat grass comes back up.
+  function cleanVomit(s, t, i) {
+    const list = s.room.vomit;
+    if (!list[i]) return { ok: false };
+    list.splice(i, 1);
+    G.State.log(s, { t, type: 'cleaned', live: true });
+    joy(s, 2);
+    const res = G.Progression.addBond(s, 1, t, 'care');
+    return withBond({ ok: true, say: '', sound: 'scoop', hearts: 1, toast: R.pick(rngFor(s, t, 'clean'), ['All cleaned up. {name} pretends nothing happened.', 'Wiped away. {name} looks a little embarrassed.', 'Spotless again. {name} says thank you (by ignoring you).']) }, res);
+  }
+
   // ---- Play -----------------------------------------------------------------
 
   // Returns whether the cat joins in.
@@ -288,7 +299,7 @@
   // ---- Inviting the cat over, and the lights --------------------------------
 
   // What each behaviour looks like in a thought bubble.
-  const THOUGHT = { nap: '💤', loaf: '💤', groom: '🛁', stretch: '🧘', sunbathe: '☀️', birds: '🐦', knock: '🥛', hide: '📦', hunt: '🐭', zoomies: '💨', stare: '👀', knead: '🍞', roll: '🌀', laptop: '💻', supervise: '📺', gift: '🎁', meow: '💬', sit: '…', toy: '🧶', scratch: '🪵', eat: '🍽️', askFood: '🍽️', litter: '🧻', sulk: '💢' };
+  const THOUGHT = { nap: '💤', loaf: '💤', groom: '🛁', stretch: '🧘', sunbathe: '☀️', birds: '🐦', knock: '🥛', hide: '📦', hunt: '🐭', zoomies: '💨', stare: '👀', knead: '🍞', roll: '🌀', laptop: '💻', supervise: '📺', gift: '🎁', meow: '💬', sit: '…', toy: '🧶', scratch: '🪵', eat: '🍽️', askFood: '🍽️', litter: '🧻', sulk: '💢', grass: '🌱', vomit: '🤢' };
   const thoughtOf = (id) => THOUGHT[id] || '…';
 
   // You tapped an item (or the chair, the window, the TV). The cat may well go and use it, but
@@ -318,6 +329,7 @@
     } else if (st.fullness < 25 && r() < 0.8) {
       return no('hungry', thoughtOf('eat'), { say: 'Mrow!', anim: 'earTwitch' }, '{name} sniffed at {label}, then looked pointedly at the food bowl.');
     }
+    if (spotId === 'grass' && s.room.grass < G.Sim.GRASS_MIN) return no('notNow', thoughtOf('grass'), { eyes: 'half' }, 'The cat grass is nibbled right down. Give it a few hours to grow back.');
     const pick = G.Sim.behaviorAt(s, t, spotId, opts.prefer);
     const rather = () => thoughtOf(G.Sim.wouldRather(s, t));
     if (!pick) return no('notNow', rather(), { eyes: 'half' }, '{name} gave {label} a look. Not the right time of day for it.');
@@ -401,5 +413,5 @@
     return withBond({ ok: true, rarity: info.rarity, toast: `You got ${info.name} from {name}.${tag} Added to your treasures.` }, res);
   }
 
-  G.Interactions = { moodOf, MOOD_LABEL, feed, treat, pet, scoop, invite, setLights, startPlay, tempt, pounce, endPlay, call, validateName, rename, pickUpCup, collectGift };
+  G.Interactions = { moodOf, MOOD_LABEL, feed, treat, pet, scoop, cleanVomit, invite, setLights, startPlay, tempt, pounce, endPlay, call, validateName, rename, pickUpCup, collectGift };
 })(globalThis.CatGame = globalThis.CatGame || {});

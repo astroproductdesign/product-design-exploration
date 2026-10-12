@@ -29,9 +29,14 @@
     mint: '#8fd3c6',
   };
 
-  const W = 960;
+  // The room is wide, so a wide screen is filled instead of showing empty wall. Each piece of
+  // furniture is drawn at its original coordinates and slid sideways (DX) so they stand well
+  // apart; the places the cat uses (SPOTS, SLOTS) move by the same amounts.
+  const W = 1248; // 30% wider than the original 960
   const H = 600;
   const FLOOR = 420;
+  const DX = { tv: 24, basket: 102, mid: 168, chair: 234, clock: 240, note: 252, right: 282 };
+  const at = (dx, svg) => `<g transform="translate(${dx} 0)">${svg}</g>`;
 
   // Outlines run ~30% heavier than the widths passed in (room line ≈ 4).
   const ow = (w) => ((w || 3) * 1.3).toFixed(2);
@@ -46,26 +51,28 @@
   // ---- Where the cat can be ----------------------------------------------------
 
   const SPOTS = {
-    sill: { x: 430, y: 291, z: 303, floor: { x: 430, y: 468 } },
-    chair: { x: 640, y: 404, z: 482, floor: { x: 640, y: 494 } },
-    table: { x: 795, y: 350, z: 496, floor: { x: 795, y: 506 } },
-    laptop: { x: 868, y: 342, z: 497, floor: { x: 868, y: 506 } },
-    desk: { x: 205, y: 330, z: 462, floor: { x: 205, y: 474 } },
-    rug: { x: 470, y: 548, z: 548 },
-    bowl: { x: 238, y: 541, z: 542, face: 1 },
-    floorL: { x: 370, y: 488, z: 488 },
-    floorR: { x: 742, y: 528, z: 528 },
-    wall: { x: 545, y: 446, z: 446, face: 1 },
+    sill: { x: 430 + DX.mid, y: 291, z: 303, floor: { x: 430 + DX.mid, y: 468 } },
+    // On the sill beside the pot of cat grass (left of the cat, so it faces left).
+    grass: { x: 446 + DX.mid, y: 291, z: 303, face: -1, floor: { x: 446 + DX.mid, y: 468 } },
+    chair: { x: 640 + DX.chair, y: 404, z: 482, floor: { x: 640 + DX.chair, y: 494 } },
+    table: { x: 795 + DX.right, y: 350, z: 496, floor: { x: 795 + DX.right, y: 506 } },
+    laptop: { x: 868 + DX.right, y: 342, z: 497, floor: { x: 868 + DX.right, y: 506 } },
+    desk: { x: 205 + DX.tv, y: 330, z: 462, floor: { x: 205 + DX.tv, y: 474 } },
+    rug: { x: 470 + DX.mid, y: 548, z: 548 },
+    bowl: { x: 238 + DX.basket, y: 541, z: 542, face: 1 },
+    floorL: { x: 526, y: 488, z: 488 },
+    floorR: { x: 976, y: 528, z: 528 },
+    wall: { x: 545 + DX.mid, y: 446, z: 446, face: 1 },
     // Under the table. The cat steps in from the front and sits low in the tray.
-    litter: { x: 845, y: 458, z: 484, floor: { x: 845, y: 500 } },
-    litterOut: { x: 724, y: 500, z: 500 },
-    front: { x: 520, y: 590, z: 591 },
+    litter: { x: 845 + DX.right, y: 458, z: 484, floor: { x: 845 + DX.right, y: 500 } },
+    litterOut: { x: 724 + DX.right, y: 500, z: 500 },
+    front: { x: 520 + DX.mid, y: 590, z: 591 },
   };
 
   const SLOTS = [
-    { x: 105, y: 568 },
-    { x: 668, y: 584 },
-    { x: 868, y: 574 },
+    { x: 105 + DX.tv, y: 568 },
+    { x: 668 + DX.chair, y: 584 },
+    { x: 868 + DX.right, y: 574 },
   ];
 
   // Where the cat sits inside/on each item, relative to its slot.
@@ -240,7 +247,7 @@
 
   function wallClock() {
     return (
-      `<g transform="translate(722 128)">` +
+      `<g transform="translate(${722 + DX.clock} 128)">` +
       E(0, 0, 34, 34, K.cream, 3.5) +
       `<circle r="28" fill="none" stroke="${K.red}" stroke-width="3"/>` +
       [0, 90, 180, 270].map((a) => `<rect x="-1.5" y="-25" width="3" height="6" fill="${K.line}" transform="rotate(${a})"/>`).join('') +
@@ -257,7 +264,7 @@
   function portrait() {
     // A framed photo of the cat on the wall.
     return (
-      `<g class="portrait act" data-act="portrait" role="button" tabindex="0" aria-label="Profile and settings" style="cursor:pointer" transform="translate(118 140)">` +
+      `<g class="portrait act" data-act="portrait" role="button" tabindex="0" aria-label="Profile and settings" style="cursor:pointer" transform="translate(${118 + DX.tv} 140)">` +
       `<rect x="-40" y="-48" width="80" height="96" rx="4" fill="${K.woodLight}" stroke="${K.line}" stroke-width="3"/>` +
       `<rect x="-30" y="-38" width="60" height="76" fill="#cfe6e0" stroke="${K.line}" stroke-width="2"/>` +
       `<clipPath id="portrait-clip"><rect x="-30" y="-38" width="60" height="76"/></clipPath>` +
@@ -301,15 +308,14 @@
     }
     s += `<rect x="${X0}" y="${FLOOR - 8}" width="${XW}" height="10" fill="${K.base}" stroke="${K.line}" stroke-width="4"/>`;
     // rug (terracotta oval, woven rings)
-    s += E(470, 546, 168, 40, K.red, 3);
-    s += `<ellipse cx="470" cy="546" rx="140" ry="29" fill="none" stroke="#e8806a" stroke-width="5" stroke-dasharray="14 10" stroke-linecap="round"/>`;
+    s += at(DX.mid, E(470, 546, 168, 40, K.red, 3) + `<ellipse cx="470" cy="546" rx="140" ry="29" fill="none" stroke="#e8806a" stroke-width="5" stroke-dasharray="14 10" stroke-linecap="round"/>`);
     // morning sunbeam from the window
-    s += `<path id="sunbeam" d="M 360 420 L 520 420 L 640 600 L 380 600 Z" fill="#fff6d2" opacity="0"/>`;
-    s += `<g class="item act" data-act="window" data-spot="sill" style="cursor:pointer">${windowArt()}</g>`;
-    s += curtains();
+    s += `<path id="sunbeam" d="M 360 420 L 520 420 L 640 600 L 380 600 Z" fill="#fff6d2" opacity="0" transform="translate(${DX.mid} 0)"/>`;
+    s += at(DX.mid, `<g class="item act" data-act="window" data-spot="sill" style="cursor:pointer">${windowArt()}</g>`);
+    s += at(DX.mid, curtains());
     s += wallClock();
     s += portrait();
-    s += lamp();
+    s += at(DX.right, lamp());
     return s;
   }
 
@@ -458,6 +464,98 @@
     g += L(`M ${x - 30} ${y - 14} Q ${x} ${y - 8} ${x + 30} ${y - 14}`, '#b98445', 2);
     g += E(x, y - 30, 33, 6, '#e8c48a', 3);
     return g + `</g>`;
+  }
+
+  // The note on the wall: a small yellow sticky note with the start of today's note written on
+  // it, cut off with "…" so you have to tap it to read the rest. A pulsing ring says it's unread.
+  function stickyLines(text, maxChars, maxLines) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    const lines = [];
+    let cur = '';
+    let i = 0;
+    for (; i < words.length; i++) {
+      const w = words[i];
+      const next = cur ? cur + ' ' + w : w;
+      if (next.length <= maxChars) {
+        cur = next;
+        continue;
+      }
+      if (cur) lines.push(cur);
+      cur = w.length > maxChars ? w.slice(0, maxChars) : w;
+      if (lines.length === maxLines) break;
+    }
+    if (cur && lines.length < maxLines) lines.push(cur);
+    const cut = i < words.length || lines.length > maxLines;
+    const out = lines.slice(0, maxLines);
+    if (cut && out.length) {
+      let last = out[out.length - 1];
+      if (last.length > maxChars - 1) last = last.slice(0, maxChars - 1);
+      out[out.length - 1] = last.replace(/[\s,.;:!?-]+$/, '') + '…';
+    }
+    return out;
+  }
+
+  const xmlEsc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  function noteBoard(fresh, text) {
+    let g = `<g class="note act" data-act="note" role="button" tabindex="0" aria-label="Note of the day" style="cursor:pointer" transform="translate(${676 + DX.note} 236)">`;
+    g += `<rect x="-38" y="-38" width="76" height="80" rx="8" fill="none" pointer-events="all"/>`;
+    g += `<g transform="rotate(-3)">`;
+    g += `<path d="M -26 -25 L 32 -25 L 32 36 L 20 48 L -26 48 Z" fill="#000" opacity=".12" transform="translate(2.5 3)"/>`;
+    g += S('M -29 -29 L 29 -29 L 29 28 L 17 40 L -29 40 Z', '#fff2a6', 2);
+    g += S('M 29 28 L 17 40 L 17 28 Z', '#e8d070', 1.6);
+    g += `<path d="M -29 -29 L 29 -29 L 29 -22 L -29 -22 Z" fill="#f2db6a"/>`;
+    g += `<clipPath id="note-clip"><rect x="-27" y="-22" width="54" height="60"/></clipPath>`;
+    g += `<g clip-path="url(#note-clip)" font-family="'M PLUS Rounded 1c', 'Nunito', system-ui, sans-serif" font-size="7.6" font-weight="800" fill="#4a3b2d">`;
+    stickyLines(text, 10, 4).forEach((ln, i) => {
+      g += `<text x="-24" y="${-12 + i * 11}">${xmlEsc(ln)}</text>`;
+    });
+    g += `</g>`;
+    g += `</g>`;
+    if (fresh) g += `<ellipse class="nudge" cx="0" cy="2" rx="42" ry="46" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
+    return g + `</g>`;
+  }
+
+  // A pot of cat grass on the windowsill. The more is left, the taller and fuller it is; a tap
+  // invites the cat to nibble it.
+  function catGrass(level) {
+    const x = 368;
+    const y = 286;
+    const n = 4 + Math.round(level * 5);
+    let g = `<g class="item act" data-act="grass" data-spot="grass" style="cursor:pointer">`;
+    g += `<rect x="${x - 22}" y="${y - 62}" width="44" height="66" rx="8" fill="none" pointer-events="all"/>`;
+    for (let i = 0; i < n; i++) {
+      const bx = x - 10 + (i * 20) / Math.max(1, n - 1);
+      const h = 7 + level * (14 + ((i * 7) % 5) * 3.2);
+      const lean = ((i % 3) - 1) * 6 + (i % 2 ? 2 : -2);
+      g += S(`M ${bx - 2} ${y - 20} Q ${bx + lean * 0.4} ${y - 20 - h * 0.6} ${bx + lean} ${y - 20 - h} Q ${bx + lean * 0.6 + 2} ${y - 20 - h * 0.45} ${bx + 2} ${y - 20} Z`, i % 2 ? '#86bf5c' : '#6fae4f', 1.5);
+    }
+    g += S(`M ${x - 12} ${y - 17} L ${x + 12} ${y - 17} L ${x + 9} ${y} L ${x - 9} ${y} Z`, '#d7774f', 2.4);
+    g += R(x - 15, y - 22, 30, 7, '#e48e63', 2.5, 2.4);
+    g += L(`M ${x - 5} ${y - 11} L ${x - 4} ${y - 4} M ${x + 5} ${y - 11} L ${x + 4} ${y - 4}`, '#b85f3b', 1.8);
+    return g + `</g>`;
+  }
+
+  // What the cat left behind after the grass came back up. Tap it to clean it up.
+  function vomitPuddles(state) {
+    return (state.room.vomit || []).map((v, i) => {
+      const sp = SPOTS[v.spot] || SPOTS.rug;
+      const x = sp.x + (v.dx || 0);
+      const y = sp.y + 8;
+      const sc = scaleAt(y) * 1.3;
+      return {
+        z: y + 0.4,
+        svg:
+          `<g class="vomit act" data-act="vomit${i}" data-vomit="${i}" role="button" tabindex="0" aria-label="Clean up" style="cursor:pointer" transform="translate(${x} ${y}) scale(${sc.toFixed(3)})">` +
+          `<ellipse cx="0" cy="0" rx="34" ry="30" fill="none" pointer-events="all"/>` +
+          S('M -24 2 Q -26 -8 -12 -9 Q -6 -16 6 -11 Q 20 -13 24 -3 Q 30 4 20 8 Q 8 13 -6 10 Q -20 12 -24 2 Z', '#cfdc8c', 2.4) +
+          `<ellipse cx="-6" cy="-1" rx="6" ry="2.6" fill="#b9c96e"/>` +
+          [[-12, 3], [9, -2], [14, 5], [-1, 6]].map(([dx, dy]) => `<path d="M ${dx} ${dy} l 5 -2" stroke="#5f8f45" stroke-width="2.2" stroke-linecap="round"/>`).join('') +
+          `<path class="stink" d="M 2 -14 q 6 -8 0 -16" fill="none" stroke="#9aa83e" stroke-width="3" stroke-linecap="round"/>` +
+          `<ellipse class="nudge" cx="0" cy="-1" rx="38" ry="22" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>` +
+          `</g>`,
+      };
+    });
   }
 
   // A small wall shelf with your diary on it. Tap it to open the diary.
@@ -750,28 +848,31 @@
   function decorBack(seasons) {
     let s = '';
     if (seasons.includes('cny')) {
-      s += lantern(246, 112) + lantern(616, 112);
-      s += `<g transform="translate(640 236) rotate(45)"><rect x="-22" y="-22" width="44" height="44" fill="#e04a3a" stroke="${K.line}" stroke-width="3"/></g>`;
-      s += `<text x="640" y="248" text-anchor="middle" font-size="30" font-weight="700" fill="#f3c66b" font-family="serif">福</text>`;
+      s += at(DX.mid, lantern(246, 112) + lantern(616, 112));
+      s += at(DX.mid, `<g transform="translate(640 236) rotate(45)"><rect x="-22" y="-22" width="44" height="44" fill="#e04a3a" stroke="${K.line}" stroke-width="3"/></g>`);
+      s += at(DX.mid, `<text x="640" y="248" text-anchor="middle" font-size="30" font-weight="700" fill="#f3c66b" font-family="serif">福</text>`);
     }
     if (seasons.includes('raya')) {
-      s += ketupat(246, 112) + ketupat(616, 112) + ketupat(560, 70);
+      s += at(DX.mid, ketupat(246, 112) + ketupat(616, 112) + ketupat(560, 70));
       let flags = '';
       for (let x = 0; x < W; x += 34) flags += `<path d="M ${x} 18 L ${x + 30} 18 L ${x + 15} 40 Z" fill="${(x / 34) % 2 ? '#f3c66b' : '#7fb35a'}" stroke="${K.line}" stroke-width="1.5"/>`;
       s += L(`M 0 18 L ${W} 18`, K.line, 2) + flags;
-      s += pelita(318, 286) + pelita(542, 286);
+      s += at(DX.mid, pelita(318, 286) + pelita(542, 286));
     }
     if (seasons.includes('christmas')) {
       let bulbs = '';
       const cols = ['#e04a3a', '#f3c66b', '#7fb35a', '#7fb4d9'];
-      for (let i = 0; i < 24; i++) {
+      const n = Math.floor(W / 40);
+      for (let i = 0; i < n; i++) {
         const x = 20 + i * 40;
         const y = 22 + Math.sin(i * 1.4) * 4 + 8;
         bulbs += `<circle class="twinkle t${i % 3}" cx="${x}" cy="${y}" r="5" fill="${cols[i % 4]}" stroke="${K.line}" stroke-width="1.5"/>`;
       }
-      s += L(`M 0 24 Q 120 40 240 26 T 480 26 T 720 26 T 960 26`, K.line, 2) + bulbs;
+      let wire = 'M 0 24';
+      for (let x = 0; x < W; x += 240) wire += ` Q ${x + 120} ${x % 480 ? 12 : 40} ${x + 240} 26`;
+      s += L(wire, K.line, 2) + bulbs;
       // wreath on the portrait
-      s += `<circle cx="118" cy="86" r="14" fill="none" stroke="#5f8a45" stroke-width="7"/><circle cx="118" cy="98" r="4" fill="#e04a3a"/>`;
+      s += at(DX.tv, `<circle cx="118" cy="86" r="14" fill="none" stroke="#5f8a45" stroke-width="7"/><circle cx="118" cy="98" r="4" fill="#e04a3a"/>`);
     }
     return s;
   }
@@ -779,7 +880,7 @@
   function decorItems(seasons) {
     const out = [];
     if (seasons.includes('christmas')) {
-      const x = 300;
+      const x = 300 + DX.basket;
       const y = 452;
       out.push({
         z: y,
@@ -793,7 +894,7 @@
       });
     }
     if (seasons.includes('cny')) {
-      out.push({ z: 497, svg: [[770, 343], [788, 343], [779, 333]].map(([x, y]) => E(x, y - 8, 10, 9, '#f39a3a', 2.5) + `<path d="M ${x} ${y - 17} q 4 -4 8 -2" stroke="#5f8a45" stroke-width="2.5" fill="none"/>`).join('') });
+      out.push({ z: 497, svg: at(DX.right, [[770, 343], [788, 343], [779, 333]].map(([x, y]) => E(x, y - 8, 10, 9, '#f39a3a', 2.5) + `<path d="M ${x} ${y - 17} q 4 -4 8 -2" stroke="#5f8a45" stroke-width="2.5" fill="none"/>`).join('')) });
     }
     return out;
   }
@@ -815,7 +916,7 @@
 
   function giftsLayer(state) {
     return state.room.gifts.map((g, i) => {
-      const x = 590 + i * 46;
+      const x = 590 + DX.mid + i * 46;
       const y = 586;
       return {
         z: y + 2,
@@ -833,7 +934,7 @@
     return {
       z: 590,
       svg:
-        `<g class="cup act" data-act="cup" style="cursor:pointer" transform="translate(770 590)">` +
+        `<g class="cup act" data-act="cup" style="cursor:pointer" transform="translate(${770 + DX.right} 590)">` +
         `<ellipse cx="18" cy="2" rx="26" ry="6" fill="#bfe2f5" opacity=".8"/>` +
         `<circle r="24" fill="none" pointer-events="all"/>` +
         mug(0, 0, 100) +
@@ -842,18 +943,21 @@
   }
 
   // Everything that sorts with the cat, as [{z, svg}].
-  function midLayer(state, seasons) {
+  function midLayer(state, seasons, opts) {
     const out = [];
-    out.push({ z: 460, svg: desk() });
-    out.push({ z: 480, svg: `<g class="item act" data-act="chair" data-spot="chair" style="cursor:pointer">${chair()}</g>` });
-    out.push({ z: 494, svg: table(state) });
-    out.push({ z: 530, svg: bowls(state) });
-    out.push({ z: 500, svg: toyBasket() });
-    out.push({ z: 300, svg: diaryShelf(state) });
+    out.push({ z: 299, svg: noteBoard(!!(opts && opts.noteFresh), opts && opts.noteText) });
+    out.push({ z: 460, svg: at(DX.tv, desk()) });
+    out.push({ z: 480, svg: at(DX.chair, `<g class="item act" data-act="chair" data-spot="chair" style="cursor:pointer">${chair()}</g>`) });
+    out.push({ z: 494, svg: at(DX.right, table(state)) });
+    out.push({ z: 530, svg: at(DX.basket, bowls(state)) });
+    out.push({ z: 500, svg: at(DX.basket, toyBasket()) });
+    out.push({ z: 300, svg: at(DX.right, diaryShelf(state)) });
     const [litterBack, litterFront, litterMess] = litterBox(state);
-    out.push({ z: 483, svg: litterBack }, { z: 485, svg: litterFront });
-    if (litterMess) out.push({ z: 499, svg: litterMess });
-    if (state.room.perch) out.push({ z: 302, svg: `<g class="item act" data-act="perch" data-spot="sill" style="cursor:pointer">${perch()}</g>` });
+    out.push({ z: 483, svg: at(DX.right, litterBack) }, { z: 485, svg: at(DX.right, litterFront) });
+    if (litterMess) out.push({ z: 499, svg: at(DX.right, litterMess) });
+    out.push({ z: 302.5, svg: at(DX.mid, catGrass(state.room.grass)) });
+    out.push(...vomitPuddles(state));
+    if (state.room.perch) out.push({ z: 302, svg: at(DX.mid, `<g class="item act" data-act="perch" data-spot="sill" style="cursor:pointer">${perch()}</g>`) });
     state.room.slots.forEach((id, i) => {
       if (!id || !ITEM_ART[id]) return;
       const { x, y } = SLOTS[i];
@@ -941,8 +1045,8 @@
     return (
       `<rect id="tint" x="-1500" y="-400" width="${W + 3000}" height="${H + 800}" fill="#000" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/>` +
       // light spilling from the TV when the room is dark
-      `<g id="tv-glow" opacity="0" pointer-events="none" style="mix-blend-mode:screen"><defs><radialGradient id="tvg"><stop offset="0" stop-color="#7aa4ff" stop-opacity=".6"/><stop offset="1" stop-color="#7aa4ff" stop-opacity="0"/></radialGradient></defs><ellipse cx="124" cy="290" rx="230" ry="170" fill="url(#tvg)"/><rect x="64" y="214" width="120" height="82" rx="3" fill="#9cc2ff" opacity=".55"/></g>` +
-      `<g id="lamp-glow" opacity="0" pointer-events="none"><path d="M 818 136 L 882 136 L 990 470 L 710 470 Z" fill="#fff2b0"/></g>`
+      `<g id="tv-glow" opacity="0" pointer-events="none" style="mix-blend-mode:screen" transform="translate(${DX.tv} 0)"><defs><radialGradient id="tvg"><stop offset="0" stop-color="#7aa4ff" stop-opacity=".6"/><stop offset="1" stop-color="#7aa4ff" stop-opacity="0"/></radialGradient></defs><ellipse cx="124" cy="290" rx="230" ry="170" fill="url(#tvg)"/><rect x="64" y="214" width="120" height="82" rx="3" fill="#9cc2ff" opacity=".55"/></g>` +
+      `<g id="lamp-glow" opacity="0" pointer-events="none" transform="translate(${DX.right} 0)"><path d="M 818 136 L 882 136 L 990 470 L 710 470 Z" fill="#fff2b0"/></g>`
     );
   }
 

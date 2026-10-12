@@ -31,6 +31,8 @@
     sit: { tags: ['sit'], w: { dawn: 0.8, morning: 1, afternoon: 1, evening: 1, night: 0.6 }, dur: [5, 20], live: [20, 50] },
     toy: { tags: ['toy'], w: { dawn: 0.5, morning: 0.6, afternoon: 0.6, evening: 2, night: 0.8 }, dur: [5, 15], live: [20, 40], active: true, joy: 0.08 },
     scratch: { tags: ['scratch'], w: { dawn: 0.8, morning: 0.7, afternoon: 0.5, evening: 0.9, night: 0.3 }, dur: [3, 8], live: [10, 20], joy: 0.03 },
+    // Nibbles the cat grass on the windowsill (only while there is some left to eat).
+    grass: { need: (s) => s.room.grass >= GRASS_MIN, tags: ['grass'], w: { dawn: 0.5, morning: 1.2, afternoon: 0.8, evening: 0.7, night: 0.1 }, dur: [2, 5], live: [16, 26], joy: 0.05 },
     // Need-driven (picked by rules, not by weight).
     eat: { tags: ['bowl'], dur: [4, 8], live: [14, 20] },
     askFood: { tags: ['bowl'], dur: [10, 30], live: [30, 60] },
@@ -41,7 +43,17 @@
     // Needs the litter box when the need builds up (see chooseNext), or after an upset.
     litter: { tags: ['litter'], dur: [2, 4], live: [14, 14] },
     sulk: { tags: ['wall'], dur: [1, 1], live: [60, 60] },
+    // Sometimes the grass comes back up a little while after eating it (see chooseNext).
+    vomit: { tags: ['floor'], dur: [1, 2], live: [10, 14] },
   };
+
+  // Cat grass: eating it takes some, and it grows back over a few hours. About two in five times
+  // the cat is sick on the floor a little later, and that stays until you clean it up.
+  const GRASS_MIN = 0.3;
+  const GRASS_EATEN = 0.3;
+  const GRASS_REGROW = 0.0015; // per minute
+  const VOMIT_CHANCE = 0.4;
+  const MAX_VOMIT = 2;
 
   // How full the box can get before the cat stops using it properly.
   const DIRTY_AT = 5;
@@ -80,6 +92,8 @@
     play: '{name} is in hunting mode!',
     litter: '{name} is using the litter box. Give them some privacy.',
     sulk: '{name} is sulking with their back to you.',
+    grass: '{name} is nibbling the cat grass.',
+    vomit: 'Uh oh. {name} is making worrying noises…',
   };
 
   function clamp(v, lo, hi) {
@@ -147,6 +161,8 @@
       case 'eat':
       case 'toy':
       case 'play':
+      case 'grass':
+      case 'vomit':
         return 'crouch';
       case 'zoomies':
         return 'walk';
@@ -202,6 +218,15 @@
       return make(s, t, s.bowl.portions > 0 ? 'eat' : 'askFood', bowl, r, live, { yell: true });
     }
     if (st.fullness < 22 && r() < 0.45) return make(s, t, 'askFood', bowl, r, live);
+    // Too much grass, and it comes back up: on the rug or the floor, where it stays until cleaned.
+    if (s.flags.vomitAt && t >= s.flags.vomitAt) {
+      s.flags.vomitAt = 0;
+      if (s.room.vomit.length < MAX_VOMIT) {
+        const pickId = R.pick(r, ['rug', 'floorL', 'floorR']);
+        const where = spots.find((sp) => sp.id === pickId);
+        return make(s, t, 'vomit', where, r, live);
+      }
+    }
     // Nature calls. A dirty box puts the cat off: sometimes it goes beside the box instead.
     // It also goes soon after a meal or a treat (litterAt is set when it eats).
     const urge = !!s.flags.litterAt && t >= s.flags.litterAt;
@@ -334,8 +359,9 @@
     // Happiness eases back toward a calm middle. Hungry = a little grumpy,
     // never miserable.
     // A dirty litter box makes a cat a bit grumpy too.
-    const baseline = st.fullness < 20 ? 28 : isDirty(s) ? 40 : 50;
+    const baseline = st.fullness < 20 ? 28 : isDirty(s) || s.room.vomit.length ? 40 : 50;
     st.litter = clamp(st.litter + 0.4 * mins);
+    s.room.grass = Math.min(1, s.room.grass + GRASS_REGROW * mins);
     st.happiness += (b.joy || 0) * mins;
     st.happiness = baseline + (st.happiness - baseline) * Math.exp(-0.0012 * mins);
     st.happiness = clamp(st.happiness, 12, 100);
@@ -373,6 +399,23 @@
         st.litter = 4;
         st.happiness = clamp(st.happiness + 2, 12, 100);
         G.State.log(s, Object.assign(base, { kind: a.kind, accident: !!a.accident }));
+        break;
+      }
+      case 'grass': {
+        s.room.grass = Math.max(0, s.room.grass - GRASS_EATEN);
+        st.fullness = clamp(st.fullness + 3);
+        st.happiness = clamp(st.happiness + 2, 12, 100);
+        // Maybe it comes back up in a little while: half a minute when you're watching, up to an hour away.
+        const rr = R.rng(R.hash(s.seed, 'vomit', a.end));
+        const sick = rr() < VOMIT_CHANCE && s.room.vomit.length < MAX_VOMIT;
+        if (sick) s.flags.vomitAt = a.end + (a.live ? R.between(rr, 25, 60) * 1000 : R.between(rr, 10, 60) * MIN);
+        G.State.log(s, base);
+        break;
+      }
+      case 'vomit': {
+        const rr = R.rng(R.hash(s.seed, 'puddle', a.end));
+        if (s.room.vomit.length < MAX_VOMIT) s.room.vomit.push({ spot: a.spot, dx: Math.round(R.between(rr, -22, 22)) });
+        G.State.log(s, base);
         break;
       }
       case 'gift':
@@ -462,5 +505,5 @@
     return (STATUS[a.id] || '{name} is being a cat.').replace('{at}', at);
   }
 
-  G.Sim = { BEHAVIORS, isDirty, spotsOf, spotInfo, chooseNext, behaviorAt, wouldRather, autoDawn, advance, clampToLive, setActivity, isSleeping, describe, drift, energyRate, clamp };
+  G.Sim = { BEHAVIORS, MAX_VOMIT, GRASS_MIN, isDirty, spotsOf, spotInfo, chooseNext, behaviorAt, wouldRather, autoDawn, advance, clampToLive, setActivity, isSleeping, describe, drift, energyRate, clamp };
 })(globalThis.CatGame = globalThis.CatGame || {});

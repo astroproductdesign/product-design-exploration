@@ -85,7 +85,9 @@
   Scene.prototype.renderRoom = function (force, t) {
     const s = this.getState();
     const seasons = this.seasonList(t);
-    const sig = JSON.stringify([s.room, s.bowl, seasons, (s.unseenUnlocks || []).length > 0]);
+    const noteFresh = G.Notes.fresh(s, t);
+    const noteText = G.Notes.today(s, t).text; // the sticky note shows its first words
+    const sig = JSON.stringify([s.room, s.bowl, seasons, (s.unseenUnlocks || []).length > 0, noteFresh, noteText]);
     if (!force && sig === this.roomSig) return;
     // The background holds the framed photo of the cat, so a new look redraws it too.
     const coatSig = JSON.stringify(s.cat.coat || null);
@@ -99,7 +101,7 @@
       this.lastLightMin = -1;
     }
     this.mid.innerHTML = '';
-    const items = A.midLayer(s, seasons).sort((a, b) => a.z - b.z);
+    const items = A.midLayer(s, seasons, { noteFresh, noteText }).sort((a, b) => a.z - b.z);
     // The intro's box, left on the rug for a moment after the cat hops out.
     const tb = this.tempBox;
     if (tb) {
@@ -273,7 +275,7 @@
   Scene.prototype.artFor = function (a) {
     const pose = a.pose === 'crouch' && a.id === 'eat' ? 'crouch' : a.pose;
     const opts = {};
-    if (a.id === 'eat') opts.eat = true;
+    if (a.id === 'eat' || a.id === 'grass' || a.id === 'vomit') opts.eat = true;
     if (a.id === 'knead') opts.knead = true;
     return [pose, opts];
   };
@@ -348,6 +350,7 @@
     this.placeCatInZ();
     this.setArt(...this.artFor(a));
     this.catBody.classList.toggle('sleeping', G.Sim.isSleeping(this.getState()));
+    this.catBody.classList.toggle('retching', a.id === 'vomit');
     this.catBody.classList.remove('zoom');
     this.applyFace(true);
   };
@@ -715,7 +718,7 @@
 
   Scene.prototype.startPlay = function (toy, joined) {
     this.userPan = null;
-    this.play = { toy, joined, x: 480, y: 470, px: 480, py: 470, speed: 0, lastMove: performance.now(), cool: 0, pounce: null };
+    this.play = { toy, joined, x: A.SPOTS.rug.x + 10, y: 470, px: A.SPOTS.rug.x + 10, py: 470, speed: 0, lastMove: performance.now(), cool: 0, pounce: null };
     this.toyG.setAttribute('display', 'inline');
     this.drawToy();
     if (joined) {
@@ -918,7 +921,7 @@
   // pointer with its eyes. At the end the garden fades into the room around
   // the cat, so it's one continuous shot.
 
-  const INTRO_SPOT = { x: 470, y: 548 };
+  const INTRO_SPOT = { x: A.SPOTS.rug.x, y: 548 }; // on the rug
   const introAt = () => Object.assign({ s: A.scaleAt(INTRO_SPOT.y) }, INTRO_SPOT);
 
   // safe: the screen fractions left free by the logo/buttons ({ l, t, r, b }).
