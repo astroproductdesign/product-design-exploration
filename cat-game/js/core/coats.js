@@ -4,6 +4,11 @@
 //   base:    one of SWATCHES (hex)
 //   pattern: 'plain' | 'stripes' | 'patches' | 'points'
 //   white:   'none' | 'chest' | 'face'
+// The tail is saved separately, like the collar:
+//   { length, fur }
+//   length: 'long' | 'medium' | 'short' | 'bunny'
+//   fur:    'smooth' | 'floofy'
+// Each breed has a usual tail (PRESETS[].tail); the player can change it after.
 // Stripe, patch and point colours are derived from the base, so every
 // combination stays in the game's palette (docs/art-style.md).
 (function (G) {
@@ -33,7 +38,20 @@
     { id: 'face', name: 'Face & chest' },
   ];
 
+  const TAILS = [
+    { id: 'long', name: 'Long' },
+    { id: 'medium', name: 'Medium' },
+    { id: 'short', name: 'Short' },
+    { id: 'bunny', name: 'Bunny bob' },
+  ];
+  const FURS = [
+    { id: 'smooth', name: 'Smooth' },
+    { id: 'floofy', name: 'Floofy' },
+  ];
+  const DEFAULT_TAIL = { length: 'medium', fur: 'smooth' };
+
   const coat = (base, pattern, white) => ({ base: HEX[base], pattern, white });
+  // `tail` is only written where a breed differs from medium & smooth.
   const PRESETS = [
     { id: 'mochi', name: 'Tabby & white', coat: coat('brown', 'stripes', 'face') },
     { id: 'orange', name: 'Orange tabby', coat: coat('ginger', 'stripes', 'chest') },
@@ -44,8 +62,9 @@
     { id: 'white', name: 'White cat', coat: coat('white', 'plain', 'none') },
     { id: 'american', name: 'American Shorthair', coat: coat('grey', 'stripes', 'chest') },
     { id: 'british', name: 'British Shorthair', coat: coat('blue', 'plain', 'none') },
-    { id: 'siamese', name: 'Siamese', coat: coat('cream', 'points', 'none') },
-    { id: 'ragdoll', name: 'Ragdoll', coat: coat('cream', 'points', 'chest') },
+    { id: 'siamese', name: 'Siamese', coat: coat('cream', 'points', 'none'), tail: { length: 'long' } },
+    { id: 'ragdoll', name: 'Ragdoll', coat: coat('cream', 'points', 'chest'), tail: { length: 'long', fur: 'floofy' } },
+    { id: 'bobtail', name: 'Japanese Bobtail', coat: coat('white', 'patches', 'face'), tail: { length: 'bunny', fur: 'floofy' } },
   ];
 
   const DEFAULT = Object.assign({ preset: 'mochi' }, PRESETS[0].coat);
@@ -76,6 +95,24 @@
     return out;
   }
   const collarHex = (id) => (COLLARS.find((c) => c.id === id) || {}).hex || null;
+
+  // The usual tail for a coat's breed (medium & smooth if it has none).
+  const tailFor = (c) => {
+    const p = c && c.preset && PRESETS.find((x) => x.id === c.preset);
+    return Object.assign({}, DEFAULT_TAIL, p && p.tail);
+  };
+  // Fills anything missing or unknown from the breed's usual tail.
+  function normalizeTail(t, c) {
+    const out = Object.assign(tailFor(c), t || {});
+    const base = tailFor(c);
+    if (!TAILS.some((x) => x.id === out.length)) out.length = base.length;
+    if (!FURS.some((x) => x.id === out.fur)) out.fur = base.fur;
+    return { length: out.length, fur: out.fur };
+  }
+  const describeTail = (t) => {
+    t = normalizeTail(t);
+    return t.length === 'bunny' ? `${t.fur} bunny-bob tail` : `${t.fur} ${t.length} tail`;
+  };
 
   // ---- colour maths ------------------------------------------------------------------
 
@@ -141,5 +178,5 @@
     return G.PhotoRead.analyze(data, w, h, taps, opts).coat;
   }
 
-  G.Coats = { SWATCHES, PATTERNS, WHITES, PRESETS, DEFAULT, COLLARS, EXTRAS, DEFAULT_ACCESSORY, colors, normalize, normalizeAccessory, collarHex, fromPreset, matchPreset, describe, fromPhoto };
+  G.Coats = { SWATCHES, PATTERNS, WHITES, PRESETS, DEFAULT, COLLARS, EXTRAS, DEFAULT_ACCESSORY, TAILS, FURS, DEFAULT_TAIL, tailFor, normalizeTail, describeTail, colors, normalize, normalizeAccessory, collarHex, fromPreset, matchPreset, describe, fromPhoto };
 })(globalThis.CatGame = globalThis.CatGame || {});

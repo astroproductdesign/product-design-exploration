@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cat Tails</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@800;900&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #1b1714; --cream: #fcf4ec; --bg: #f8e9b4; --muted: #6b5a4a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 "M PLUS Rounded 1c", system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 56px; }
+  h1 { font-weight: 900; font-size: 28px; margin: 0 0 4px; }
+  h2 { font-weight: 900; font-size: 20px; margin: 26px 0 6px; }
+  p.lede { color: var(--muted); margin: 0 0 12px; max-width: 74ch; }
+  .card { background: var(--cream); border: 3px solid var(--ink); border-radius: 16px; padding: 12px; box-shadow: 0 3px 0 var(--ink); overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; }
+  th { font-size: 13px; font-weight: 900; color: var(--muted); padding: 2px 4px; }
+  td { text-align: center; padding: 2px; }
+  td svg { width: 100%; max-width: 170px; height: auto; display: block; margin: 0 auto; }
+  th.row { text-align: right; padding-right: 8px; white-space: nowrap; }
+  .breeds { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .breeds div { text-align: center; font-weight: 900; font-size: 13px; }
+  .breeds svg { width: 100%; height: auto; display: block; }
+  .breeds small { display: block; color: var(--muted); font-weight: 800; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cat tails</h1>
+  <p class="lede">Length (long, medium, short, bunny bob) and fur (smooth or floofy). Each breed sets a usual tail, and the player can change it in the adoption and Change look panel. Drawn from <code>js/ui/catArt.js</code>.</p>
+  <div id="out"></div>
+</main>
+<script src="../js/core/coats.js"></script>
+<script src="../js/ui/catArt.js"></script>
+<script>
+(function () {
+  'use strict';
+  const G = globalThis.CatGame;
+  const K = G.Coats;
+  const out = document.getElementById('out');
+  let n = 0;
+  const draw = (pose, coat, tail, vb) => `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">${G.CatArt.withCoat(coat, () => G.CatArt.render(pose, 't' + n++), null, tail)}</svg>`;
+
+  // length × fur, for a few poses and coats
+  const SETS = [
+    ['sit', 'mochi', '-90 -150 180 160', 'Sitting · tabby & white'],
+    ['walk', 'orange', '-90 -130 180 140', 'Walking · orange tabby'],
+    ['lie', 'calico', '-110 -100 210 110', 'Lying · calico'],
+    ['boxgroom', 'mochi', '-110 -150 220 170', 'In the garden box · tabby & white'],
+    ['sit', 'siamese', '-90 -150 180 160', 'Sitting · Siamese (colour-point)'],
+  ];
+  for (const [pose, preset, vb, title] of SETS) {
+    let h = `<h2>${title}</h2><div class="card"><table><tr><th></th>${K.FURS.map((f) => `<th>${f.name}</th>`).join('')}</tr>`;
+    h = h.replace('<th></th>', '<th></th>');
+    h = `<h2>${title}</h2><div class="card"><table><tr><th></th>${K.TAILS.map((t) => `<th>${t.name}</th>`).join('')}</tr>`;
+    for (const f of K.FURS) {
+      h += `<tr><th class="row">${f.name}</th>${K.TAILS.map((t) => `<td>${draw(pose, K.fromPreset(preset), { length: t.id, fur: f.id }, vb)}</td>`).join('')}</tr>`;
+    }
+    out.insertAdjacentHTML('beforeend', h + '</table></div>');
+  }
+
+  // each breed with its usual tail
+  let b = '<h2>Each breed\'s usual tail</h2><div class="card breeds">';
+  for (const p of K.PRESETS) {
+    const t = K.tailFor({ preset: p.id });
+    b += `<div>${draw('sit', K.fromPreset(p.id), t, '-70 -140 150 150')}${p.name}<small>${K.describeTail(t)}</small></div>`;
+  }
+  out.insertAdjacentHTML('beforeend', b + '</div>');
+})();
+</script>
+</body>
+</html>

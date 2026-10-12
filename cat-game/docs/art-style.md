@@ -214,6 +214,17 @@ New players choose their cat's look (`js/core/coats.js`). Every option stays ins
 
 **Dark faces** (black or near-black with no white face): ink features would vanish, so the eyes become gold with an ink pupil, and the nose, mouth and closed-eye lines turn light (`#e9e1d8`). This is the only other exception to ink-dot eyes.
 
+### 4.4c Tails (player's choice)
+
+The tail is chosen separately from the coat (`cat.tail`, shown in `docs/tails.html`). It has two settings, and every pose supplies its own curve for the **medium** length.
+
+| Setting | Options | How it's drawn |
+| --- | --- | --- |
+| Length | Long · Medium · Short · Bunny bob | Long and short scale the pose's tail curve from its root (×1.3 and ×0.6), so the curl keeps its shape. Bunny bob swaps the tail for a round pom just outside the root. |
+| Fur | Smooth · Floofy | Smooth is the plain two-line tube. Floofy is a fatter plume of overlapping round tufts, ink-outlined as one shape with a ragged edge. Stripes, patches and points still apply, as flat bands clipped to the plume. |
+
+Each breed sets its usual tail (Siamese long, Ragdoll long & floofy, Japanese Bobtail bunny bob & floofy, everything else medium & smooth). Picking a breed sets it, and the player can change it afterwards; once they have, picking another breed leaves their tail alone.
+
 ### 4.5 Animation
 
 The flat style needs **simple, springy motion**, not realistic motion:
@@ -306,3 +317,4 @@ The game logic in `js/core` is unaffected.
 | 6 | Line colour: near-black `#1b1714` | ✅ Used in approved environment |
 | 7 | Intro: the cat waits in a low cardboard box in the garden, sitting up with its paws over the rim (option A). The garden stays low and simple (fence, bushes, lawn, flowers, no sign) so the title stands out. See `docs/garden-intro.html` | ✅ Chosen and implemented |
 | 8 | Main call to action: hot pink `#ff4f86` (`--cta`), white text, ink border | ✅ Chosen |
+| 9 | Tails: length (long, medium, short, bunny bob) and fur (smooth, floofy), set by breed and then customisable. See `docs/tails.html` | ✅ Chosen and implemented |

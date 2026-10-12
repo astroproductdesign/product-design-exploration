@@ -63,11 +63,18 @@
     ACC = G.Coats.normalizeAccessory(a);
   }
 
+  // Tail length and fur (see js/core/coats.js).
+  let TAIL = { length: 'medium', fur: 'smooth' };
+  function setTail(t) {
+    TAIL = G.Coats.normalizeTail(t);
+  }
+
   // Draw with another coat (and accessory) for menu previews, without touching the cat's own.
-  function withCoat(coat, fn, acc) {
-    const keep = [Object.assign({}, C), PAT, WH, ACC];
+  function withCoat(coat, fn, acc, tail) {
+    const keep = [Object.assign({}, C), PAT, WH, ACC, TAIL];
     setCoat(coat);
     if (acc) setAccessory(acc);
+    if (tail) setTail(tail);
     try {
       return fn();
     } finally {
@@ -75,6 +82,7 @@
       PAT = keep[1];
       WH = keep[2];
       ACC = keep[3];
+      TAIL = keep[4];
     }
   }
   const LW = 5; // body outline
@@ -115,9 +123,137 @@
     );
   }
 
-  // Tabby: two flat bands and a dark tip. Patches: a coloured tip. Points: all dark.
+  // ---- tails --------------------------------------------------------------------
+  // Each pose gives its own tail curve (the medium length). Long and short
+  // scale that curve about the tail's root, so the curl stays the same shape.
+  // Bunny bob swaps it for a round pom. Floofy swaps the plain tube for a
+  // fat plume of overlapping tufts.
+
+  const TAIL_SCALE = { long: 1.3, medium: 1, short: 0.6 };
+
+  function scaleD(d, k) {
+    if (k === 1) return d;
+    const nums = d.match(/-?\d+(\.\d+)?/g).map(Number);
+    let i = 0;
+    return d.replace(/-?\d+(\.\d+)?/g, () => {
+      const o = nums[i % 2];
+      const v = nums[i++];
+      return +(o + (v - o) * k).toFixed(1);
+    });
+  }
+
+  // The tail's centre line as points an even distance apart, so tufts can be
+  // laid along it. Handles the M, L, Q and C commands the poses use.
+  function sampleD(d, step) {
+    const tok = d.match(/[MLQC]|-?\d+(?:\.\d+)?/g);
+    const raw = [];
+    let cmd;
+    let i = 0;
+    let [x, y] = [0, 0];
+    while (i < tok.length) {
+      if (/[A-Z]/.test(tok[i])) cmd = tok[i++];
+      const n = { M: 2, L: 2, Q: 4, C: 6 }[cmd];
+      const v = tok.slice(i, i + n).map(Number);
+      i += n;
+      if (cmd === 'M' || cmd === 'L') {
+        raw.push([v[0], v[1]]);
+      } else {
+        for (let k = 1; k <= 20; k++) {
+          const t = k / 20;
+          const u = 1 - t;
+          if (cmd === 'Q') raw.push([u * u * x + 2 * u * t * v[0] + t * t * v[2], u * u * y + 2 * u * t * v[1] + t * t * v[3]]);
+          else raw.push([u * u * u * x + 3 * u * u * t * v[0] + 3 * u * t * t * v[2] + t * t * t * v[4], u * u * u * y + 3 * u * u * t * v[1] + 3 * u * t * t * v[3] + t * t * t * v[5]]);
+        }
+      }
+      [x, y] = [v[n - 2], v[n - 1]];
+    }
+    let len = 0;
+    const cum = [0];
+    for (let k = 1; k < raw.length; k++) cum.push((len += Math.hypot(raw[k][0] - raw[k - 1][0], raw[k][1] - raw[k - 1][1])));
+    const count = Math.max(5, Math.round(len / step) + 1);
+    const pts = [];
+    for (let k = 0, j = 1; k < count; k++) {
+      const at = (len * k) / (count - 1);
+      while (j < raw.length - 1 && cum[j] < at) j++;
+      const f = (at - cum[j - 1]) / (cum[j] - cum[j - 1] || 1);
+      pts.push([raw[j - 1][0] + (raw[j][0] - raw[j - 1][0]) * f, raw[j - 1][1] + (raw[j][1] - raw[j - 1][1]) * f]);
+    }
+    return pts;
+  }
+
+  // A cluster of round tufts, ink-outlined as one shape: all the ink circles
+  // go down first, then all the colour ones, then (if given) markings clipped
+  // to the colour shape. Tabby: two bands and a dark tip. Patches: a coloured
+  // tip. Points: all dark.
+  let tuftN = 0;
+  function tufts(list, marks) {
+    const id = 'tf' + tuftN++;
+    const circle = (c, extra) => `<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="${(c[2] + extra).toFixed(1)}"`;
+    return (
+      list.map((c) => `${circle(c, LIMB_LW)} fill="${C.line}"/>`).join('') +
+      list.map((c) => `${circle(c, 0)} fill="${PAT === 'points' ? C.point : C.tabby}"/>`).join('') +
+      (marks ? `<clipPath id="${id}">${list.map((c) => `${circle(c, 0)}/>`).join('')}</clipPath><g clip-path="url(#${id})">${marks}</g>` : '')
+    );
+  }
+
+  // Bunny bob: a round pom just outside the root.
+  function pom(d, w) {
+    const tok = d.match(/-?\d+(?:\.\d+)?/g).map(Number);
+    const [x0, y0, x1, y1] = tok;
+    const len = Math.hypot(x1 - x0, y1 - y0) || 1;
+    const r = w * 0.95;
+    const cx = x0 + ((x1 - x0) / len) * (r * 1.4);
+    const cy = y0 + ((y1 - y0) / len) * (r * 1.4);
+    if (TAIL.fur !== 'floofy') return tube(`M ${cx.toFixed(1)} ${cy.toFixed(1)} L ${cx.toFixed(1)} ${cy.toFixed(1)}`, r * 2, PAT === 'points' ? C.point : C.tabby);
+    const list = [[cx, cy, r * 0.95]];
+    for (let a = 0; a < 7; a++) {
+      const t = (a / 7) * Math.PI * 2 + 0.4;
+      list.push([cx + Math.cos(t) * r * 0.85, cy + Math.sin(t) * r * 0.85, r * 0.52]);
+    }
+    return tufts(list);
+  }
+
+  // Floofy: a plume that fattens towards the tip, with a ragged, tufty edge.
+  function plume(d, w) {
+    const pts = sampleD(d, w * 0.6);
+    const n = pts.length;
+    const SIZE = [1, 0.74, 0.9, 0.68];
+    const list = pts.map((p, k) => {
+      const t = k / (n - 1);
+      const a = pts[Math.max(0, k - 1)];
+      const b = pts[Math.min(n - 1, k + 1)];
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const r = w * 0.66 * (1 + 0.5 * t) * SIZE[k % 4] * (k === n - 1 ? 1.15 : 1);
+      const off = (k % 2 ? 1 : -1) * w * 0.3 * (0.5 + t);
+      return [p[0] - ((b[1] - a[1]) / len) * off, p[1] + ((b[0] - a[0]) / len) * off, r, t];
+    });
+    // Bands cut across the centre line at exact fractions; the clip keeps them inside the plume.
+    const at = (t) => {
+      const f = Math.min(n - 1, Math.max(0, t * (n - 1)));
+      const i = Math.min(n - 2, Math.floor(f));
+      return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * (f - i), pts[i][1] + (pts[i + 1][1] - pts[i][1]) * (f - i)];
+    };
+    const band = (t0, t1, color) => {
+      const seg = [at(t0)].concat(pts.filter((q, k) => k / (n - 1) > t0 && k / (n - 1) < t1), [at(Math.min(1, t1))]);
+      if (t1 >= 1) {
+        const [a, b] = [pts[n - 2], pts[n - 1]];
+        const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+        seg.push([b[0] + ((b[0] - a[0]) / l) * w * 1.6, b[1] + ((b[1] - a[1]) / l) * w * 1.6]);
+      }
+      return `<path d="M ${seg.map((q) => q.map((v) => v.toFixed(1)).join(' ')).join(' L ')}" fill="none" stroke="${color}" stroke-width="${w * 5}" stroke-linejoin="round"/>`;
+    };
+    let marks = '';
+    if (PAT === 'stripes') marks = band(0.34, 0.46, C.stripe) + band(0.64, 0.76, C.stripe) + band(0.86, 1, C.stripe);
+    else if (PAT === 'patches') marks = band(0.82, 1, C.patch);
+    return tufts(list, marks);
+  }
+
+  // The tail for one pose: `d` is its medium-length curve from the root.
   function tail(d, w) {
     w = w || 10;
+    if (TAIL.length === 'bunny') return pom(d, w);
+    d = scaleD(d, TAIL_SCALE[TAIL.length] || 1);
+    if (TAIL.fur === 'floofy') return plume(d, w);
     if (PAT === 'points') return tube(d, w, C.point);
     const tip = (c) => `<path d="${d}" pathLength="100" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="0 82 18 0"/>`;
     if (PAT === 'patches') return tube(d, w, C.tabby, tip(C.patch));
@@ -446,7 +582,7 @@
     return (
       back +
       `<g class="breathe">` +
-      pivot(26, -36, 'tail-curl', tail('M 26 -36 C 52 -46 70 -40 72 -26 C 74 -16 71 -8 68 -2', 10)) +
+      pivot(38, -36, 'tail-curl', tail('M 38 -36 C 56 -42 70 -38 72 -26 C 74 -16 71 -8 68 -2', 10)) +
       part(uid, 'body', SIT_BODY, C.tabby, marks(SIT_SIDES) + `<ellipse cx="0" cy="-30" rx="16" ry="26" fill="${C.belly}"/>`) +
       placeHead(uid, 0, -86, { earFlick: true }) +
       `</g>` +
@@ -485,5 +621,5 @@
 
   setCoat(G.Coats.DEFAULT);
 
-  G.CatArt = { render, renderHead, setCoat, setAccessory, withCoat, moveArm, introBox, INTRO, HEAD_AT, TOP, COLORS: C, POSES: Object.keys(POSES) };
+  G.CatArt = { render, renderHead, setCoat, setAccessory, withCoat, setTail, moveArm, introBox, INTRO, HEAD_AT, TOP, COLORS: C, POSES: Object.keys(POSES) };
 })(globalThis.CatGame = globalThis.CatGame || {});

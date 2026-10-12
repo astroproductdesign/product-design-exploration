@@ -33,8 +33,9 @@
 - **Panel order:**
   1. **Name** (first step).
   2. **Look:** Breeds / Mix your own / From a photo (the same options as today).
-  3. **Collar & accessory** (optional, see §3).
-  4. **Adopt!** The panel slides away and the camera pulls back while the garden fades into the living room around the cat, still in its box on the rug. Then the cat hops out, the HUD and toolbar fade in, and the empty box fades away.
+  3. **Tail:** length (long, medium, short, bunny bob) and fur (smooth, floofy). It starts from the breed's usual tail (see `docs/art-style.md` §4.4c) and the player can change it. A "Back to the breed's usual tail" button appears once it differs. On desktop the step also shows a small preview; on a phone the live cat above the sheet is enough.
+  4. **Collar & accessory** (optional, see §3).
+  5. **Adopt!** The panel slides away and the camera pulls back while the garden fades into the living room around the cat, still in its box on the rug. Then the cat hops out, the HUD and toolbar fade in, and the empty box fades away.
 - **Returning players:** Continue does the same garden-to-room fade straight away. The "While you were away" summary appears **after** this, not on top of the intro.
 
 ## 3. Collar & accessory

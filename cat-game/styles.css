@@ -1182,6 +1182,15 @@ input:focus {
   background: var(--mint);
   box-shadow: var(--shadow);
 }
+.tail-preview {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 0;
+}
+.tail-preview svg {
+  width: 150px;
+  height: 134px;
+}
 .look-label {
   margin: 10px 0 6px;
   font-weight: 900;
@@ -1549,5 +1558,12 @@ body.no-anim *::before {
   .btn.big {
     font-size: 23px;
     padding: 14px 38px;
+  }
+}
+
+/* On a phone the live cat is right above the sheet, so skip the tail preview. */
+@media (max-width: 759px) {
+  .tail-preview {
+    display: none;
   }
 }

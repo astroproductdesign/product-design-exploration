@@ -146,6 +146,31 @@ test('coats: presets, old saves and photo matching', () => {
   for (const p of G.Coats.PRESETS) assert.ok(G.Coats.describe(G.Coats.fromPreset(p.id)).length > 0);
 });
 
+test('tails: breed defaults, bad values and old saves', () => {
+  const K = G.Coats;
+  const j = (x) => JSON.stringify(x);
+  assert.equal(j(K.tailFor(K.fromPreset('mochi'))), j({ length: 'medium', fur: 'smooth' }), 'the starter cat keeps the tail it always had');
+  assert.equal(j(K.tailFor(K.fromPreset('siamese'))), j({ length: 'long', fur: 'smooth' }));
+  assert.equal(j(K.tailFor(K.fromPreset('ragdoll'))), j({ length: 'long', fur: 'floofy' }));
+  assert.equal(j(K.tailFor(K.fromPreset('bobtail'))), j({ length: 'bunny', fur: 'floofy' }));
+  assert.equal(j(K.tailFor({ preset: null })), j(K.DEFAULT_TAIL), 'a hand-made coat starts medium & smooth');
+  for (const p of K.PRESETS) {
+    const t = K.tailFor(K.fromPreset(p.id));
+    assert.ok(K.TAILS.some((x) => x.id === t.length) && K.FURS.some((x) => x.id === t.fur), p.id);
+  }
+  assert.equal(j(K.normalizeTail({ length: 'tiny', fur: 'fluffy' }, K.fromPreset('ragdoll'))), j({ length: 'long', fur: 'floofy' }), 'bad values fall back to the breed');
+  assert.equal(j(K.normalizeTail({ length: 'short' }, K.fromPreset('ragdoll'))), j({ length: 'short', fur: 'floofy' }), 'a partial tail keeps the rest from the breed');
+  assert.ok(K.describeTail({ length: 'bunny', fur: 'floofy' }).includes('bunny'));
+  // Saves from before tails existed get their breed's usual tail.
+  const s = G.State.createState(1000, 'Mochi');
+  assert.equal(j(s.cat.tail), j({ length: 'medium', fur: 'smooth' }));
+  delete s.cat.tail;
+  s.cat.coat = K.fromPreset('ragdoll');
+  assert.equal(j(G.State.migrate(s).cat.tail), j({ length: 'long', fur: 'floofy' }));
+  s.cat.tail = { length: 'short', fur: 'smooth' };
+  assert.equal(j(G.State.migrate(s).cat.tail), j({ length: 'short', fur: 'smooth' }), 'a saved tail is kept');
+});
+
 // Tiny painted "photos": a cat (head + body ellipses) with soft lighting and noise on a background.
 function photo(fn, w = 96, h = 72) {
   const d = new Uint8ClampedArray(w * h * 4);

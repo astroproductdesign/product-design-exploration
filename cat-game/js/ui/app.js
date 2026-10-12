@@ -52,6 +52,7 @@
     if (!state) state = G.State.createState(Date.now(), G.Profile.defaultName);
     G.CatArt.setCoat(state.cat.coat);
     G.CatArt.setAccessory(state.cat.accessory);
+    G.CatArt.setTail(state.cat.tail);
     G.Sound.setMuted(state.settings.muted);
     // The intro shows for new players, and for everyone once per browser session.
     const newSession = isNewSession();
@@ -977,11 +978,13 @@
   }
 
   // Use a new look everywhere: the cat, the wall portrait and the HUD face.
-  function applyCoat(coat, accessory) {
+  function applyCoat(coat, accessory, tail) {
     state.cat.coat = G.Coats.normalize(coat);
     if (accessory) state.cat.accessory = G.Coats.normalizeAccessory(accessory);
+    state.cat.tail = G.Coats.normalizeTail(tail || state.cat.tail, state.cat.coat);
     G.CatArt.setCoat(state.cat.coat);
     G.CatArt.setAccessory(state.cat.accessory);
+    G.CatArt.setTail(state.cat.tail);
     scene.renderRoom(true, now());
     scene.refreshCat();
     lastMood = '';
@@ -1058,7 +1061,7 @@
   // Every change shows on the real cat straight away.
 
   let panel = null;
-  const STEP_LABEL = { name: 'Name', look: 'Look', extras: 'Collar' };
+  const STEP_LABEL = { name: 'Name', look: 'Look', tail: 'Tail', extras: 'Collar' };
 
   // The part of the scene the panel leaves free, for the camera.
   function panelSafe() {
@@ -1081,8 +1084,11 @@
       name: mode === 'adopt' ? '' : state.cat.name,
       coat: G.Coats.normalize(state.cat.coat),
       accessory: G.Coats.normalizeAccessory(state.cat.accessory),
+      tail: G.Coats.normalizeTail(state.cat.tail, state.cat.coat),
+      preset: state.cat.coat.preset || null, // the breed the tail was last matched to
+      tailTouched: false, // once the player picks a tail, a new breed leaves it alone
     };
-    const steps = mode === 'adopt' ? ['name', 'look', 'extras'] : ['look', 'extras'];
+    const steps = mode === 'adopt' ? ['name', 'look', 'tail', 'extras'] : ['look', 'tail', 'extras'];
     let i = 0;
     const el = document.createElement('aside');
     el.className = 'adopt';
@@ -1104,6 +1110,7 @@
     const live = () => {
       G.CatArt.setCoat(draft.coat);
       G.CatArt.setAccessory(draft.accessory);
+      G.CatArt.setTail(draft.tail);
       scene.refreshCat();
     };
 
@@ -1123,7 +1130,7 @@
         state.cat.name = v.name;
         state.cat.nameHistory = [{ name: v.name, from: state.createdAt }];
         state.named = true;
-        applyCoat(draft.coat, draft.accessory);
+        applyCoat(draft.coat, draft.accessory, draft.tail);
         close();
         leaveIntro(() => {
           sound('meow');
@@ -1131,7 +1138,7 @@
           toast(`Welcome home, ${v.name}! Tap ${v.name} to pet them — try the head, chin… and the belly, if you dare.`, 7000);
         });
       } else {
-        applyCoat(draft.coat, draft.accessory);
+        applyCoat(draft.coat, draft.accessory, draft.tail);
         close();
         scene.focus = null;
         scene.react({ say: 'Mrrp?', eyes: 'happy', hearts: 1 });
@@ -1140,6 +1147,7 @@
     function cancel() {
       G.CatArt.setCoat(state.cat.coat);
       G.CatArt.setAccessory(state.cat.accessory);
+      G.CatArt.setTail(state.cat.tail);
       scene.refreshCat();
       close();
       scene.focus = null;
@@ -1155,6 +1163,19 @@
           <input id="adoptName" maxlength="40" autocomplete="off" value="${esc(draft.name)}" placeholder="${esc(G.Profile.defaultName)}" aria-label="Cat name"><p class="error" id="adoptErr"></p>`;
       } else if (k === 'look') {
         body = `<h2>What do they look like?</h2><div id="look"></div>`;
+      } else if (k === 'tail') {
+        const K = G.Coats;
+        const T = draft.tail;
+        const usual = draft.coat.preset ? K.tailFor(draft.coat) : null;
+        const breed = usual && K.PRESETS.find((x) => x.id === draft.coat.preset).name;
+        const differs = usual && (usual.length !== T.length || usual.fur !== T.fur);
+        const chip = (attr, id, name, on) => `<button type="button" class="chip ${on ? 'on' : ''}" data-${attr}="${id}">${esc(name)}</button>`;
+        body =
+          `<h2>Tail</h2><p class="small muted">${breed ? `Set to suit ${esc(breed)} to begin with. ` : ''}Change it any way you like.</p>` +
+          `<div class="tail-preview"><svg id="tailPreview" viewBox="-90 -150 180 160" aria-hidden="true"></svg></div>` +
+          `<p class="look-label">Length</p><div class="row center">${K.TAILS.map((x) => chip('tail-length', x.id, x.name, T.length === x.id)).join('')}</div>` +
+          `<p class="look-label">Fur</p><div class="row center">${K.FURS.map((x) => chip('tail-fur', x.id, x.name, T.fur === x.id)).join('')}</div>` +
+          (differs ? `<div class="row center"><button type="button" class="chip" id="tailReset">Back to ${esc(breed)}’s usual tail</button></div>` : '');
       } else {
         const A = draft.accessory;
         body =
@@ -1176,12 +1197,37 @@
         input.addEventListener('keydown', (e) => e.key === 'Enter' && el.querySelector('#pNext').click());
         setTimeout(() => input.focus(), 350);
       } else if (k === 'look') {
-        lookPicker(el, draft.coat, (c) => ((draft.coat = c), live()), {
+        lookPicker(el, draft.coat, (c) => {
+          draft.coat = c;
+          // Picking a breed sets its usual tail, unless the player has chosen one themselves.
+          if (c.preset && c.preset !== draft.preset && !draft.tailTouched) draft.tail = G.Coats.tailFor(c);
+          if (c.preset) draft.preset = c.preset;
+          live();
+        }, {
           onTab: (tab) => {
             el.classList.toggle('tall', tab === 'photo');
             refocus();
           },
         });
+      } else if (k === 'tail') {
+        const pv = el.querySelector('#tailPreview');
+        pv.innerHTML = G.CatArt.withCoat(draft.coat, () => G.CatArt.render('sit', 'tp' + pickN++), draft.accessory, draft.tail);
+        const pick = (patch) => {
+          draft.tail = Object.assign({}, draft.tail, patch);
+          draft.tailTouched = true;
+          live();
+          render();
+        };
+        el.querySelectorAll('[data-tail-length]').forEach((b) => b.addEventListener('click', () => pick({ length: b.dataset.tailLength })));
+        el.querySelectorAll('[data-tail-fur]').forEach((b) => b.addEventListener('click', () => pick({ fur: b.dataset.tailFur })));
+        const rs = el.querySelector('#tailReset');
+        if (rs)
+          rs.addEventListener('click', () => {
+            draft.tail = G.Coats.tailFor(draft.coat);
+            draft.tailTouched = false;
+            live();
+            render();
+          });
       } else {
         el.querySelectorAll('[data-collar]').forEach((b) => b.addEventListener('click', () => ((draft.accessory = Object.assign({}, draft.accessory, { collar: b.dataset.collar })), live(), render())));
         el.querySelectorAll('[data-extra]').forEach((b) => b.addEventListener('click', () => ((draft.accessory = Object.assign({}, draft.accessory, { extra: b.dataset.extra })), live(), render())));
