@@ -1,7 +1,7 @@
-// Sound effects. The cat's meow, hiss and purr are recordings (js/sound/); if a file
-// can't be loaded (still downloading, or the page is opened straight from disk) the old
-// synthesised versions step in. Crunching, bird chirps, the collar bell and the camera
-// are synthesised in the browser.
+// Sound effects. The cat's meow, hiss and purr are recordings (the mp3s in js/sound/, packed
+// into js/sound/samples.js by tools/embed-sounds.py so they also load when the page is opened
+// straight from disk). Until they are decoded, the old synthesised versions step in.
+// Crunching, bird chirps, the collar bell and the camera are synthesised in the browser.
 (function (G) {
   'use strict';
 
@@ -10,12 +10,12 @@
   let muted = false;
   let purrNode = null;
 
-  // Recordings: where to find them, how loud to play them (they were recorded quietly),
-  // and how much silence to skip at the start.
+  // How loud to play each recording (they were recorded quietly) and how much silence to
+  // skip at the start.
   const SAMPLES = {
-    meow: { url: 'js/sound/cat-meow-default.mp3', gain: 2.5, skip: 0.1 },
-    hiss: { url: 'js/sound/cat-meow-hiss.mp3', gain: 3.5, skip: 0.03 },
-    purr: { url: 'js/sound/cat-meow-purring.mp3', gain: 1.4, skip: 0.1 },
+    meow: { gain: 2.5, skip: 0.1 },
+    hiss: { gain: 3.5, skip: 0.03 },
+    purr: { gain: 1.4, skip: 0.1 },
   };
   const buffers = {};
 
@@ -34,23 +34,22 @@
     return ctx;
   }
 
-  // The files start downloading as soon as the page loads; they're decoded once there is an
-  // audio context (which browsers only allow after the first tap).
-  const downloads = {};
-  if (typeof fetch === 'function') {
-    for (const [name, sm] of Object.entries(SAMPLES)) {
-      downloads[name] = fetch(sm.url)
-        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
-        .catch(() => null);
-    }
+  function bytesOf(dataUrl) {
+    const bin = atob(dataUrl.slice(dataUrl.indexOf(',') + 1));
+    const u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return u.buffer;
   }
 
+  // Decode the recordings once there is an audio context (browsers only allow one after a tap).
   function loadSamples(c) {
-    for (const name of Object.keys(downloads)) {
-      downloads[name]
-        .then((data) => (data ? c.decodeAudioData(data) : null))
+    const data = G.SoundData || {};
+    for (const name of Object.keys(SAMPLES)) {
+      if (!data[name]) continue;
+      Promise.resolve()
+        .then(() => c.decodeAudioData(bytesOf(data[name])))
         .then((buf) => {
-          if (buf) buffers[name] = buf;
+          buffers[name] = buf;
         })
         .catch(() => {
           /* the synthesised sound is used instead */

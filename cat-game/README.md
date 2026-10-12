@@ -74,7 +74,9 @@ cat-game/
     roomArt.js          the room, furniture, items, decor, lighting
     gardenArt.js        the garden outside, for the intro
     scene.js            movement, idle animations, toys, bubbles, photos
-    sound.js            sounds: recorded meow, hiss and purr (js/sound/), the rest synthesised
+    sound.js            sounds: recorded meow, hiss and purr, the rest synthesised
+  sound/                the recordings (mp3) and samples.js, which packs them so they load from disk
+  (after changing an mp3, run  python3 tools/embed-sounds.py)
     app.js              start-up, intro, adoption panel, live loop, menus, input
     logo.js             the My Purrfriend logo, wordmark and app icon
   tests/core-check.mjs
