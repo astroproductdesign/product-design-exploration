@@ -1,4 +1,5 @@
-// Bond (affection) and unlocks. Bond only ever goes up.
+// Bond (affection) and unlocks. Bond mostly goes up; a grumpy cat can take a
+// little back (loseBond), but never enough to drop a level or lose an unlock.
 (function (G) {
   'use strict';
 
@@ -17,7 +18,7 @@
 
   // cap: name of a daily counter ('pet' | 'play' | 'feed') and its daily max,
   // so spamming one button doesn't race through the levels.
-  const CAPS = { pet: 15, play: 15, feed: 6 };
+  const CAPS = { pet: 15, play: 15, feed: 6, care: 4 };
 
   function addBond(s, amount, t, capKey) {
     G.State.ensureDay(s, t);
@@ -44,6 +45,15 @@
     }
     if (after > before) res.levelUp = after;
     return res;
+  }
+
+  // Taking a cat's tail or paw upsets them. Bond drops a little, but never below
+  // the start of the current level, so unlocks are safe. Returns what was lost.
+  function loseBond(s, amount) {
+    const floor = G.Catalog.LEVELS[level(s) - 1];
+    const lost = Math.max(0, Math.min(amount, s.stats.bond - floor));
+    s.stats.bond -= lost;
+    return lost;
   }
 
   // +5 the first time you check in each day.
@@ -87,5 +97,5 @@
     return best;
   }
 
-  G.Progression = { level, progress, addBond, dailyVisit, passiveDay, isUnlocked, bump, favorite, CAPS };
+  G.Progression = { level, progress, addBond, loseBond, dailyVisit, passiveDay, isUnlocked, bump, favorite, CAPS };
 })(globalThis.CatGame = globalThis.CatGame || {});

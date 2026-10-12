@@ -47,20 +47,96 @@ test('stats stay in range, cat never "dies", even after 3 weeks away', () => {
   assert.ok(st.bond > 0, 'bond grew passively while away');
 });
 
-test('bond only goes up', () => {
+test('bond only goes up when you are kind (head, chin, back, belly, ears)', () => {
   const s = fresh();
   let last = 0;
   for (let i = 0; i < 300; i++) {
     const t = t0 + i * 7 * MIN;
     G.Sim.advance(s, t, { live: true });
     const r = i % 5;
-    if (r === 0) G.Interactions.pet(s, t, ['head', 'chin', 'back', 'belly'][i % 4], i % 13);
+    if (r === 0) G.Interactions.pet(s, t, ['head', 'chin', 'back', 'belly', 'ears'][i % 5], i % 13);
     if (r === 1) G.Interactions.call(s, t);
     if (r === 2) G.Interactions.treat(s, t);
     if (r === 3) G.Interactions.feed(s, t, 'kibble');
     assert.ok(s.stats.bond >= last);
     last = s.stats.bond;
   }
+});
+
+test('pet zones: tail and paws upset the cat, ears are loved', () => {
+  const s = fresh();
+  s.stats.bond = 40; // level 2: starts at 30
+  s.activity = { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t0, end: t0 + HOUR, facing: 1 };
+  const r = G.Interactions.pet(s, t0, 'tail', 0);
+  assert.ok(r.angry && r.eyes === 'angry' && r.mouth === 'hiss', 'the tail gets a hiss and an angry face');
+  assert.equal(s.activity.id, 'sulk', 'then it sulks');
+  assert.ok(s.stats.bond < 40, 'a little bond is lost');
+  const hit = G.Interactions.pet(s, t0 + 1000, 'head', 0);
+  assert.ok(hit.angry, 'petting a sulking cat gets another hiss');
+  // Bond never drops below the start of the level, so nothing unlocked can be lost.
+  s.stats.bond = 30;
+  s.activity = { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t0, end: t0 + HOUR, facing: 1 };
+  G.Interactions.pet(s, t0 + 2000, 'tail', 0);
+  assert.equal(s.stats.bond, 30, 'no loss below the level floor');
+  assert.equal(G.Progression.level(s), 2);
+
+  // Paws: either a polite pull-away or a warning swat.
+  let pulled = 0;
+  let swatted = 0;
+  for (let i = 0; i < 60; i++) {
+    const c = fresh();
+    c.activity = { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t0, end: t0 + HOUR, facing: 1 };
+    const res = G.Interactions.pet(c, t0 + i, 'paws', 0);
+    if (res.angry) swatted++;
+    else if (res.anim === 'recoil') pulled++;
+  }
+  assert.ok(pulled > 10 && swatted > 10, `paws: ${pulled} pulled away, ${swatted} swats`);
+
+  const e = fresh();
+  e.activity = { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t0, end: t0 + HOUR, facing: 1 };
+  const ear = G.Interactions.pet(e, t0, 'ears', 0);
+  assert.ok(!ear.angry && ear.eyes === 'closed' && e.stats.bond === 1);
+
+  // Grabbing a sleeping cat's tail, or petting in the litter box, is not welcome.
+  const z = fresh();
+  z.activity = { id: 'nap', spot: 'rug', key: 'rug', pose: 'curl', start: t0, end: t0 + HOUR, facing: 1 };
+  assert.ok(G.Interactions.pet(z, t0, 'tail', 0).angry);
+  const lb = fresh();
+  lb.activity = { id: 'litter', spot: 'litter', key: 'litter', pose: 'squat', start: t0, end: t0 + MIN, facing: 1, kind: 'pee' };
+  const priv = G.Interactions.pet(lb, t0, 'head', 0);
+  assert.ok(priv.angry && lb.activity.id === 'litter', 'privacy: a hiss, with no penalty');
+  assert.equal(lb.stats.bond, 0);
+});
+
+test('litter box: the need builds, visits leave clumps, a dirty box is scooped', () => {
+  const s = fresh();
+  assert.ok(G.Sim.BEHAVIORS.litter && G.Sim.BEHAVIORS.sulk);
+  const start = JSON.stringify(s.room.litter);
+  assert.equal(start, JSON.stringify({ clumps: [], mess: 0 }));
+  // A day and a half with nobody scooping: the cat visits several times.
+  G.Sim.advance(s, t0 + 36 * HOUR, { live: false });
+  const visits = s.log.filter((e) => e.type === 'litter');
+  assert.ok(visits.length >= 3, `visits: ${visits.length}`);
+  assert.ok(s.room.litter.clumps.length <= 6 && s.room.litter.mess <= 2, 'the mess is capped');
+  assert.ok(s.room.litter.clumps.length >= 1);
+  assert.ok(s.stats.litter >= 0 && s.stats.litter <= 100);
+  // A dirty box makes the cat a little grumpier than usual, never miserable.
+  assert.ok(s.stats.happiness >= 12);
+
+  s.room.litter = { clumps: ['pee', 'poop', 'pee', 'poop'], mess: 1 };
+  assert.ok(G.Sim.isDirty(s));
+  const before = s.stats.bond;
+  const r = G.Interactions.scoop(s, t0 + 36 * HOUR);
+  assert.equal(s.room.litter.clumps.length, 0);
+  assert.equal(s.room.litter.mess, 0);
+  assert.ok(s.stats.bond > before && r.sound === 'scoop');
+  assert.ok(G.Interactions.scoop(s, t0 + 37 * HOUR).toast.includes('already'), 'nothing to scoop');
+  // Old saves get an empty box.
+  delete s.room.litter;
+  delete s.stats.litter;
+  const m = G.State.migrate(s);
+  assert.equal(JSON.stringify(m.room.litter), start);
+  assert.ok(m.stats.litter >= 0);
 });
 
 test('daily routine follows the clock (naps at night, sunbathing only in the day)', () => {

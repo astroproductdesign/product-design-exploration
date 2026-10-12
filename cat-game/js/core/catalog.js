@@ -44,6 +44,8 @@
     floorL: { label: 'the floor', at: 'on the floor', tags: ['floor', 'sit', 'groom'] },
     floorR: { label: 'the floor', at: 'on the floor', tags: ['floor', 'sit', 'groom'] },
     wall: { label: 'the wall', at: 'by the wall', tags: ['wall'] },
+    litter: { label: 'the litter box', at: 'in the litter box', tags: ['litter'] },
+    litterOut: { label: 'the floor by the litter box', at: 'by the litter box', tags: [] },
     front: { label: 'right in front of you', at: 'right in front of you', tags: ['front'] },
   };
 

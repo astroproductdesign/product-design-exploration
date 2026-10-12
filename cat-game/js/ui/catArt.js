@@ -248,11 +248,16 @@
     return tufts(list, marks);
   }
 
-  // The tail for one pose: `d` is its medium-length curve from the root.
+  // The tail for one pose: `d` is its medium-length curve from the root. It's
+  // wrapped as a pet zone, with an invisible fat stroke so it's easy to grab.
   function tail(d, w) {
     w = w || 10;
-    if (TAIL.length === 'bunny') return pom(d, w);
+    if (TAIL.length === 'bunny') return `<g data-zone="tail">${pom(d, w)}</g>`;
     d = scaleD(d, TAIL_SCALE[TAIL.length] || 1);
+    const grab = `<path d="${d}" fill="none" stroke="transparent" stroke-width="${w + 16}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    return `<g data-zone="tail">${grab}${tailArt(d, w)}</g>`;
+  }
+  function tailArt(d, w) {
     if (TAIL.fur === 'floofy') return plume(d, w);
     if (PAT === 'points') return tube(d, w, C.point);
     const tip = (c) => `<path d="${d}" pathLength="100" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="0 82 18 0"/>`;
@@ -267,8 +272,14 @@
   }
 
   // A small paw: an outlined oval, no toes.
+  // (data-zone: the screen layer reads it to know what was touched.)
   function nub(cx, cy, rx, ry, color) {
-    return `<ellipse cx="${cx}" cy="${cy}" rx="${rx || 7.5}" ry="${ry || 5}" fill="${color || C.paw}" stroke="${C.line}" stroke-width="${LIMB_LW}"/>`;
+    rx = rx || 7.5;
+    ry = ry || 5;
+    return (
+      `<g data-zone="paws"><ellipse cx="${cx}" cy="${cy}" rx="${rx + 6}" ry="${ry + 6}" fill="transparent"/>` +
+      `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${color || C.paw}" stroke="${C.line}" stroke-width="${LIMB_LW}"/></g>`
+    );
   }
 
   // A short standing leg with a rounded foot.
@@ -324,6 +335,8 @@
       half: `<path d="M ${x - 6.4} ${y} A 6.4 6.4 0 0 0 ${x + 6.4} ${y} Z" fill="${C.eye || C.line}" stroke="${C.line}" stroke-width="${C.eye ? 2.4 : 0}"/>` + line(`M ${x - 8} ${y} L ${x + 8} ${y}`, 4, C.feature),
       closed: line(`M ${x - 6.5} ${y} Q ${x} ${y + 6} ${x + 6.5} ${y}`, 4, C.feature),
       happy: line(`M ${x - 6.5} ${y + 3.5} Q ${x} ${y - 4} ${x + 6.5} ${y + 3.5}`, 4, C.feature),
+      // Glaring dots under a heavy brow that slopes down towards the nose.
+      angry: dot(5.6) + line(`M ${x + 9 * Math.sign(x)} ${y - 11} L ${x - 9 * Math.sign(x)} ${y - 3.5}`, 4.6, C.feature),
     };
   }
 
@@ -355,26 +368,32 @@
     );
   }
 
+  // Invisible touch areas over both ears (not drawn, so they never change the art).
+  const earZone = () => `<g data-zone="ears"><ellipse cx="-39" cy="-34" rx="15" ry="17" fill="transparent"/><ellipse cx="39" cy="-34" rx="15" ry="17" fill="transparent"/></g>`;
+
   function head(uid, o) {
     o = o || {};
     const band = o.noCollar ? '' : collar();
     if (o.back) {
-      return `<g class="cat-head">${band}${part(uid, 'head', HEAD, C.tabby, headMarks(true))}${flower()}</g>`;
+      return `<g class="cat-head">${band}${part(uid, 'head', HEAD, C.tabby, headMarks(true))}${earZone()}${flower()}</g>`;
     }
     const L = eyeSet(-22);
     const R = eyeSet(22);
-    const eyes = ['open', 'wide', 'half', 'closed', 'happy']
+    const eyes = ['open', 'wide', 'half', 'closed', 'happy', 'angry']
       .map((k) => `<g class="eyes eyes-${k}"${k === 'open' ? '' : ' display="none"'}>${L[k]}${R[k]}</g>`)
       .join('');
     const mouths =
       `<g class="mouth mouth-normal">${line(OMEGA, 3.4, C.feature)}</g>` +
       `<g class="mouth mouth-open" display="none">${shape(`${OMEGA} Q 8.5 24 0 24 Q -8.5 24 -10 12.5 Z`, C.tongue, 3.4)}</g>` +
-      `<g class="mouth mouth-tongue" display="none">${shape('M -3.6 14 Q 0 22.5 3.6 14 Z', C.tongue, 2.4)}${line(OMEGA, 3.4, C.feature)}</g>`;
+      `<g class="mouth mouth-tongue" display="none">${shape('M -3.6 14 Q 0 22.5 3.6 14 Z', C.tongue, 2.4)}${line(OMEGA, 3.4, C.feature)}</g>` +
+      // Frown, and a hiss: open mouth, two little fangs.
+      `<g class="mouth mouth-frown" display="none">${line('M -9 19 Q -4.5 12 0 12.5 Q 4.5 12 9 19', 3.4, C.feature)}</g>` +
+      `<g class="mouth mouth-hiss" display="none">${shape('M -11 13 Q 0 8 11 13 L 7 25 Q 0 28 -7 25 Z', C.tongue, 3.4)}<path d="M -6.5 13.6 L -5 19 L -3.2 14.4 Z M 6.5 13.6 L 5 19 L 3.2 14.4 Z" fill="${C.white}" stroke="${C.line}" stroke-width="1.4" stroke-linejoin="round"/></g>`;
     // "Face" white: coat on top, white lower face. Otherwise the head is all coat.
     const faceWhite = WH === 'face';
     const coat = (faceWhite ? fillPath(COAT_TOP, C.tabby) : '') + headMarks(false);
     const shapeD = o.earFlick ? HEAD_NO_LEFT_EAR : HEAD;
-    return `<g class="cat-head">${band}${part(uid, 'head', shapeD, faceWhite ? C.white : C.tabby, coat)}${o.earFlick ? leftEar() : ''}${eyes}${mouths}${nose()}${flower()}</g>`;
+    return `<g class="cat-head">${band}${part(uid, 'head', shapeD, faceWhite ? C.white : C.tabby, coat)}${o.earFlick ? leftEar() : ''}${earZone()}${eyes}${mouths}${nose()}${flower()}</g>`;
   }
 
   function placeHead(uid, x, y, o) {
@@ -533,6 +552,21 @@
     },
   };
 
+  // On the toilet: crouched low, tail up and out of the way, a very serious
+  // face (the scene shows half-closed eyes). The litter box is drawn by the room.
+  POSES.squat = function (uid) {
+    const body = 'M -40 -4 C -50 -20 -44 -44 -16 -46 C 12 -48 36 -38 38 -20 C 39 -8 30 0 12 0 L -30 0 C -36 0 -39 -2 -40 -4 Z';
+    return (
+      `<g class="breathe">` +
+      pivot(-40, -26, 'tail-wag slow', tail('M -40 -26 C -56 -34 -62 -52 -56 -66', 9)) +
+      part(uid, 'body', body, C.tabby, marks(['M -30 -46 L -32 -32', 'M -12 -48 L -14 -34']) + `<ellipse cx="22" cy="-14" rx="16" ry="12" fill="${C.belly}"/>`) +
+      nub(26, -3, 7, 4.2) +
+      nub(38, -3, 7, 4.2) +
+      placeHead(uid, 34, -40, { scale: 0.82 }) +
+      `</g>`
+    );
+  };
+
   // ---- In the garden box (intro) ------------------------------------------------
   // Sitting up in a low cardboard box, paws hooked over the front, tail draped
   // over the side. The pose draws the box too, so the paws can sit on its rim.
@@ -600,11 +634,11 @@
   // Where each pose's head sits (for petting zones, speech bubbles, hearts).
   const HEAD_AT = {
     sit: [0, -86], back: [0, -86], groom: [-2, -86], swipe: [2, -86], loaf: [28, -46], lie: [30, -40],
-    curl: [22, -26], walk: [32, -58], stretch: [40, -24], belly: [56, -28], crouch: [40, -34], boxgroom: [0, -86],
+    curl: [22, -26], walk: [32, -58], stretch: [40, -24], belly: [56, -28], crouch: [40, -34], boxgroom: [0, -86], squat: [34, -40],
   };
 
   // Rough height of each pose (for bubbles above the head).
-  const TOP = { sit: -136, back: -136, groom: -136, swipe: -136, loaf: -90, lie: -82, curl: -66, walk: -100, stretch: -64, belly: -68, crouch: -76, boxgroom: -140 };
+  const TOP = { sit: -136, back: -136, groom: -136, swipe: -136, loaf: -90, lie: -82, curl: -66, walk: -100, stretch: -64, belly: -68, crouch: -76, boxgroom: -140, squat: -76 };
 
   function render(pose, uid, opts) {
     const fn = POSES[pose] || POSES.sit;

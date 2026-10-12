@@ -29,6 +29,8 @@
     this.cv = null; // cat view
     this.cam = { x: 0, y: 0, w: A.W, h: A.H };
     this.focus = null; // camera framing a point (intro, change look)
+    this.userPan = null; // x the player dragged the camera to (null: follow the cat)
+    this.dragging = false;
     this.intro = null; // the cat-in-the-box opening
     this.inGarden = false; // the cat is drawn in the garden layer (intro, and while it fades)
     this.overrides = {}; // temporary eyes/mouth/pose from reactions
@@ -147,6 +149,7 @@
   Scene.prototype.baseEyes = function () {
     if (this.inGarden) return 'open'; // awake in the box, whatever the simulation says
     const a = this.getState().activity;
+    if (a.id === 'litter') return 'half'; // concentrating
     if (this.cv.moving) return this.cv.zoom ? 'wide' : 'open';
     if (SLEEP_EYES.has(a.id)) return 'closed';
     if (a.id === 'groom') return 'closed';
@@ -174,6 +177,7 @@
     this.cv.mouth = mouth;
     for (const g of this.catBody.querySelectorAll('.eyes')) g.setAttribute('display', g.classList.contains('eyes-' + eyes) ? 'inline' : 'none');
     for (const g of this.catBody.querySelectorAll('.mouth')) g.setAttribute('display', g.classList.contains('mouth-' + mouth) ? 'inline' : 'none');
+    this.catBody.classList.toggle('angry', eyes === 'angry');
   };
 
   Scene.prototype.flash = function (cls, ms) {
@@ -504,7 +508,11 @@
     const now = performance.now();
     if (r.eyes) {
       this.overrides.eyes = r.eyes;
-      this.overrides.eyesUntil = now + (r.anim === 'slowBlink' ? 1600 : 1800);
+      this.overrides.eyesUntil = now + (r.anim === 'slowBlink' ? 1600 : r.eyes === 'angry' ? 3200 : 1800);
+    }
+    if (r.mouth) {
+      this.overrides.mouth = r.mouth;
+      this.overrides.mouthUntil = now + (r.eyes === 'angry' ? 3200 : 1800);
     }
     if (r.say) this.say(r.say);
     if (r.hearts) this.hearts(r.hearts);
@@ -519,8 +527,13 @@
       case 'kick':
         this.flash('swatting', 600);
         this.miniHop(14);
-        this.overrides.eyes = 'wide';
-        this.overrides.eyesUntil = now + 900;
+        if (!r.eyes) {
+          this.overrides.eyes = 'wide';
+          this.overrides.eyesUntil = now + 900;
+        }
+        break;
+      case 'recoil':
+        this.flash('recoil', 500);
         break;
       case 'tilt':
         this.flash('tilt', 1400);
@@ -553,6 +566,17 @@
     return m ? pt.matrixTransform(m.inverse()) : { x: 0, y: 0 };
   };
 
+  // What the player touched on the cat: the part under the pointer that
+  // declares a pet zone (tail, paws, ears), or null for the plain body.
+  Scene.prototype.zoneAtClient = function (x, y) {
+    for (const el of document.elementsFromPoint(x, y)) {
+      if (!this.catG.contains(el)) continue;
+      const z = el.closest('[data-zone]');
+      return z ? z.getAttribute('data-zone') : null;
+    }
+    return null;
+  };
+
   Scene.prototype.zoneAt = function (p) {
     const cv = this.cv;
     const hp = this.headPoint();
@@ -570,6 +594,7 @@
   // ---- Play mode ------------------------------------------------------------------------
 
   Scene.prototype.startPlay = function (toy, joined) {
+    this.userPan = null;
     this.play = { toy, joined, x: 480, y: 470, px: 480, py: 470, speed: 0, lastMove: performance.now(), cool: 0, pounce: null };
     this.toyG.setAttribute('display', 'inline');
     this.drawToy();
@@ -722,8 +747,24 @@
     const aspect = r.width / r.height;
     const w = Math.max(340, Math.min(A.W, A.H * aspect));
     const focus = this.play && this.play.joined ? (this.cv.x + this.play.x) / 2 : this.cv.x;
-    const x = w >= A.W - 1 ? 0 : Math.max(0, Math.min(A.W - w, focus - w / 2));
+    // On a narrow screen the player can drag the room around; otherwise follow the cat.
+    const at = this.userPan != null && !this.play ? this.userPan : focus - w / 2;
+    const x = w >= A.W - 1 ? 0 : Math.max(0, Math.min(A.W - w, at));
     return { x, y: 0, w, h: A.H };
+  };
+
+  // Drag the camera sideways by dx scene units (a drag of the room to the right
+  // shows more of the left). Only when the room doesn't fit the screen.
+  Scene.prototype.panBy = function (dx) {
+    if (this.focus || this.intro || this.play || this.cam.w >= A.W - 1) return false;
+    const cur = this.userPan != null ? this.userPan : this.cam.x;
+    this.userPan = Math.max(0, Math.min(A.W - this.cam.w, cur - dx));
+    return true;
+  };
+
+  // Back to following the cat.
+  Scene.prototype.followCat = function () {
+    this.userPan = null;
   };
 
   Scene.prototype.updateCamera = function (dt) {
@@ -738,7 +779,7 @@
     } else {
       // Ease towards the target; zoom eases in log space so it feels even.
       const f = 1 - Math.exp(-dt * (this.focus || this.zoomingOut ? 2.6 : 2.5));
-      c.x += (t.x - c.x) * f;
+      c.x = this.dragging ? t.x : c.x + (t.x - c.x) * f;
       c.y += (t.y - c.y) * f;
       c.w = Math.exp(Math.log(c.w) + (Math.log(t.w) - Math.log(c.w)) * f);
       c.h = Math.exp(Math.log(c.h) + (Math.log(t.h) - Math.log(c.h)) * f);
@@ -760,6 +801,7 @@
   Scene.prototype.startIntro = function (safe) {
     const box = introAt();
     clearTimeout(this.introTimer);
+    this.userPan = null;
     this.tempBox = null;
     this.intro = { box, t0: performance.now(), look: { x: 0, y: 0, tx: 0, ty: 0, at: 0 }, nextGlance: 0 };
     this.cv = { x: box.x, y: box.y, z: box.y + 0.5, fy: box.y, high: false, facing: 1, path: [], moving: false, act: 'intro' };

@@ -17,15 +17,15 @@
       lastVisitDay: today,
       named: false,
       cat: { name, nameHistory: [{ name, from: t }], coat: Object.assign({}, G.Coats.DEFAULT), accessory: Object.assign({}, G.Coats.DEFAULT_ACCESSORY), tail: G.Coats.tailFor(G.Coats.DEFAULT) },
-      stats: { fullness: 75, energy: 70, happiness: 65, bond: 0 },
+      stats: { fullness: 75, energy: 70, happiness: 65, bond: 0, litter: 40 }, // litter: how badly the cat needs the toilet (0-100)
       activity: { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t, end: t + 20000, facing: 1 },
       bowl: { food: 'kibble', portions: 2 },
-      daily: { day: today, pet: 0, play: 0, feed: 0, treats: 0 },
-      room: { slots: ['scratcher', null, 'box'], perch: false, cupOnFloor: false, gifts: [] },
+      daily: { day: today, pet: 0, play: 0, feed: 0, treats: 0, care: 0 },
+      room: { slots: ['scratcher', null, 'box'], perch: false, cupOnFloor: false, gifts: [], litter: { clumps: [], mess: 0 } },
       unlocked: C.unlocksAt(1),
       unseenUnlocks: [],
       favorites: { spots: {}, toys: {}, foods: {}, pets: {} },
-      flags: { breakfastDay: null, bondDay: today },
+      flags: { breakfastDay: null, bondDay: today, litterTip: false },
       log: [],
       journal: [],
       treasures: {},
@@ -51,7 +51,7 @@
   // Resets the per-day counters (treat limit, daily bond caps).
   function ensureDay(s, t) {
     const k = G.Clock.dayKey(t);
-    if (s.daily.day !== k) s.daily = { day: k, pet: 0, play: 0, feed: 0, treats: 0 };
+    if (s.daily.day !== k) s.daily = { day: k, pet: 0, play: 0, feed: 0, treats: 0, care: 0 };
   }
 
   function nameAt(s, t) {

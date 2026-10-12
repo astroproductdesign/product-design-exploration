@@ -14,6 +14,7 @@
   let lastFrame = 0;
   let lastDay = '';
   let petting = null;
+  let gesture = null; // a touch that began on the room (a tap, or a drag to look around)
   const petTimes = [];
   let play = null; // { toy, joined, stats }
   const modalQueue = [];
@@ -173,6 +174,11 @@
     if (play && a.id === 'play') return;
     scene.onActivity(a);
     if (a.rare) toast(nm('✨ Rare moment! {name} is sleeping belly-up. Quick — take a photo!'), 6000);
+    if (a.id === 'litter' && !state.flags.litterTip) {
+      state.flags.litterTip = true;
+      toast(nm('{name} is using the litter box. Tap the box to scoop it afterwards.'), 6500);
+    }
+    if (prev && prev.id === 'litter') setTimeout(() => scene.react({ say: 'Mrrp.', eyes: 'happy' }), 600);
     if (prev && prev.id === 'gift') {
       sound('bell');
       toast(nm('{name} left something on the floor for you! Tap it.'));
@@ -203,7 +209,7 @@
 
   // ---- HUD --------------------------------------------------------------------------------
 
-  const MOOD_FACE = { happy: ['happy', 'normal'], content: ['open', 'normal'], sleepy: ['half', 'normal'], grumpy: ['half', 'normal'], hungry: ['open', 'open'] };
+  const MOOD_FACE = { happy: ['happy', 'normal'], content: ['open', 'normal'], sleepy: ['half', 'normal'], grumpy: ['angry', 'frown'], hungry: ['open', 'open'] };
   let lastMood = '';
 
   function updateHUD() {
@@ -232,6 +238,7 @@
     $('muteBtn').setAttribute('aria-label', state.settings.muted ? 'Sound off' : 'Sound on');
     const dot = $('bookDot');
     if (dot) dot.hidden = !state.unseenUnlocks.length;
+    updateFollowBtn();
   }
 
   function setMeter(id, v) {
@@ -351,19 +358,16 @@
         svg.setPointerCapture(e.pointerId);
         return;
       }
-      const gift = e.target.closest('.gift');
-      if (gift) return collectGift(Number(gift.getAttribute('data-gift')));
-      if (e.target.closest('.cup')) {
-        apply(G.Interactions.pickUpCup(state, now()));
-        scene.renderRoom(true, now());
-        return;
-      }
-      if (e.target.closest('.tv')) return flipTv();
       if (e.target.closest('#cat')) {
         petting = { x: e.clientX, y: e.clientY, dist: 0, last: 0 };
         svg.setPointerCapture(e.pointerId);
         e.preventDefault();
+        return;
       }
+      // Anywhere else: a tap uses what's under it (gift, cup, TV, litter box), and
+      // a drag looks around the room when it doesn't all fit on screen.
+      gesture = { x: e.clientX, y: e.clientY, lastX: e.clientX, moved: false, target: e.target };
+      svg.setPointerCapture(e.pointerId);
     });
     svg.addEventListener('pointermove', (e) => {
       if (introActive) return scene.lookAtPoint(scene.toScene(e.clientX, e.clientY));
@@ -371,8 +375,20 @@
         if (e.pointerType === 'mouse' || e.buttons) scene.moveToy(scene.toScene(e.clientX, e.clientY));
         return;
       }
+      if (gesture) {
+        if (!gesture.moved && Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 8) {
+          gesture.moved = true;
+          scene.dragging = true;
+        }
+        if (gesture.moved) {
+          scene.panBy((e.clientX - gesture.lastX) * (scene.cam.w / svg.getBoundingClientRect().width));
+          updateFollowBtn();
+        }
+        gesture.lastX = e.clientX;
+        return;
+      }
       if (!petting) {
-        svg.style.cursor = e.target.closest('#cat') ? 'grab' : e.target.closest('.tv') ? 'pointer' : '';
+        svg.style.cursor = e.target.closest('#cat') ? 'grab' : e.target.closest('.tv, .litter, .gift, .cup') ? 'pointer' : '';
         return;
       }
       petting.dist += Math.hypot(e.clientX - petting.x, e.clientY - petting.y);
@@ -383,15 +399,29 @@
         petting.dist = 0;
         petting.last = t;
         petting.stroked = true;
-        doPet(scene.toScene(e.clientX, e.clientY));
+        doPet(scene.toScene(e.clientX, e.clientY), e.clientX, e.clientY);
       }
     });
     const end = (e) => {
-      if (petting && !petting.stroked && petting.dist < 14) doPet(scene.toScene(e.clientX, e.clientY));
+      if (petting && !petting.stroked && petting.dist < 14) doPet(scene.toScene(e.clientX, e.clientY), e.clientX, e.clientY);
       petting = null;
+      if (gesture) {
+        const g = gesture;
+        gesture = null;
+        scene.dragging = false;
+        if (!g.moved) tapRoom(g.target);
+      }
     };
     svg.addEventListener('pointerup', end);
-    svg.addEventListener('pointercancel', () => (petting = null));
+    svg.addEventListener('pointercancel', () => {
+      petting = null;
+      gesture = null;
+      scene.dragging = false;
+    });
+    $('followBtn').addEventListener('click', () => {
+      scene.followCat();
+      updateFollowBtn();
+    });
     $('modal').addEventListener('click', (e) => {
       if (e.target.id === 'modal' || e.target.closest('[data-close]')) closeModal();
     });
@@ -400,12 +430,37 @@
     });
   }
 
-  function doPet(p) {
+  // A tap (not a drag) on something in the room.
+  function tapRoom(target) {
+    const gift = target.closest('.gift');
+    if (gift) return collectGift(Number(gift.getAttribute('data-gift')));
+    if (target.closest('.cup')) {
+      apply(G.Interactions.pickUpCup(state, now()));
+      scene.renderRoom(true, now());
+      return;
+    }
+    if (target.closest('.tv')) return flipTv();
+    if (target.closest('.litter')) {
+      apply(G.Interactions.scoop(state, now()));
+      scene.renderRoom(true, now());
+    }
+  }
+
+  // The "Follow cat" button shows while the player has dragged the camera away.
+  function updateFollowBtn() {
+    const b = $('followBtn');
+    if (!b) return;
+    b.hidden = scene.userPan == null || introActive || !!play;
+    b.querySelector('span').textContent = `Follow ${state.cat.name}`;
+  }
+
+  function doPet(p, clientX, clientY) {
     const t = now();
     const ms = performance.now();
     while (petTimes.length && ms - petTimes[0] > 30000) petTimes.shift();
     petTimes.push(ms);
-    const zone = scene.zoneAt(p);
+    // Tail, paws and ears are parts of the drawing; the rest is worked out from where on the body.
+    const zone = scene.zoneAtClient(clientX, clientY) || scene.zoneAt(p);
     const prev = state.activity;
     apply(G.Interactions.pet(state, t, zone, petTimes.length), prev);
   }
@@ -719,7 +774,7 @@
     const favSpot = fav('spots', (k) => (C.ITEMS[k] || C.SPOTS[k] || { label: k }).label);
     const favToy = fav('toys', (k) => C.TOYS[k].name);
     const favFood = fav('foods', (k) => C.FOODS[k].name);
-    const favPet = fav('pets', (k) => ({ chin: 'chin scratches', head: 'head pats', back: 'back pets', belly: 'belly rubs (!)' })[k]);
+    const favPet = fav('pets', (k) => ({ chin: 'chin scratches', head: 'head pats', back: 'back pets', belly: 'belly rubs (!)', ears: 'ear scratches' })[k]);
     const quirks = G.Profile.quirks.filter((q) => q.on).map((q) => `<li>${esc(q.text)}</li>`).join('');
     openModal(
       `<div class="profile"><div class="portrait"><svg viewBox="-80 -150 160 156">${G.CatArt.render('sit', 'profile')}</svg></div>

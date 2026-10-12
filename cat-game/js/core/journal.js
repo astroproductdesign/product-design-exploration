@@ -17,7 +17,7 @@
       napMins: 0, napSpots: {}, ateBowl: 0, fed: [], treats: 0, pets: {}, trap: 0, played: [], knock: 0,
       gifts: [], birds: 0, zoomies: 0, chaosZoomies: 0, stare: 0, yell: 0, askFood: 0, renames: [], rare: 0,
       levelups: 0, came: 0, ignored: 0, hide: {}, laptop: 0, sunbathe: 0, supervise: 0, groom: 0, hunt: 0,
-      knead: 0, roll: 0, toy: 0, scratch: 0,
+      knead: 0, roll: 0, toy: 0, scratch: 0, litter: 0, accidents: 0, scoops: 0, angry: {},
     };
     for (const e of events) {
       switch (e.type) {
@@ -57,6 +57,9 @@
         case 'roll': c.roll++; break;
         case 'toy': c.toy++; break;
         case 'scratch': c.scratch++; break;
+        case 'litter': if (e.accident) c.accidents++; else c.litter++; break;
+        case 'scoop': c.scoops++; break;
+        case 'angry': c.angry[e.cause] = (c.angry[e.cause] || 0) + 1; break;
         default:
       }
     }
@@ -99,6 +102,11 @@
     }
     if (c.levelups) add(8, 'I think I like the human a little more now. Do not tell them.');
     if (c.trap) add(7, 'The human touched the belly. It was a trap. I won.');
+    if (c.angry.tail) add(8, 'The human touched my tail. We do not speak of it.');
+    if (c.angry.paws) add(6, 'The human grabbed my paw. I have noted it in my files.');
+    if (c.angry.woken) add(6, 'I was asleep. The human poked a sensitive area. I remember.');
+    if (c.accidents) add(7, 'The litter box was not up to standard, so I made a statement next to it.');
+    if (c.scoops) add(5, 'The human scooped my litter box. About time.');
     if (c.knock) add(7, pk(['There was a cup on the table. Then there was not. I do not know what happened.', 'Gravity check: the cup still falls. Science.']));
     if (c.chaosZoomies) add(7, 'At 3am I ran across the entire house. For reasons.');
     if (c.yell) add(6, 'Woke up early and announced breakfast. Loudly. Someone has to.');
@@ -115,7 +123,7 @@
     const petTotal = Object.values(c.pets).reduce((a, b) => a + b, 0);
     if (petTotal) {
       const z = top(c.pets);
-      const what = { chin: 'chin scratches', head: 'head pats', back: 'back pets', belly: 'belly rubs' }[z];
+      const what = { chin: 'chin scratches', head: 'head pats', back: 'back pets', belly: 'belly rubs', ears: 'ear scratches' }[z] || 'pets';
       add(5, `The human did ${what}. I allowed it ${petTotal} time${petTotal === 1 ? '' : 's'}.`);
     }
     if (c.treats) add(5, `Treats today: ${c.treats}. Not enough. Never enough.`);
@@ -132,6 +140,7 @@
     if (c.ateBowl) add(2, `Visited the food bowl ${c.ateBowl} time${c.ateBowl === 1 ? '' : 's'}. Nobody saw. I am a mystery.`);
     if (c.zoomies) add(2, 'Did zoomies. Felt great.');
     if (c.knead) add(2, 'Made biscuits. Nobody can eat them. That is not the point.');
+    if (c.litter) add(1, c.litter > 3 ? 'Used the litter box several times. Private business. Do not look.' : 'Used the litter box. Private business. Do not look.');
     if (c.groom) add(1, 'Washed every single paw. Twice.');
     if (c.askFood && !c.yell) add(1, 'Waited by the bowl. Patiently. Mostly.');
 
@@ -213,6 +222,9 @@
     if (c.scratch) add(2, '🪵', 'sharpened their claws');
     if (c.groom) add(2, '🛁', 'had a good long wash');
     if (c.levelups) add(9, '💛', 'grew a little fonder of you');
+    if (c.accidents) add(8, '💧', 'had an accident next to the litter box');
+    if (c.litter) add(2, '🧻', c.litter > 1 ? `used the litter box ${c.litter} times` : 'used the litter box');
+    if (G.Sim.isDirty(s)) add(7, '🧹', 'left the litter box needing a scoop');
 
     L.sort((a, b) => b[0] - a[0]);
     return { duration: to - from, lines: L.slice(0, 7).map(([, icon, text]) => ({ icon, text })) };

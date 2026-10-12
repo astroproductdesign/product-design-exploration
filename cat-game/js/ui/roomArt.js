@@ -56,6 +56,9 @@
     floorL: { x: 370, y: 488, z: 488 },
     floorR: { x: 742, y: 528, z: 528 },
     wall: { x: 545, y: 446, z: 446, face: 1 },
+    // Under the table. The cat steps in from the front and sits low in the tray.
+    litter: { x: 845, y: 458, z: 484, floor: { x: 845, y: 500 } },
+    litterOut: { x: 724, y: 500, z: 500 },
     front: { x: 520, y: 590, z: 591 },
   };
 
@@ -291,6 +294,55 @@
       S('M 11 -19 Q 21 -18 20 -11 Q 19 -5 11 -6', 'none', 2.6) +
       `</g>`
     );
+  }
+
+  // The litter box under the table: a mint tray of sand. Each use leaves a
+  // clump (pee: a lump of darker sand, poop: a little brown log). Tap it to scoop.
+  const LITTER_X = 845;
+  const LITTER_Y = 490;
+  const CLUMP_AT = [[-34, -43], [-10, -46], [14, -43], [36, -46], [-22, -39], [24, -40]];
+  function litterBox(state) {
+    const x = LITTER_X;
+    const y = LITTER_Y;
+    const L = state.room.litter;
+    const SAND = '#f3e3bb';
+    const MINT = '#8fd3c6';
+    let back =
+      `<g class="litter" style="cursor:pointer">` +
+      S(`M ${x - 56} ${y - 36} L ${x - 50} ${y - 52} L ${x + 50} ${y - 52} L ${x + 56} ${y - 36} Z`, '#6fb8a9', 3) +
+      S(`M ${x - 49} ${y - 38} L ${x - 44} ${y - 49} L ${x + 44} ${y - 49} L ${x + 49} ${y - 38} Z`, SAND, 2.5);
+    L.clumps.forEach((kind, i) => {
+      const [dx, dy] = CLUMP_AT[i % CLUMP_AT.length];
+      back +=
+        kind === 'poop'
+          ? S(`M ${x + dx - 7} ${y + dy} Q ${x + dx - 8} ${y + dy - 7} ${x + dx} ${y + dy - 7} Q ${x + dx + 8} ${y + dy - 7} ${x + dx + 7} ${y + dy} Z`, '#8a5a3a', 2.4)
+          : E(x + dx, y + dy - 3, 8, 5.5, '#cdb27c', 2);
+    });
+    // Smelly when it needs a scoop.
+    if (G.Sim.isDirty(state)) {
+      back += [-22, 0, 22].map((dx, i) => `<path class="stink" style="animation-delay:${i * 0.5}s" d="M ${x + dx} ${y - 58} q 6 -8 0 -16 t 0 -16" fill="none" stroke="#9aa83e" stroke-width="3" stroke-linecap="round"/>`).join('');
+    }
+    back += `</g>`;
+    const front =
+      `<g class="litter" style="cursor:pointer">` +
+      R(x - 56, y - 36, 112, 36, MINT, 6, 3) +
+      `<rect x="${x - 56}" y="${y - 36}" width="112" height="9" rx="5" fill="#b6e6dc" stroke="${K.line}" stroke-width="${ow(3)}"/>` +
+      // a little paw print
+      `<ellipse cx="${x}" cy="${y - 12}" rx="7" ry="5.5" fill="#fcfcfc" stroke="${K.line}" stroke-width="1.8"/>` +
+      [-8, -3, 3, 8].map((dx) => `<circle cx="${x + dx}" cy="${y - 21 + Math.abs(dx) * 0.35}" r="2.4" fill="#fcfcfc" stroke="${K.line}" stroke-width="1.4"/>`).join('') +
+      `</g>`;
+    // An accident on the floor next to it.
+    let mess = '';
+    if (L.mess) {
+      const px = 724;
+      const py = 502;
+      mess =
+        `<g class="litter" style="cursor:pointer">` +
+        E(px, py, 26, 7, '#efe08a', 2.4) +
+        (L.mess > 1 ? E(px + 30, py + 5, 15, 4.5, '#efe08a', 2.2) : '') +
+        `<path class="stink" d="M ${px - 6} ${py - 12} q 6 -8 0 -16" fill="none" stroke="#9aa83e" stroke-width="3" stroke-linecap="round"/></g>`;
+    }
+    return [back, front, mess];
   }
 
   function bowls(state) {
@@ -657,6 +709,9 @@
     out.push({ z: 480, svg: chair() });
     out.push({ z: 494, svg: table(state) });
     out.push({ z: 530, svg: bowls(state) });
+    const [litterBack, litterFront, litterMess] = litterBox(state);
+    out.push({ z: 483, svg: litterBack }, { z: 485, svg: litterFront });
+    if (litterMess) out.push({ z: 499, svg: litterMess });
     if (state.room.perch) out.push({ z: 302, svg: perch() });
     state.room.slots.forEach((id, i) => {
       if (!id || !ITEM_ART[id]) return;

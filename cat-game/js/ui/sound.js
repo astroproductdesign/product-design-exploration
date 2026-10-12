@@ -128,6 +128,14 @@
     burst(c, c.currentTime, 0.35, 5000, 0.25);
   }
 
+  // Sifting litter: a few soft rustles.
+  function scoop() {
+    const c = ac();
+    if (!c) return;
+    const t = c.currentTime;
+    for (let i = 0; i < 6; i++) burst(c, t + i * 0.09 + Math.random() * 0.03, 0.08, 900 + Math.random() * 700, 0.35);
+  }
+
   function tone(freq, start, len, type, peak) {
     const c = ac();
     if (!c) return;
@@ -192,5 +200,5 @@
     ac();
   }
 
-  G.Sound = { meow, purr, stopPurr, crunch, hiss, chirp, bell, pop, chime, shutter, tvClick, setMuted, unlock };
+  G.Sound = { meow, purr, stopPurr, crunch, hiss, scoop, chirp, bell, pop, chime, shutter, tvClick, setMuted, unlock };
 })(globalThis.CatGame = globalThis.CatGame || {});

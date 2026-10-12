@@ -37,7 +37,16 @@
     come: { tags: ['front'], dur: [1, 2], live: [25, 40] },
     beg: { tags: ['front'], dur: [1, 2], live: [10, 16] },
     play: { tags: ['floor'], dur: [5, 10], live: [600, 600], active: true },
+    // Needs the litter box when the need builds up (see chooseNext), or after an upset.
+    litter: { tags: ['litter'], dur: [2, 4], live: [14, 14] },
+    sulk: { tags: ['wall'], dur: [1, 1], live: [60, 60] },
   };
+
+  // How full the box can get before the cat stops using it properly.
+  const DIRTY_AT = 4;
+  const MAX_CLUMPS = 6;
+  const MAX_MESS = 2;
+  const isDirty = (s) => s.room.litter.clumps.length >= DIRTY_AT || s.room.litter.mess > 0;
 
   // At ~3am, chaos.
   const CHAOS = { zoomies: 6, hunt: 3, knock: 3, meow: 2, stare: 2, nap: 0.5 };
@@ -68,6 +77,8 @@
     come: '{name} came when you called!',
     beg: '{name} is hoping for another treat.',
     play: '{name} is in hunting mode!',
+    litter: '{name} is using the litter box. Give them some privacy.',
+    sulk: '{name} is sulking with their back to you.',
   };
 
   function clamp(v, lo, hi) {
@@ -119,6 +130,10 @@
         return 'loaf';
       case 'groom':
         return 'groom';
+      case 'litter':
+        return 'squat';
+      case 'sulk':
+        return 'back';
       case 'stretch':
       case 'scratch':
         return 'stretch';
@@ -186,6 +201,13 @@
       return make(s, t, s.bowl.portions > 0 ? 'eat' : 'askFood', bowl, r, live, { yell: true });
     }
     if (st.fullness < 22 && r() < 0.45) return make(s, t, 'askFood', bowl, r, live);
+    // Nature calls. A dirty box puts the cat off: sometimes it goes beside the box instead.
+    if (st.litter >= 60 && r() < Math.min(0.9, 0.3 + (st.litter - 60) / 60)) {
+      const kind = r() < 0.6 ? 'pee' : 'poop';
+      const accident = isDirty(s) && s.room.litter.mess < MAX_MESS && r() < 0.4;
+      const where = spots.find((sp) => sp.id === (accident ? 'litterOut' : 'litter'));
+      return make(s, t, 'litter', where, r, live, { kind, accident });
+    }
 
     let entries = [];
     for (const [id, b] of Object.entries(BEHAVIORS)) {
@@ -242,7 +264,9 @@
     st.energy = clamp(st.energy + dEnergy * mins);
     // Happiness eases back toward a calm middle. Hungry = a little grumpy,
     // never miserable.
-    const baseline = st.fullness < 20 ? 28 : 50;
+    // A dirty litter box makes a cat a bit grumpy too.
+    const baseline = st.fullness < 20 ? 28 : isDirty(s) ? 40 : 50;
+    st.litter = clamp(st.litter + 0.2 * mins);
     st.happiness += (b.joy || 0) * mins;
     st.happiness = baseline + (st.happiness - baseline) * Math.exp(-0.0012 * mins);
     st.happiness = clamp(st.happiness, 12, 100);
@@ -263,9 +287,20 @@
           const f = G.Catalog.FOODS[s.bowl.food];
           s.bowl.portions -= 1;
           st.fullness = clamp(st.fullness + f.fill);
+          st.litter = clamp(st.litter + 10);
           st.happiness = clamp(st.happiness + f.joy, 12, 100);
           G.State.log(s, Object.assign(base, { food: s.bowl.food, byYou: !!a.byYou, yell: !!a.yell }));
         }
+        break;
+      }
+      case 'litter': {
+        const L = s.room.litter;
+        if (a.accident) L.mess = Math.min(MAX_MESS, L.mess + 1);
+        else L.clumps.push(a.kind);
+        if (L.clumps.length > MAX_CLUMPS) L.clumps.length = MAX_CLUMPS;
+        st.litter = 6;
+        st.happiness = clamp(st.happiness + 2, 12, 100);
+        G.State.log(s, Object.assign(base, { kind: a.kind, accident: !!a.accident }));
         break;
       }
       case 'gift':
@@ -354,5 +389,5 @@
     return (STATUS[a.id] || '{name} is being a cat.').replace('{at}', at);
   }
 
-  G.Sim = { BEHAVIORS, spotsOf, spotInfo, chooseNext, advance, clampToLive, setActivity, isSleeping, describe, drift, clamp };
+  G.Sim = { BEHAVIORS, isDirty, spotsOf, spotInfo, chooseNext, advance, clampToLive, setActivity, isSleeping, describe, drift, clamp };
 })(globalThis.CatGame = globalThis.CatGame || {});

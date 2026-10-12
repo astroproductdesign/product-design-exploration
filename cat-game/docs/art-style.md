@@ -225,6 +225,13 @@ The tail is chosen separately from the coat (`cat.tail`, shown in `docs/tails.ht
 
 Each breed sets its usual tail (Siamese long, Ragdoll long & floofy, Japanese Bobtail bunny bob & floofy, everything else medium & smooth). Picking a breed sets it, and the player can change it afterwards; once they have, picking another breed leaves their tail alone.
 
+### 4.4d Angry face, litter pose and the litter box
+
+- **Angry eyes:** the usual solid ink dots, with a thick brow line over each that slopes down towards the nose (`eyes-angry`). On dark faces the brow uses the light feature colour, like the other lines.
+- **Angry mouths:** `mouth-frown` (a downturned line from the nose, for sulking and hungry grumbles) and `mouth-hiss` (open mouth with two little fangs, for a hiss). While angry the tail lashes (`.cat.angry`).
+- **Squat pose:** the cat crouches low in the litter box with its tail up and half-closed, concentrating eyes. The box is drawn by the room, not the cat.
+- **Litter box:** a mint tray with a white paw print, under the table. Clumps are flat shapes: pee is a lump of darker sand, poop a small brown log. A dirty box gets wavy green smell lines; an accident is a flat pale puddle on the floor. Keep it cute and implied.
+
 ### 4.5 Animation
 
 The flat style needs **simple, springy motion**, not realistic motion:
@@ -318,3 +325,4 @@ The game logic in `js/core` is unaffected.
 | 7 | Intro: the cat waits in a low cardboard box in the garden, sitting up with its paws over the rim (option A). The garden stays low and simple (fence, bushes, lawn, flowers, no sign) so the title stands out. See `docs/garden-intro.html` | ✅ Chosen and implemented |
 | 8 | Main call to action: hot pink `#ff4f86` (`--cta`), white text, ink border | ✅ Chosen |
 | 9 | Tails: length (long, medium, short, bunny bob) and fur (smooth, floofy), set by breed and then customisable. See `docs/tails.html` | ✅ Chosen and implemented |
+| 10 | Angry cat (face, sulk, bond cost), pet zones (tail, paws, ears) and the litter box that needs scooping | ✅ Chosen and implemented |
