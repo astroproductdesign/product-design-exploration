@@ -6,6 +6,7 @@
 
   const NS = 'http://www.w3.org/2000/svg';
   const A = G.RoomArt;
+  const ROOM_ZOOM_OUT = 1.22; // >1 leaves breathing room above and below the room
 
   const SLEEP_EYES = new Set(['nap']);
   const DROWSY = new Set(['loaf', 'sunbathe', 'laptop', 'hide', 'knead']);
@@ -809,13 +810,17 @@
       const h = r.height / k;
       return { x: cx - ((sf.l + (1 - sf.l - sf.r) / 2) * r.width) / k, y: cy - ((sf.t + (1 - sf.t - sf.b) / 2) * r.height) / k, w, h };
     }
+    // The room is shown a little smaller than the screen is tall, so there is air above
+    // (under the HUD) and below (over the caption). The wall and floor carry on past the
+    // edge of the room, so that margin is never empty.
     const aspect = r.width / r.height;
-    const w = Math.max(340, Math.min(A.W, A.H * aspect));
+    const h = A.H * ROOM_ZOOM_OUT;
+    const w = Math.max(340, Math.min(A.W, h * aspect));
     const focus = this.play && this.play.joined ? (this.cv.x + this.play.x) / 2 : this.cv.x;
     // On a narrow screen the player can drag the room around; otherwise follow the cat.
     const at = this.userPan != null && !this.play ? this.userPan : focus - w / 2;
     const x = w >= A.W - 1 ? 0 : Math.max(0, Math.min(A.W - w, at));
-    return { x, y: 0, w, h: A.H };
+    return { x, y: -(h - A.H) * 0.55, w, h };
   };
 
   // Drag the camera sideways by dx scene units (a drag of the room to the right

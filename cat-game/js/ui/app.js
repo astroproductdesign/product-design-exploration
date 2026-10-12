@@ -247,7 +247,7 @@
     const p = G.Progression.progress(state);
     $('bondLv').textContent = p.level;
     $('bondFill').style.width = (p.max ? 100 : Math.round((p.into / p.need) * 100)) + '%';
-    $('bondRow').title = p.max ? 'Bond: best friends!' : `Bond Lv ${p.level}: ${Math.floor(p.into)}/${p.need} to the next level`;
+    $('bondRow').title = p.max ? 'Bond: best friends! See what you unlocked' : `Bond Lv ${p.level}: ${Math.floor(p.into)}/${p.need} to the next level. See what you can unlock`;
     $('clockTime').textContent = G.Clock.formatTime(t);
     const seasons = scene ? scene.seasons : [];
     $('clockPhase').textContent = G.Clock.PHASE_LABEL[G.Clock.phaseAt(t)] + (seasons.length ? ' · ' + seasons.map((x) => G.Clock.SEASON_LABEL[x]).join(' & ') : '');
@@ -257,17 +257,10 @@
     updateFollowBtn();
   }
 
-  // The line under the room fades away a few seconds after it changes.
-  let captionText = '';
-  let captionTimer = 0;
+  // The line under the room always says what the cat is doing.
   function setCaption(text) {
-    if (text === captionText) return;
-    captionText = text;
     const el = $('status');
-    el.textContent = text;
-    el.classList.add('show');
-    clearTimeout(captionTimer);
-    captionTimer = setTimeout(() => el.classList.remove('show'), 6000);
+    if (el.textContent !== text) el.textContent = text;
   }
 
   function setMeter(id, v) {
@@ -362,6 +355,17 @@
       save(true);
     });
     $('nameBtn').addEventListener('click', openSettings);
+    const bondRow = $('bondRow');
+    const showBond = (e) => {
+      e.stopPropagation();
+      if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      closeFab();
+      sound('pop');
+      openBond();
+    };
+    bondRow.addEventListener('click', showBond);
+    bondRow.addEventListener('keydown', showBond);
     $('doneBtn').addEventListener('click', () => finishPlay(false));
   }
 
@@ -1266,6 +1270,33 @@
   }
 
   // ---- Settings / profile / naming ---------------------------------------------------------
+
+  // Bond level card: how far along, and what each level up brings.
+  function openBond() {
+    const C = G.Catalog;
+    const p = G.Progression.progress(state);
+    const KIND = { food: 'Food', toy: 'Toy', item: 'Furniture' };
+    const chips = (lv) =>
+      C.unlocksAt(lv)
+        .map((k) => `<span class="chip-un">${esc(C.unlockName(k))}<small>${KIND[k.split(':')[0]]}</small></span>`)
+        .join('');
+    const rows = [];
+    for (let lv = 2; lv <= C.LEVELS.length; lv++) {
+      const what = chips(lv) || '<em>No new things, just a cat who trusts you more.</em>';
+      const cls = lv <= p.level ? 'done' : lv === p.level + 1 ? 'next' : '';
+      const need = lv <= p.level ? 'Unlocked' : `${C.LEVELS[lv - 1] - state.stats.bond} more bond`;
+      rows.push(`<li class="${cls}"><span class="lv"><small>Lv</small>${lv}</span><span class="what">${what}<span class="need">${need}</span></span></li>`);
+    }
+    const pct = p.max ? 100 : Math.round((p.into / p.need) * 100);
+    openModal(
+      `<div class="bond-now"><h2>Bond Lv ${p.level}</h2>
+        <span class="bond-track"><i style="width:${pct}%"></i></span>
+        <p class="small">${p.max ? esc(nm('You and {name} are best friends!')) : `${Math.floor(p.into)} / ${p.need} to Lv ${p.level + 1}`}</p>
+        <p class="small muted">Bond grows when you pet, play with and feed ${esc(state.cat.name)}, and when you visit each day.</p></div>
+       <h3>What you can unlock</h3>
+       <ul class="bond-lvls">${rows.join('')}</ul>`
+    );
+  }
 
   function openSettings() {
     const t = now();

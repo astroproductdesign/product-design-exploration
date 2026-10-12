@@ -58,9 +58,9 @@ button {
 .topbar {
   position: absolute;
   z-index: 5;
-  top: max(10px, env(safe-area-inset-top));
-  left: max(10px, env(safe-area-inset-left));
-  right: max(10px, env(safe-area-inset-right));
+  top: max(14px, env(safe-area-inset-top));
+  left: max(14px, env(safe-area-inset-left));
+  right: max(14px, env(safe-area-inset-right));
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -84,8 +84,8 @@ button {
   flex-direction: column;
   align-items: stretch;
   gap: 2px;
-  border-radius: 20px;
-  padding: 3px 14px 6px 4px;
+  border-radius: 24px;
+  padding: 4px 18px 8px 5px;
   cursor: pointer;
   min-width: 0;
   max-width: 46%;
@@ -104,28 +104,35 @@ button {
 .nc-bond {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-left: 10px;
-  font-size: 13px;
+  gap: 8px;
+  padding-left: 12px;
+  font-size: 16px;
   font-weight: 800;
 }
 .nc-bond .ico {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   flex: none;
 }
 .nc-bond .ico svg {
   width: 100%;
   height: 100%;
 }
+.nc-bond {
+  cursor: pointer;
+  border-radius: 12px;
+}
+.nc-bond:hover {
+  background: rgba(244, 172, 204, 0.3);
+}
 .bond-lv {
   white-space: nowrap;
 }
 .bond-track {
   flex: 1;
-  min-width: 46px;
-  max-width: 90px;
-  height: 10px;
+  min-width: 56px;
+  max-width: 110px;
+  height: 13px;
   border: 2.5px solid var(--ink);
   border-radius: 99px;
   background: #fff;
@@ -138,8 +145,8 @@ button {
   transition: width 0.6s;
 }
 .mood-face {
-  width: 44px;
-  height: 40px;
+  width: 58px;
+  height: 52px;
   flex: none;
 }
 .mood-face svg {
@@ -153,14 +160,14 @@ button {
   line-height: 1.1;
 }
 .name-text b {
-  font-size: 19px;
+  font-size: 24px;
   font-weight: 900;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .name-text small {
-  font-size: 12px;
+  font-size: 15px;
   color: var(--ink-soft);
   font-weight: 700;
   white-space: nowrap;
@@ -171,20 +178,20 @@ button {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 14px;
+  gap: 18px;
   align-items: center;
   border-radius: 999px;
-  padding: 7px 16px;
+  padding: 9px 22px;
 }
 .meter {
   display: flex;
   align-items: center;
-  gap: 4px;
-  width: 104px;
+  gap: 6px;
+  width: 134px;
 }
 .meter .ico {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   flex: none;
 }
 .meter .ico svg {
@@ -193,7 +200,7 @@ button {
 }
 .meter i {
   flex: 1;
-  height: 13px;
+  height: 17px;
   border: 2.5px solid var(--ink);
   border-radius: 99px;
   background: #fff;
@@ -215,7 +222,7 @@ button {
   align-items: center;
   gap: 8px;
   border-radius: 999px;
-  padding: 4px 5px 4px 14px;
+  padding: 5px 6px 5px 18px;
 }
 .clock {
   display: flex;
@@ -224,22 +231,22 @@ button {
   line-height: 1.1;
 }
 .clock b {
-  font-size: 17px;
+  font-size: 22px;
   font-weight: 900;
 }
 .clock small {
-  font-size: 12px;
+  font-size: 15px;
   color: var(--ink-soft);
   font-weight: 700;
   white-space: nowrap;
 }
 .iconbtn {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   border: 2.5px solid var(--ink);
   border-radius: 50%;
   background: #fff;
-  padding: 5px;
+  padding: 7px;
   cursor: pointer;
   flex: none;
 }
@@ -266,7 +273,7 @@ button {
 .toast {
   position: absolute;
   left: 50%;
-  top: calc(max(10px, env(safe-area-inset-top)) + 64px);
+  top: calc(max(14px, env(safe-area-inset-top)) + 96px);
   z-index: 6;
   transform: translate(-50%, -20px);
   max-width: min(92%, 560px);
@@ -275,7 +282,7 @@ button {
   border-radius: 16px;
   padding: 8px 16px;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 18px;
   text-align: center;
   box-shadow: var(--shadow);
   opacity: 0;
@@ -305,27 +312,26 @@ button {
 .status {
   position: absolute;
   left: 50%;
-  bottom: max(16px, env(safe-area-inset-bottom));
-  transform: translateX(-50%) translateY(6px);
+  bottom: max(20px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
   z-index: 4;
   margin: 0;
-  max-width: min(56%, 520px);
-  padding: 5px 14px;
-  background: rgba(252, 244, 236, 0.9);
-  border: 2.5px solid var(--ink);
-  border-radius: 999px;
+  width: max-content;
+  max-width: min(60%, 680px);
+  padding: 10px 24px;
+  background: rgba(252, 244, 236, 0.94);
+  border: var(--line);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
   text-align: center;
   font-weight: 800;
-  font-size: 14px;
-  line-height: 1.25;
+  font-size: 19px;
+  line-height: 1.3;
   color: var(--ink);
-  opacity: 0;
   pointer-events: none;
-  transition: opacity 0.4s, transform 0.4s;
 }
-.status.show {
-  opacity: 1;
-  transform: translateX(-50%);
+.status:empty {
+  display: none;
 }
 
 /* ---- Paw button: Call, Room and Photo live behind it ---------------------------------- */
@@ -333,19 +339,19 @@ button {
 .fab {
   position: absolute;
   z-index: 6;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(14px, env(safe-area-inset-bottom));
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 14px;
 }
 .fab[hidden] {
   display: none;
 }
 .fab-main {
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -357,8 +363,8 @@ button {
 }
 .fab-main svg {
   grid-area: 1 / 1;
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   transition: opacity 0.2s, transform 0.25s;
 }
 .fab-main svg:last-child,
@@ -379,7 +385,7 @@ button {
   display: flex;
   flex-direction: column-reverse;
   align-items: flex-end;
-  gap: 10px;
+  gap: 14px;
   opacity: 0;
   visibility: hidden;
   transform: translateY(12px) scale(0.92);
@@ -402,26 +408,26 @@ button {
   cursor: pointer;
 }
 .fab-opt span {
-  padding: 3px 12px;
-  background: rgba(252, 244, 236, 0.92);
+  padding: 5px 16px;
+  background: rgba(252, 244, 236, 0.94);
   border: 2.5px solid var(--ink);
   border-radius: 999px;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 18px;
 }
 .fab-opt i {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 62px;
+  height: 62px;
   background: var(--paper);
   border: var(--line);
   border-radius: 50%;
   box-shadow: var(--shadow);
 }
 .fab-opt svg {
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
 }
 
 /* ---- Toolbar (play mode) ------------------------------------------------------------ */
@@ -754,6 +760,90 @@ input:focus {
   border-radius: 999px;
   padding: 4px 12px;
   font-weight: 800;
+}
+
+.bond-now {
+  text-align: center;
+  margin: 2px 0 12px;
+}
+.bond-now .bond-track {
+  display: block;
+  max-width: none;
+  height: 16px;
+  margin: 8px 0 4px;
+}
+.bond-lvls {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.bond-lvls li {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+}
+.bond-lvls li.next {
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+.bond-lvls li.done {
+  opacity: 0.7;
+}
+.bond-lvls .lv {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  height: 48px;
+  font-size: 20px;
+  background: var(--pink);
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  font-weight: 900;
+  line-height: 1;
+}
+.bond-lvls .lv small {
+  font-size: 10px;
+  font-weight: 800;
+}
+.bond-lvls .what {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+.bond-lvls .what em {
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.bond-lvls .need {
+  flex-basis: 100%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.chip-un {
+  background: var(--mint);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-weight: 800;
+  font-size: 14px;
+}
+.chip-un small {
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-left: 4px;
 }
 
 .profile {
@@ -1153,10 +1243,10 @@ input:focus {
 @media (max-width: 640px) {
   .topbar {
     flex-wrap: wrap;
-    row-gap: 6px;
+    row-gap: 8px;
   }
   .namecard {
-    max-width: 62%;
+    max-width: 64%;
     order: 1;
   }
   .right {
@@ -1169,25 +1259,49 @@ input:focus {
     order: 3;
     flex-basis: 100%;
     justify-content: space-between;
-    gap: 8px;
-    padding: 5px 12px;
+    gap: 10px;
+    padding: 7px 14px;
   }
   .meter {
     flex: 1;
     width: auto;
   }
-  .clock b {
-    font-size: 15px;
+  .meter .ico {
+    width: 28px;
+    height: 28px;
   }
-  .status {
-    max-width: 52%;
+  .mood-face {
+    width: 52px;
+    height: 47px;
+  }
+  .name-text b {
+    font-size: 21px;
+  }
+  .clock b {
+    font-size: 19px;
+  }
+  .clock small {
     font-size: 13px;
   }
+  .iconbtn {
+    width: 44px;
+    height: 44px;
+  }
+  .status {
+    left: max(14px, env(safe-area-inset-left));
+    right: calc(max(18px, env(safe-area-inset-right)) + 72px + 14px);
+    transform: none;
+    width: auto;
+    max-width: none;
+    padding: 9px 16px;
+    font-size: 17px;
+    border-radius: 20px;
+  }
   .toast {
-    top: calc(max(10px, env(safe-area-inset-top)) + 112px);
-    font-size: 14px;
-    padding: 6px 12px;
-    max-width: 88%;
+    top: calc(max(14px, env(safe-area-inset-top)) + 150px);
+    font-size: 16px;
+    padding: 7px 14px;
+    max-width: 90%;
   }
   .modal {
     padding: 14px 14px 16px;
@@ -1201,13 +1315,26 @@ input:focus {
 /* Short landscape phones: give the room as much height as possible. */
 @media (max-height: 520px) and (orientation: landscape) {
   .status {
-    display: none;
+    font-size: 15px;
+    padding: 6px 16px;
+    bottom: 12px;
   }
   .nc-bond {
     display: none;
   }
+  .meter {
+    width: 108px;
+  }
   .fab-opt span {
     display: none;
+  }
+  .fab-main {
+    width: 60px;
+    height: 60px;
+  }
+  .fab-opt i {
+    width: 52px;
+    height: 52px;
   }
 }
 
@@ -1704,7 +1831,7 @@ body.no-anim *::before {
 .follow-btn {
   position: absolute;
   left: 50%;
-  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 44px);
+  bottom: calc(max(20px, env(safe-area-inset-bottom)) + 76px);
   transform: translateX(-50%);
   z-index: 4;
   padding: 7px 16px;
