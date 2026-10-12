@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
-const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'weather', 'sim', 'interactions', 'journal', 'notes'];
+const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'achievements', 'weather', 'sim', 'interactions', 'journal', 'notes'];
 const ctx = vm.createContext({ console, Math, Date, JSON });
 for (const f of files) vm.runInContext(readFileSync(path.join(dir, '../js/core', f + '.js'), 'utf8'), ctx, { filename: f });
 const G = ctx.CatGame;
@@ -574,6 +574,68 @@ test('cat grass: eaten, grows back, sometimes comes back up, and is cleaned away
   const old = G.State.migrate({ ...fresh(), room: { slots: ['scratcher', null, 'box'], perch: false, cupOnFloor: false, gifts: [], litter: { clumps: [], mess: 0 } } });
   assert.equal(old.room.grass, 1);
   assert.ok(Array.isArray(old.room.vomit) && old.room.vomit.length === 0);
+});
+
+
+test('achievements: silly goals, counted from what happens, announced once', () => {
+  const A = G.Achievements;
+  const ids = A.DEFS.map((d) => d.id);
+  assert.equal(new Set(ids).size, ids.length, 'unique ids');
+  assert.ok(ids.length >= 40, 'a long list');
+  for (const d of A.DEFS) assert.ok(d.name && d.desc && d.icon && d.goal > 0, d.id + ' is complete');
+  const s = fresh();
+  // nothing is unlocked on a brand new cat
+  assert.equal(A.summary(s).done, 0);
+  // "Scoop the litter box 10 times"
+  for (let i = 0; i < 9; i++) {
+    s.room.litter.clumps.push('pee');
+    G.Interactions.scoop(s, t0 + i * MIN);
+  }
+  assert.ok(!s.achievements.scoop10, 'nine is not ten');
+  s.room.litter.clumps.push('pee');
+  G.Interactions.scoop(s, t0 + 10 * MIN);
+  assert.ok(s.achievements.scoop10, 'ten scoops: Poop Scooper Pro');
+  // announced once
+  const told = A.take(s);
+  assert.ok(told.some((d) => d.id === 'scoop10'));
+  assert.equal(A.take(s).length, 0, 'not announced twice');
+  assert.ok(s.achUnseen >= 1);
+  // other things people do
+  G.Interactions.pet(s, t0 + 20 * MIN, 'belly', 0);
+  for (let i = 0; i < 12; i++) G.Interactions.treat(s, t0 + (30 + i) * MIN);
+  assert.ok(s.achievements.treat10, 'treats are counted');
+  assert.ok(s.achievements.treat6, 'six treats in a day is a secret achievement');
+  assert.ok(A.BY_ID.treat6.secret);
+  // the cat\'s own doings count too, via the log
+  G.State.log(s, { t: t0, type: 'zoomies', chaos: true });
+  assert.ok(s.achievements.chaos, '3am zoomies');
+  G.State.log(s, { t: t0, type: 'collected', item: 'goldBell' });
+  assert.ok(s.achievements.goldBell);
+  // counted by the screen layer, and "either happened or not" ones are only counted once
+  A.bump(s, 'photo', 5, t0);
+  assert.ok(s.achievements.photo5);
+  A.mark(s, 'wx:rain', t0);
+  A.mark(s, 'wx:rain', t0);
+  assert.equal(A.count(s, 'wx:rain'), 1);
+  assert.ok(s.achievements.rain);
+  // time together and bond level are worked out, not counted
+  const later = fresh();
+  A.evaluate(later, t0 + 8 * DAY);
+  assert.ok(later.achievements.days7 && !later.achievements.days30);
+  later.stats.bond = 100;
+  A.evaluate(later, t0);
+  assert.ok(later.achievements.bond3 && !later.achievements.bond5);
+  // the trophy page lists everything, with progress that never passes the goal
+  for (const x of A.list(s, t0)) assert.ok(x.cur >= 0 && x.cur <= x.goal);
+  // the "unlock N achievements" ones follow along; the last needs every other one
+  const all = fresh();
+  for (const d of A.DEFS.slice(0, -1)) all.achievements[d.id] = t0;
+  A.evaluate(all, t0);
+  assert.ok(all.achievements.metaAll, 'everything else done: Touch Grass');
+  // old saves start with none
+  const old = G.State.migrate({ ...fresh(), counts: undefined, achievements: undefined, achQueue: undefined });
+  assert.equal(A.summary(old).done, 0);
+  assert.ok(Array.isArray(old.achQueue));
 });
 
 console.log(`\n${passed} checks passed`);

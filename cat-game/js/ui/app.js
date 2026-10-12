@@ -170,6 +170,8 @@
       toast(nm('Tap a bed, box or the chair to invite {name} over (they decide). Tap the lamp to switch the lights.'), 7000);
     }
     G.Notes.today(state, t); // the day's note goes up, read or not
+    trackWorld(t);
+    flushAchievements();
     checkWeather();
     if (state.named && !introActive && !panel && !modalOpen && !decor && !play && !wcfg().asked && !wcfg().place && performance.now() > 12000) openWeatherAsk();
     scene.renderRoom(false, t);
@@ -388,6 +390,51 @@
     toastTimer = setTimeout(() => el.classList.remove('show'), ms || Math.max(3000, text.length * 55));
   }
 
+  // ---- Achievements ----------------------------------------------------------------------
+
+  // Count something the player did (the cat's own doings are counted from the log).
+  function ach(key, n) {
+    G.Achievements.bump(state, key, n, now());
+  }
+
+  // Announce the achievements that have just unlocked, a little after whatever caused them.
+  let achBusy = false;
+  function flushAchievements() {
+    if (achBusy || !state.achQueue || !state.achQueue.length) return;
+    const list = G.Achievements.take(state);
+    achBusy = true;
+    list.forEach((d, i) =>
+      setTimeout(() => {
+        toast(`${d.icon} Achievement unlocked: ${d.name}`, 4200);
+        sound('chime');
+        scene.renderRoom(true, now()); // the diary shelf starts glowing
+        if (i === list.length - 1) setTimeout(() => (achBusy = false), 4400);
+      }, 2400 + i * 4600)
+    );
+    save(true);
+  }
+
+  // Things that depend on the time, the weather and the season rather than on an action.
+  function trackWorld(t) {
+    const d = new Date(t);
+    const h = d.getHours() + d.getMinutes() / 60;
+    const day = G.Clock.dayKey(t);
+    const f = state.flags;
+    if (h < 4 && f.nightDay !== day) {
+      f.nightDay = day;
+      ach('nightDays');
+    }
+    const rise = (G.Weather.sunFor(state) || { rise: 6.2 }).rise;
+    if (h >= rise - 0.75 && h < rise + 0.5 && f.earlyDay !== day) {
+      f.earlyDay = day;
+      ach('earlyDays');
+    }
+    if (scene.seasons && scene.seasons.length) G.Achievements.mark(state, 'seasonSeen', t);
+    const w = wcfg();
+    if (w.place && w.last && !w.preview && ['rain', 'storm', 'fog'].includes(w.last.kind)) G.Achievements.mark(state, 'wx:' + w.last.kind, t);
+    G.Achievements.evaluate(state, t); // time together, bond level
+  }
+
   function apply(r, prevActivity) {
     if (!r) return;
     if (r.toast) toast(nm(r.toast));
@@ -448,6 +495,7 @@
     bindMeterTips();
     $('muteBtn').addEventListener('click', () => {
       state.settings.muted = !state.settings.muted;
+      ach('muteToggle');
       G.Sound.setMuted(state.settings.muted);
       if (!state.settings.muted) {
         G.Sound.unlock();
@@ -488,6 +536,7 @@
   function toggleTv() {
     const off = state.settings.tv !== 'off';
     state.settings.tv = off ? 'off' : 'on';
+    if (off) ach('tvOff');
     sound('tvClick');
     if (off && state.activity.id === 'supervise') {
       G.Sim.setActivity(state, now(), 'sit', 'desk');
@@ -502,6 +551,7 @@
 
   // Tap the TV: new channel. Fish, birds and mice make a watching cat keener to come and sit by it.
   function flipTv() {
+    ach('tvFlip');
     const ch = scene.changeChannel();
     sound('tvClick');
     const interesting = ['fish', 'birds', 'mouse'].includes(ch);
@@ -644,6 +694,7 @@
       if (!hadMenu) openPlayMenu();
       return;
     }
+    if (target.closest('[data-act="window"]')) ach('windowTap');
     const item = target.closest('.item');
     if (item) {
       const prev = state.activity;
@@ -656,11 +707,12 @@
       return;
     }
     if (target.closest('.note')) return void (sound('pop'), openNote());
-    if (target.closest('.diary')) return void (sound('pop'), openBook('diary'));
+    if (target.closest('.diary')) return void (sound('pop'), ach('diaryOpen'), openBook('diary'));
     if (target.closest('.portrait')) return void (sound('pop'), openSettings());
     const gift = target.closest('.gift');
     if (gift) return collectGift(Number(gift.getAttribute('data-gift')));
     if (target.closest('.cup')) {
+      if (state.room.cupOnFloor) ach('cupBack');
       apply(G.Interactions.pickUpCup(state, now()));
       scene.renderRoom(true, now());
       return;
@@ -985,6 +1037,7 @@
       slots[from] = prev || null;
     }
     setSlot(i, id, true);
+    ach('arrange');
     sound('pop');
     const next = slots.findIndex((x) => !x);
     decor.sel = next >= 0 ? next : i;
@@ -994,6 +1047,7 @@
   function clearSpot(i) {
     if (!state.room.slots[i]) return;
     setSlot(i, null, true);
+    ach('clearSpot');
     sound('pop');
     drawDecor();
   }
@@ -1132,6 +1186,8 @@
     const caption = G.Sim.describe(state).replace(/\.$/, '');
     // In the dark the camera uses its flash (you can turn it off for a moody one).
     const dark = scene.isDark();
+    ach('photo');
+    if (dark) ach('photoFlash');
     let useFlash = dark;
     scene
       .snapshot('', { flash: useFlash })
@@ -1283,6 +1339,25 @@
     return `<article class="diary"><h3>${e.today ? 'Today (so far)' : esc(G.Clock.formatDay(e.day))}</h3><p>${esc(e.open)}</p>${e.lines.map((l) => `<p>${esc(l)}</p>`).join('')}<p class="sign">${close}${renamed}</p></article>`;
   }
 
+  // The trophy page: unlocked first, then what's closest, then the secrets.
+  function trophiesHtml() {
+    const t = now();
+    const all = G.Achievements.list(state, t);
+    const sum = G.Achievements.summary(state);
+    const done = all.filter((x) => x.done).sort((a, b) => b.at - a.at);
+    const todo = all.filter((x) => !x.done && !x.def.secret).sort((a, b) => b.cur / b.goal - a.cur / a.goal);
+    const secret = all.filter((x) => !x.done && x.def.secret);
+    const card = (x) => {
+      if (!x.done && x.def.secret) return `<div class="trophy secret"><span class="ti">❓</span><div><b>???</b><p>A secret. Keep being a weird human.</p></div></div>`;
+      const pct = Math.round((x.cur / x.goal) * 100);
+      const foot = x.done ? `<small>Unlocked ${esc(G.Clock.formatDay(G.Clock.dayKey(x.at)))}</small>` : `<span class="tbar"><i style="width:${pct}%"></i></span><small>${x.cur} / ${x.goal}</small>`;
+      return `<div class="trophy ${x.done ? 'done' : ''}"><span class="ti">${x.def.icon}</span><div><b>${esc(x.def.name)}</b><p>${esc(x.def.desc)}</p>${foot}</div></div>`;
+    };
+    return `<p class="small"><b>${sum.done}</b> of ${sum.total} unlocked. Nobody asked for any of these, and yet.</p>
+      <span class="tbar big"><i style="width:${Math.round((sum.done / sum.total) * 100)}%"></i></span>
+      <div class="trophies">${[...done, ...todo, ...secret].map(card).join('')}</div>`;
+  }
+
   function openBook(tab) {
     photoView = -1;
     const tabs = [
@@ -1290,6 +1365,7 @@
       ['album', 'Album'],
       ['treasures', 'Treasures'],
       ['unlocks', 'Unlocks'],
+      ['trophies', 'Trophies'],
     ];
     let body = '';
     if (tab === 'diary') {
@@ -1310,6 +1386,13 @@
           })
           .join('') +
         `</div>`;
+    } else if (tab === 'trophies') {
+      body = trophiesHtml();
+      if (state.achUnseen) {
+        state.achUnseen = 0;
+        save(true);
+        scene.renderRoom(true, now());
+      }
     } else {
       const lv = G.Progression.level(state);
       body = G.Catalog.LEVELS.map((pts, i) => {
@@ -1323,7 +1406,7 @@
     }
     const sitter = tab === 'diary' && !G.Sim.isSleeping(state) && Math.random() < 0.3;
     openModal(
-      `<div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+      `<div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${k === tab ? 'on' : ''}" data-tab="${k}">${l}${k === 'trophies' && state.achUnseen ? ' <i class="tab-dot"></i>' : ''}</button>`).join('')}</div>
        <div class="book">${body}</div>
        ${sitter ? `<button class="sitter" id="sitter" aria-label="Shoo the cat off the diary"><svg viewBox="-80 -120 170 130">${G.CatArt.render('loaf', 'sitter')}</svg><span>${esc(state.cat.name)} is sitting on your diary. Tap to shoo.</span></button>` : ''}`,
       (box) => {
@@ -1333,6 +1416,7 @@
         if (s) {
           s.querySelectorAll('.eyes').forEach((g) => g.setAttribute('display', g.classList.contains('eyes-half') ? 'inline' : 'none'));
           s.addEventListener('click', () => {
+            if (!s.classList.contains('leave')) ach('shoo');
             s.classList.add('leave');
             sound('meow');
             setTimeout(() => s.remove(), 500);
@@ -1386,6 +1470,7 @@
     const today = G.Notes.today(state, t);
     const wasFresh = G.Notes.fresh(state, t);
     state.flags.noteSeen = G.Clock.dayKey(t);
+    if (wasFresh) ach('noteDays');
     save(true);
     if (wasFresh) scene.renderRoom(true, t); // the ring goes away
     const past = G.Notes.earlier(state, t, 14);
@@ -1398,6 +1483,7 @@
 
   // Bond level card: how far along, and what each level up brings.
   function openBond() {
+    ach('bondCard');
     const C = G.Catalog;
     const p = G.Progression.progress(state);
     const KIND = { food: 'Food', toy: 'Toy', item: 'Furniture' };
@@ -1440,6 +1526,7 @@
       .then((w) => {
         if (c.place !== place) return false; // they moved on in the meantime
         c.last = w;
+        ach('weatherSet');
         save(true);
         scene.updateLighting(now(), true);
         updateHUD();

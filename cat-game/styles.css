@@ -2626,3 +2626,85 @@ body.decorating #scene {
     animation: none;
   }
 }
+
+/* ---- Trophies (achievements) ----------------------------------------------------------------- */
+
+.tab-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-left: 4px;
+  vertical-align: middle;
+  background: var(--accent);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+}
+.tbar {
+  display: block;
+  height: 10px;
+  border: 2.5px solid var(--ink);
+  border-radius: 99px;
+  background: #fff;
+  overflow: hidden;
+}
+.tbar i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.4s;
+}
+.tbar.big {
+  height: 14px;
+  margin: 4px 0 12px;
+}
+.trophies {
+  display: grid;
+  gap: 8px;
+}
+.trophy {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 9px 12px;
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+}
+.trophy.done {
+  background: #fff6c9;
+  box-shadow: var(--shadow);
+}
+.trophy.secret {
+  opacity: 0.65;
+}
+.trophy .ti {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  font-size: 25px;
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+}
+.trophy:not(.done) .ti {
+  filter: grayscale(0.85);
+}
+.trophy b {
+  display: block;
+  font-size: 16px;
+}
+.trophy p {
+  margin: 1px 0 5px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.trophy small {
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.trophy .tbar {
+  margin: 2px 0 3px;
+}

@@ -29,6 +29,10 @@
       log: [],
       journal: [],
       notes: [],
+      counts: {}, // how many times things have happened (see achievements.js)
+      achievements: {}, // id -> when it was unlocked
+      achQueue: [], // unlocked but not yet announced
+      achUnseen: 0, // unlocked since the trophies page was last opened
       treasures: {},
       settings: { muted: false, timeOffset: 0, seasonPreview: null, lights: 'on', lightsAt: 0, tv: 'on', weather: { place: null, asked: false, preview: null, last: null } },
     };
@@ -64,6 +68,7 @@
   function log(s, entry) {
     s.log.push(entry);
     if (s.log.length > 900) s.log.splice(0, s.log.length - 900);
+    if (G.Achievements) G.Achievements.onEvent(s, entry);
   }
 
   G.State = { VERSION, createState, migrate, ensureDay, nameAt, log };
