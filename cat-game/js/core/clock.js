@@ -102,18 +102,32 @@
     return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
   }
 
-  function lightingAt(t) {
-    const h = hourOf(t);
+  // The keyframes above (and the sun's path) assume sunrise at 6:12 and sunset at 18:54. With
+  // the real sunrise and sunset for the player's place ({rise, set}, in local hours), the clock is
+  // stretched so the sun comes up and goes down when it really does there.
+  const SUNRISE = 6.2;
+  const SUNSET = 18.9;
+  function sunHour(h, sun) {
+    if (!sun || !(sun.rise >= 0) || !(sun.set > sun.rise) || sun.set > 24) return h;
+    if (h >= sun.rise && h < sun.set) return SUNRISE + ((h - sun.rise) / (sun.set - sun.rise)) * (SUNSET - SUNRISE);
+    const night = 24 - (sun.set - sun.rise);
+    const into = h >= sun.set ? h - sun.set : h + 24 - sun.set;
+    return (SUNSET + (into / night) * (24 - (SUNSET - SUNRISE))) % 24;
+  }
+
+  function lightingAt(t, sun) {
+    const real = hourOf(t);
+    const h = sunHour(real, sun);
     let i = 0;
     while (i < KEYS.length - 2 && KEYS[i + 1].h <= h) i++;
     const A = KEYS[i];
     const B = KEYS[i + 1];
     const f = Math.min(1, Math.max(0, (h - A.h) / (B.h - A.h)));
-    const isDay = h >= 6.2 && h < 18.9;
+    const isDay = h >= SUNRISE && h < SUNSET;
     // 0 at sunrise → 1 at sunset; moon uses the night span.
-    const sunP = (h - 6.2) / (18.9 - 6.2);
-    const nightH = h >= 18.9 ? h - 18.9 : h + (24 - 18.9);
-    const moonP = nightH / (24 - (18.9 - 6.2));
+    const sunP = (h - SUNRISE) / (SUNSET - SUNRISE);
+    const nightH = h >= SUNSET ? h - SUNSET : h + (24 - SUNSET);
+    const moonP = nightH / (24 - (SUNSET - SUNRISE));
     // Morning sun pours through the window onto the rug.
     let beam = 0;
     if (h >= 7 && h < 11.5) beam = 0.32;
@@ -130,7 +144,7 @@
       sunP,
       moonP,
       beam,
-      hour: h,
+      hour: real,
     };
   }
 
@@ -165,6 +179,6 @@
     MIN, HOUR, DAY,
     now, hourOf, phaseAt, PHASE_LABEL, isChaosHour,
     dayKey, endOfDayKey, formatDuration, formatTime, formatDay,
-    lightingAt, seasonsAt, SEASON_LABEL,
+    lightingAt, sunHour, seasonsAt, SEASON_LABEL,
   };
 })(globalThis.CatGame = globalThis.CatGame || {});

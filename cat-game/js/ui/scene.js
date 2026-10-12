@@ -95,6 +95,7 @@
     this.coatSig = coatSig;
     if (seasonChanged) {
       this.back.innerHTML = A.background() + A.decorBack(seasons);
+      this.wxKey = null; // the window was redrawn empty
       this.lastLightMin = -1;
     }
     this.mid.innerHTML = '';
@@ -113,20 +114,73 @@
     this.updateLighting(t, true);
   };
 
+  // How each kind of weather changes the light: how much it greys the sky, how much darker the
+  // room is by day, whether the sun / moon / stars are hidden, and how much sunbeam gets in.
+  const WX_LIGHT = {
+    clear: { grey: 0, dim: 0, covered: false, beam: 1 },
+    partly: { grey: 0.15, dim: 0.02, covered: false, beam: 0.5, stars: 0.55 },
+    overcast: { grey: 0.75, dim: 0.05, covered: true, beam: 0 },
+    rain: { grey: 0.85, dim: 0.09, covered: true, beam: 0 },
+    storm: { grey: 0.92, dim: 0.16, covered: true, beam: 0 },
+    fog: { grey: 0.85, dim: 0.06, covered: true, beam: 0 },
+    snow: { grey: 0.8, dim: 0.04, covered: true, beam: 0 },
+  };
+  const WX_SKY_DAY = { partly: '#b4c8d6', overcast: '#b7bdc6', rain: '#98a4b1', storm: '#566078', fog: '#d0d6d9', snow: '#d2d9e2' };
+  const WX_SKY_NIGHT = '#232843';
+
+  function weatherLight(light, kind) {
+    const w = WX_LIGHT[kind];
+    if (!w) return light;
+    const mix = A.mixHex;
+    const night = Math.max(0, Math.min(1, light.lamp)); // 0 in daylight, 1 in the dark
+    const day = 1 - night;
+    const grey = (c) => mix(mix(c, WX_SKY_DAY[kind] || '#b7bdc6', w.grey * day), WX_SKY_NIGHT, w.grey * 0.7 * night);
+    return Object.assign({}, light, {
+      skyTop: grey(light.skyTop),
+      skyBot: grey(light.skyBot),
+      tint: w.dim ? mix(light.tint, '#7d8aa8', 0.35 * day * Math.min(1, w.dim * 8)) : light.tint,
+      alpha: light.alpha + w.dim * day,
+      lamp: Math.min(1, light.lamp + w.dim * 2.5 * day),
+      beam: light.beam * w.beam,
+      skyCovered: w.covered,
+      starVis: w.stars,
+    });
+  }
+
+  // Redraw what is going on outside the window when the weather (or day / night) changes.
+  Scene.prototype.setWeather = function (kind, night) {
+    const key = (kind || 'none') + (night ? ':n' : ':d');
+    if (key === this.wxKey) return;
+    this.wxKey = key;
+    const art = kind ? A.weatherArt(kind, night) : { back: '', front: '' };
+    const back = this.svg.querySelector('#wx-back');
+    const front = this.svg.querySelector('#wx-front');
+    if (back) back.innerHTML = art.back;
+    if (front) front.innerHTML = art.front;
+    const tree = this.svg.querySelector('#wx-tree');
+    if (tree) tree.setAttribute('class', 'wx-tree wxfx' + (kind === 'storm' ? ' storm' : ''));
+  };
+
   Scene.prototype.updateLighting = function (t, force) {
     const m = Math.floor(t / 60000);
     if (!force && m === this.lastLightMin) return;
     this.lastLightMin = m;
-    let light = G.Clock.lightingAt(t);
+    const st = this.getState();
+    // The sun follows the real sunrise and sunset where the player is, when known; the weather
+    // outside greys the sky and dims the room.
+    let light = G.Clock.lightingAt(t, G.Weather.sunFor(st));
+    const wx = G.Weather.current(st);
+    light = weatherLight(light, wx);
+    this.setWeather(wx, light.lamp > 0.55);
     // Lights off (tap the lamp): the room goes dark whatever the time of day.
-    const off = this.getState().settings.lights === 'off' && !this.intro && !this.inGarden;
+    const off = st.settings.lights === 'off' && !this.intro && !this.inGarden;
     // How dark depends on the time: a morning room just dims, a night room goes properly dark.
     // (The sun still shines through the window by day, so the sunbeam stays.)
     if (off) {
       const night = Math.max(0, Math.min(1, light.lamp));
       light = Object.assign({}, light, { tint: A.mixHex('#2c3768', '#0c1236', night), alpha: Math.max(light.alpha, 0.2 + 0.46 * night), lightsOff: true });
     }
-    light.tvOff = this.getState().settings.tv === 'off';
+    light.tvOff = st.settings.tv === 'off';
     A.applyLighting(this.svg, light);
     A.updateClock(this.svg, t);
     G.GardenArt.applyLighting(this.svg, light, A.mixHex);
@@ -414,7 +468,7 @@
     }
     const bird = this.svg.querySelector('#bird');
     if (bird) {
-      const show = a.id === 'birds' && G.Clock.lightingAt(G.Clock.now(st)).isDay;
+      const show = a.id === 'birds' && G.Clock.lightingAt(G.Clock.now(st), G.Weather.sunFor(st)).isDay;
       bird.setAttribute('display', show ? 'inline' : 'none');
       if (show && nowMs > this.nextChirp) {
         this.nextChirp = nowMs + 4000 + Math.random() * 6000;
@@ -1082,6 +1136,27 @@
     clone.setAttribute('width', vb[2]);
     clone.setAttribute('height', vb[3]);
     clone.querySelectorAll('#toy, .float, .nudge').forEach((n) => n.remove());
+    // The weather moves with CSS, which a saved picture doesn't carry: freeze it where it is.
+    const live = this.svg.querySelectorAll('.wxfx, .wxfx *');
+    const copy = clone.querySelectorAll('.wxfx, .wxfx *');
+    live.forEach((n, i) => {
+      const c = copy[i];
+      if (!c || !n.style || !n.style.animation) return;
+      const cs = getComputedStyle(n);
+      c.style.animation = 'none';
+      c.style.transform = cs.transform;
+      c.style.transformOrigin = cs.transformOrigin;
+      c.style.transformBox = cs.transformBox;
+      c.style.opacity = cs.opacity;
+    });
+    const tree = this.svg.querySelector('#wx-tree');
+    const treeCopy = clone.querySelector('#wx-tree');
+    if (tree && treeCopy) {
+      const cs = getComputedStyle(tree);
+      treeCopy.style.animation = 'none';
+      treeCopy.style.transform = cs.transform;
+      treeCopy.style.transformOrigin = cs.transformOrigin;
+    }
     const xml = new XMLSerializer().serializeToString(clone);
     const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
     return new Promise((resolve, reject) => {

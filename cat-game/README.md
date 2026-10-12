@@ -29,6 +29,7 @@ When choosing a look, pick a breed (Tabby & white, Calico, Tuxedo, Siamese, Ragd
 | Tap the **lamp** | Lights off: the room dims (a morning room only dims a little, the sun still shines in; at night it goes properly dark and the TV glows) and the cat naps more and recovers energy a bit faster. Tap again for lights on, back to normal. It's remembered, and lights left off through the night come back on at dawn by themselves (the cat sleeps well and says so in its diary). |
 | Tap the **TV** | Flips to a random channel; a quick double tap, or the little power button on its bottom-left corner, switches it off completely (tap an off TV to switch it on). The cat won't watch a dark screen (and the cat may come and watch, more keenly for fish, birds and mice): fish, birds, a cooking show, the weather, space, football, a cartoon mouse, or your own cat. It also changes channel by itself now and then, and your cat may perk up at the fish, birds and mice. |
 | **Photo** | Snaps the cat into your album (it's in the Diary). Photos look like polaroids, and **Save to device** saves a polaroid card with the picture, what the cat was doing and when. In the dark the camera uses a flash (switchable on the Snap card). With more than one photo in the album, use the arrows (or ← → keys, or swipe) to flip through them. |
+| The **window** | Shows the real weather where you are, with something different going on out there for each kind: sun with birds and a butterfly, drifting clouds and a kite, blowing leaves and a walker, rain with puddle ripples and an umbrella, lightning and a thrashing tree, fog around a glowing street lamp, snow. The sun rises and sets at the real times for your place, and the room dims on grey days. A little after the game starts it asks once to use your location (the browser's own prompt); you can pick a city instead, or turn it off, in **Me → Weather**. Only the place's latitude and longitude go to Open-Meteo, a free weather service, and it's re-checked every 20 minutes. With no place, the window works as before. **Me → Testing tools** can preview each kind of weather. |
 | Tap the **diary** on the wall shelf | The cat's own diary, your photo album, treasures (gifts) and unlocks. A pulsing ring shows when something new has unlocked. |
 | Tap the **framed portrait** (or the name) | Profile, favourites, rename, **change look**, sound, **start a new game**, and testing tools. |
 
@@ -60,7 +61,8 @@ cat-game/
     profile.js          your cat: default name, quirks
     coats.js            cat looks: breed presets, colours, patterns
     photoread.js        reading a coat from a photo (background, lighting, pattern)
-    clock.js            real-time clock, day phases, lighting, seasons
+    clock.js            real-time clock, day phases, lighting (follows the real sunrise and sunset), seasons
+    weather.js          real weather lookup (Open-Meteo): kinds, readings, location and city search
     random.js           seeded randomness (same story every time it's replayed)
     catalog.js          foods, toys, items, spots, gifts, bond levels
     state.js            the save file (data model)

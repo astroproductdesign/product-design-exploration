@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
-const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'sim', 'interactions', 'journal'];
+const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'weather', 'sim', 'interactions', 'journal'];
 const ctx = vm.createContext({ console, Math, Date, JSON });
 for (const f of files) vm.runInContext(readFileSync(path.join(dir, '../js/core', f + '.js'), 'utf8'), ctx, { filename: f });
 const G = ctx.CatGame;
@@ -429,6 +429,58 @@ test('photo reading: background, lighting and pattern', () => {
   assert.equal(read(photo((x, y) => (!isCat(x, y) ? [70, 52, 40] : [195, 196, 201]))).base, '#fcfcfc');
   // "All one colour" overrides any second colour.
   assert.equal(G.PhotoRead.analyze(photo((x, y) => (!isCat(x, y) ? [96, 110, 128] : x % 8 < 3 ? [150, 80, 30] : [214, 128, 58])), 96, 72, [{ x: 55, y: 44 }], { oneColour: true }).coat.pattern, 'plain');
+});
+
+
+test('weather: codes, readings and old saves', () => {
+  const W = G.Weather;
+  assert.equal(W.kindFor(0), 'clear');
+  assert.equal(W.kindFor(2), 'partly');
+  assert.equal(W.kindFor(3), 'overcast');
+  assert.equal(W.kindFor(45), 'fog');
+  assert.equal(W.kindFor(53), 'rain');
+  assert.equal(W.kindFor(81), 'rain');
+  assert.equal(W.kindFor(73), 'snow');
+  assert.equal(W.kindFor(95), 'storm');
+  const w = W.parse({ current: { weather_code: 61, temperature_2m: 27.6 }, daily: { sunrise: ['2026-10-12T07:06'], sunset: ['2026-10-12T19:12'] } }, 5);
+  assert.equal(w.kind, 'rain');
+  assert.equal(w.temp, 28);
+  assert.ok(Math.abs(w.rise - 7.1) < 0.01 && Math.abs(w.set - 19.2) < 0.01);
+  assert.equal(W.parse({}), null);
+  // an old save has no weather: nothing shows, and nothing breaks
+  const s = G.State.migrate({ ...fresh(), settings: { muted: false } });
+  assert.equal(W.current(s), null);
+  assert.equal(W.sunFor(s), null);
+  s.settings.weather.place = { lat: 3.14, lon: 101.69 };
+  assert.ok(W.stale(s, t0), 'a place with no reading yet needs one');
+  s.settings.weather.last = w;
+  w.at = t0;
+  assert.equal(W.current(s), 'rain');
+  assert.equal(W.stale(s, t0 + 5 * MIN), false);
+  assert.equal(W.stale(s, t0 + 25 * MIN), true);
+  s.settings.weather.preview = 'storm';
+  assert.equal(W.current(s), 'storm', 'a test preview wins');
+});
+
+test('the sun follows the real sunrise and sunset', () => {
+  const at = (h, sun) => G.Clock.lightingAt(new Date(2026, 9, 12, Math.floor(h), Math.round((h % 1) * 60)).getTime(), sun);
+  const sun = { rise: 7.1, set: 19.2 };
+  // Without a place, the old fixed times.
+  assert.equal(at(6.5).isDay, true);
+  // With one, the sun comes up at the real sunrise, is highest at midday between, and sets at sunset.
+  assert.equal(at(6.5, sun).isDay, false, 'still dark before the real sunrise');
+  assert.equal(at(7.2, sun).isDay, true);
+  assert.ok(Math.abs(at(7.1, sun).sunP) < 0.02, 'sunrise: sun at the start of its arc');
+  assert.ok(Math.abs(at(13.15, sun).sunP - 0.5) < 0.02, 'solar noon: top of the arc');
+  assert.equal(at(19.0, sun).isDay, true);
+  assert.equal(at(19.4, sun).isDay, false, 'dark after the real sunset');
+  // A stretched clock must still be continuous around midnight and give sane values.
+  for (let h = 0; h < 24; h += 0.25) {
+    const L = at(h, sun);
+    assert.ok(L.alpha >= 0 && L.alpha <= 1 && L.sunP === L.sunP && L.moonP === L.moonP);
+  }
+  // Nonsense sun times are ignored.
+  assert.equal(G.Clock.sunHour(10, { rise: 9, set: 5 }), 10);
 });
 
 console.log(`\n${passed} checks passed`);

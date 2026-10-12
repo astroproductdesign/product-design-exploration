@@ -92,6 +92,7 @@
     state.lastSeenAt = t;
     save(true);
 
+    checkWeather();
     setInterval(tick, 1000);
     requestAnimationFrame(frame);
     document.addEventListener('visibilitychange', onVisibility);
@@ -168,6 +169,8 @@
       state.flags.inviteTip = true;
       toast(nm('Tap a bed, box or the chair to invite {name} over (they decide). Tap the lamp to switch the lights.'), 7000);
     }
+    checkWeather();
+    if (state.named && !introActive && !panel && !modalOpen && !decor && !play && !wcfg().asked && !wcfg().place && performance.now() > 12000) openWeatherAsk();
     scene.renderRoom(false, t);
     scene.updateLighting(t);
     updateHUD();
@@ -250,7 +253,10 @@
     $('bondRow').title = p.max ? 'Bond: best friends! See what you unlocked' : `Bond Lv ${p.level}: ${Math.floor(p.into)}/${p.need} to the next level. See what you can unlock`;
     $('clockTime').textContent = G.Clock.formatTime(t);
     const seasons = scene ? scene.seasons : [];
-    $('clockPhase').textContent = G.Clock.PHASE_LABEL[G.Clock.phaseAt(t)] + (seasons.length ? ' · ' + seasons.map((x) => G.Clock.SEASON_LABEL[x]).join(' & ') : '');
+    const wk = G.Weather.current(state);
+    const last = wcfg().last;
+    $('clockPhase').textContent = G.Clock.PHASE_LABEL[G.Clock.phaseAt(t)] + (wk ? ' · ' + G.Weather.LABEL[wk] : '') + (seasons.length ? ' · ' + seasons.map((x) => G.Clock.SEASON_LABEL[x]).join(' & ') : '');
+    $('clockPhase').title = wk && last && !wcfg().preview && last.temp !== null ? `${last.temp}°C outside` : '';
     setCaption(play ? (play.joined ? nm('{name} is in hunting mode! Wiggle the toy.') : nm('Wiggle the toy to tempt {name}…')) : nm(G.Sim.describe(state)));
     $('muteBtn').innerHTML = state.settings.muted ? ICONS.soundOff : ICONS.soundOn;
     $('muteBtn').setAttribute('aria-label', state.settings.muted ? 'Sound off' : 'Sound on');
@@ -1380,7 +1386,142 @@
     );
   }
 
-  function openSettings() {
+  // ---- Weather outside the window --------------------------------------------------------
+  // With a place (from the browser's location prompt, or a city search) the window shows the
+  // real weather there, and the sun rises and sets when it really does.
+
+  const wcfg = () => state.settings.weather;
+  let wxTried = 0;
+  let wxBusy = false;
+
+  // Ask the weather service about a place. Resolves true if the window now has a reading.
+  function loadWeather(place) {
+    const c = wcfg();
+    wxBusy = true;
+    wxTried = Date.now();
+    return G.Weather.fetchNow(place)
+      .then((w) => {
+        if (c.place !== place) return false; // they moved on in the meantime
+        c.last = w;
+        save(true);
+        scene.updateLighting(now(), true);
+        updateHUD();
+        return true;
+      })
+      .catch(() => false)
+      .then((ok) => {
+        wxBusy = false;
+        return ok;
+      });
+  }
+
+  // Keep the reading fresh (every 20 minutes; after a failure, try again in two).
+  function checkWeather() {
+    const c = wcfg();
+    if (!c.place || wxBusy || Date.now() - wxTried < 2 * 60 * 1000) return;
+    if (G.Weather.stale(state, Date.now())) loadWeather(c.place);
+  }
+
+  function weatherNowHtml() {
+    const c = wcfg();
+    if (!c.place || !c.last) return '';
+    const sun = c.last.rise >= 0 ? `Sun ${hhmm(c.last.rise)} to ${hhmm(c.last.set)}` : '';
+    return `<div class="wx-now"><span>${esc(G.Weather.LABEL[c.last.kind])}${c.last.temp !== null ? `, ${c.last.temp}°C` : ''}</span><small>${esc(c.place.name || 'your place')}${sun ? ' · ' + sun : ''}</small></div>`;
+  }
+
+  const hhmm = (h) => {
+    const m = Math.round(h * 60);
+    return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  };
+
+  function weatherCardHtml(intro) {
+    const has = !!wcfg().place;
+    return `<div class="wx-card">
+      ${weatherNowHtml()}
+      <p class="small">${intro}</p>
+      <div class="wx-actions">
+        <button class="btn primary" id="wxLocate">${has ? 'Use my location again' : 'Use my location'}</button>
+        <button class="btn" id="wxCityBtn">Pick a city</button>
+        ${has ? '<button class="btn" id="wxOff">Stop using weather</button>' : ''}
+      </div>
+      <form class="wx-city" id="wxCity" hidden><input id="wxCityIn" maxlength="60" autocomplete="off" placeholder="City, e.g. Kuala Lumpur" aria-label="City"><button class="btn" type="submit">Search</button></form>
+      <div class="wx-results" id="wxResults"></div>
+      <p class="wx-msg" id="wxMsg" role="status"></p>
+    </div>`;
+  }
+
+  // done() runs once the window has a real reading.
+  function bindWeatherCard(box, done) {
+    const msg = (text, err) => {
+      const m = box.querySelector('#wxMsg');
+      m.textContent = text;
+      m.classList.toggle('err', !!err);
+    };
+    const showCity = () => {
+      box.querySelector('#wxCity').hidden = false;
+      box.querySelector('#wxCityIn').focus();
+    };
+    const choose = (place) => {
+      wcfg().place = place;
+      wcfg().last = null;
+      msg('Looking outside…');
+      loadWeather(place).then((ok) => {
+        if (ok) done();
+        else msg("Couldn't reach the weather service. Check your connection and try again.", true);
+      });
+    };
+    box.querySelector('#wxLocate').addEventListener('click', () => {
+      msg('Waiting for your browser to ask…');
+      G.Weather.locate().then(
+        (p) => choose({ lat: p.lat, lon: p.lon, name: 'Your location' }),
+        () => {
+          msg("Couldn't get your location. You can pick a city instead.", true);
+          showCity();
+        }
+      );
+    });
+    box.querySelector('#wxCityBtn').addEventListener('click', showCity);
+    box.querySelector('#wxCity').addEventListener('submit', (e) => {
+      e.preventDefault();
+      msg('Searching…');
+      G.Weather.search(box.querySelector('#wxCityIn').value).then(
+        (list) => {
+          box.querySelector('#wxResults').innerHTML = list.map((x, i) => `<button type="button" data-i="${i}">${esc(x.name)}<small>${esc(x.region)}</small></button>`).join('');
+          msg(list.length ? '' : 'No city found with that name.', !list.length);
+          box.querySelectorAll('#wxResults [data-i]').forEach((b) => b.addEventListener('click', () => choose({ lat: list[+b.dataset.i].lat, lon: list[+b.dataset.i].lon, name: list[+b.dataset.i].name })));
+        },
+        () => msg("Couldn't search right now. Check your connection.", true)
+      );
+    });
+    const off = box.querySelector('#wxOff');
+    if (off)
+      off.addEventListener('click', () => {
+        wcfg().place = null;
+        wcfg().last = null;
+        scene.updateLighting(now(), true);
+        updateHUD();
+        save(true);
+        openSettings();
+      });
+  }
+
+  const WX_INTRO = "The window can show the weather where you are, and the sun will rise and set at the real times. Your place stays on this device; it's only sent to Open-Meteo, a free weather service, to ask about the weather.";
+
+  // Asked once, a little after the game starts.
+  function openWeatherAsk() {
+    wcfg().asked = true;
+    save(true);
+    openModal(
+      `<h2>Show the real weather outside?</h2>${weatherCardHtml(WX_INTRO)}<div class="row center"><button class="btn link" data-close>Not now</button></div>`,
+      (box) =>
+        bindWeatherCard(box, () => {
+          closeModal();
+          toast(nm('{name} can see the real sky now.'));
+        })
+    );
+  }
+
+    function openSettings() {
     const t = now();
     const C = G.Catalog;
     const p = G.Progression.progress(state);
@@ -1400,11 +1541,14 @@
        <form class="rename" id="renameForm"><label for="renameInput">Name</label><div class="row"><input id="renameInput" maxlength="40" autocomplete="off" value="${esc(state.cat.name)}"><button class="btn primary" type="submit">Rename</button></div><p class="error" id="renameErr"></p></form>
        <h3>Favourites</h3><ul class="favs"><li><b>Nap spot:</b> ${favSpot}</li><li><b>Toy:</b> ${favToy}</li><li><b>Food:</b> ${favFood}</li><li><b>Pets:</b> ${favPet}</li></ul>
        <h3>Quirks</h3><ul class="quirks">${quirks}</ul>
+       <h3>Weather</h3>${weatherCardHtml(wcfg().place ? 'The window shows the real weather and the real sunrise and sunset there.' : WX_INTRO)}
        <h3>Sound</h3><button class="btn" id="soundBtn">${state.settings.muted ? 'Sound is off — turn on' : 'Sound is on — turn off'}</button>
        <h3>Start over</h3><p class="small">Erase everything and adopt a new cat.</p><button class="btn danger" id="resetBtn">Start a new game</button>
        <details class="testing"><summary>Testing tools</summary>
          <p class="small">Pretend time has passed (to see the "while you were away" summary without waiting):</p>
          <div class="row"><button class="btn" data-skip="1">+1 hour</button><button class="btn" data-skip="6">+6 hours</button><button class="btn" data-skip="24">+1 day</button><button class="btn" id="realTime" ${state.settings.timeOffset ? '' : 'disabled'}>Back to real time</button></div>
+         <p class="small">Weather preview (the window only):</p>
+         <div class="row">${[['', 'Auto'], ...G.Weather.KINDS.map((k) => [k, G.Weather.LABEL[k]])].map(([k, l]) => `<button class="chip ${String(wcfg().preview || '') === k ? 'on' : ''}" data-wx="${k}">${l}</button>`).join('')}</div>
          <p class="small">Seasonal decor preview:</p>
          <div class="row">${[['', 'Auto'], ['none', 'None'], ['cny', 'CNY'], ['raya', 'Raya'], ['christmas', 'Christmas']].map(([k, l]) => `<button class="chip ${String(state.settings.seasonPreview || '') === k ? 'on' : ''}" data-season="${k}">${l}</button>`).join('')}</div>
        </details>`,
@@ -1438,6 +1582,16 @@
           save(true);
           toast('Back to real time.');
         });
+        bindWeatherCard(box, () => openSettings());
+        box.querySelectorAll('[data-wx]').forEach((b) =>
+          b.addEventListener('click', () => {
+            wcfg().preview = b.getAttribute('data-wx') || null;
+            scene.updateLighting(now(), true);
+            updateHUD();
+            save(true);
+            openSettings();
+          })
+        );
         box.querySelectorAll('[data-season]').forEach((b) =>
           b.addEventListener('click', () => {
             state.settings.seasonPreview = b.getAttribute('data-season') || null;

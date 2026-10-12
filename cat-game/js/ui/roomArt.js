@@ -120,12 +120,17 @@
       .join('')}</g>`;
     s += `<g id="sun"><circle r="16" fill="#ffe08a" stroke="${K.line}" stroke-width="3"/></g>`;
     s += `<g id="moon"><circle r="13" fill="#fff6d6" stroke="${K.line}" stroke-width="3"/><circle cx="-4" cy="3" r="2.5" fill="#efe2b3"/><circle cx="3" cy="-3" r="1.6" fill="#efe2b3"/></g>`;
+    s += `<g id="wx-back"></g>`;
     // a flat hedge and a round tree, like the yard in the reference
     s += S('M 330 282 L 330 236 Q 352 220 374 234 Q 396 216 420 232 Q 444 218 466 232 L 466 282 Z', '#8cac64', 2.5);
+    // (the tree sways in the wind, harder in a storm)
+    s += `<g id="wx-tree" class="wx-tree wxfx">`;
     s += L('M 530 236 Q 500 240 470 250', K.line, 9) + L('M 530 236 Q 500 240 470 250', '#8a5636', 5);
     s += `<g fill="#8cac64" stroke="${K.line}" stroke-width="3"><circle cx="500" cy="232" r="13"/><circle cx="532" cy="252" r="15"/><circle cx="522" cy="222" r="18"/></g>`;
     s += L('M 516 214 Q 522 220 528 216 M 496 228 Q 500 232 504 229', '#4c8444', 2.5);
+    s += `</g>`;
     s += `<g id="bird" display="none" transform="translate(484 240)"><g class="bird-hop">${S('M -10 0 Q -8 -12 2 -12 Q 10 -12 11 -5 L 16 -4 L 11 -1 Q 8 6 -2 5 Q -8 5 -10 0 Z', '#7fa8d6', 2.2)}<circle cx="5" cy="-7" r="1.4" fill="#2a231f"/>${L('M -4 -4 Q 0 -1 4 -4', '#5b7fa8', 2)}${L('M -2 5 L -2 9 M 2 5 L 2 9', '#c9873a', 1.6)}</g></g>`;
+    s += `<g id="wx-front"></g>`;
     s += `</g>`;
     // Frame
     s += `<rect x="330" y="80" width="200" height="200" fill="none" stroke="${K.cream}" stroke-width="12"/>`;
@@ -134,6 +139,88 @@
     s += L('M 430 86 L 430 274', K.line, 12) + L('M 430 86 L 430 274', K.cream, 6) + L('M 336 180 L 524 180', K.line, 12) + L('M 336 180 L 524 180', K.cream, 6);
     s += `<rect x="304" y="286" width="252" height="14" rx="3" fill="${K.woodLight}" stroke="${K.line}" stroke-width="3"/>`;
     return s;
+  }
+
+  // ---- Weather outside the window ------------------------------------------------------
+  // Each kind of weather has its own things going on out there. Everything is drawn in the
+  // window's own 200 x 200 space and moved with CSS (see .wxfx in styles.css); `back` sits
+  // behind the hedge and tree, `front` in front of them.
+
+  function wxCloud(x, y, sc, fill, dur, delay) {
+    const sh = '<ellipse cx="0" cy="0" rx="28" ry="12"/><circle cx="-12" cy="-7" r="11"/><circle cx="8" cy="-12" r="14"/><circle cx="24" cy="-3" r="9"/>';
+    return `<g style="animation:wx-drift ${dur}s linear ${delay}s infinite"><g transform="translate(${x} ${y}) scale(${sc})"><g fill="${K.line}" stroke="${K.line}" stroke-width="5" stroke-linejoin="round">${sh}</g><g fill="${fill}">${sh}</g></g></g>`;
+  }
+
+  function wxStreaks(n, len, dur, op, col) {
+    let s = '';
+    for (let i = 0; i < n; i++) {
+      const x = ((i * 37) % 210) - 5;
+      const delay = (-((i * 13) % 10) / 10) * dur;
+      const y0 = (i * 53) % 190;
+      s += `<line x1="${x}" y1="-20" x2="${x - 3}" y2="${len - 20}" stroke="${col}" stroke-width="1.8" stroke-linecap="round" opacity="${op}" style="--y:${y0}px;animation:wx-fall ${dur}s linear ${delay.toFixed(2)}s infinite"/>`;
+    }
+    return s;
+  }
+
+  function wxWalker(night, umbrella) {
+    const top = night ? '#6b7391' : '#e0735f';
+    return (
+      `<g style="animation:wx-walk 16s linear infinite"><g style="animation:wx-bob .6s ease-in-out infinite">` +
+      `<circle cx="0" cy="160" r="4.5" fill="#f2c9a0" stroke="${K.line}" stroke-width="2"/>` +
+      `<rect x="-4.5" y="165" width="9" height="14" rx="3" fill="#4d6fa8" stroke="${K.line}" stroke-width="2"/>` +
+      (umbrella ? `<path d="M-15 156 Q0 138 15 156 Z" fill="${top}" stroke="${K.line}" stroke-width="2.5" stroke-linejoin="round"/><line x1="0" y1="156" x2="0" y2="166" stroke="${K.line}" stroke-width="2"/>` : '') +
+      `</g></g>`
+    );
+  }
+
+  function wxBird(y, dur, delay) {
+    return `<g style="animation:wx-fly ${dur}s linear ${delay}s infinite"><g class="wx-o" style="animation:wx-flap .5s ease-in-out infinite"><path d="M0 ${y} q5 -6 10 0 q5 -6 10 0" fill="none" stroke="${K.line}" stroke-width="2.4" stroke-linecap="round"/></g></g>`;
+  }
+
+  function weatherArt(kind, night) {
+    const cloudFill = { storm: night ? '#2a2f47' : '#3f465c', rain: night ? '#394057' : '#7d8896', overcast: night ? '#444a63' : '#a4abb5', snow: night ? '#5a6280' : '#d3d9e2' }[kind] || (night ? '#4a5483' : '#ffffff');
+    let back = '';
+    let front = '';
+    if (kind === 'partly') back += wxCloud(40, 40, 1.1, cloudFill, 34, -6) + wxCloud(30, 80, 0.8, cloudFill, 48, -30);
+    if (kind === 'overcast' || kind === 'snow') back += wxCloud(20, 34, 1.5, cloudFill, 70, -10) + wxCloud(60, 72, 1.3, cloudFill, 90, -50) + wxCloud(30, 106, 1.2, cloudFill, 80, -25);
+    if (kind === 'rain') back += wxCloud(20, 34, 1.6, cloudFill, 80, -10) + wxCloud(70, 72, 1.4, cloudFill, 100, -60);
+    if (kind === 'storm') back += wxCloud(24, 34, 1.7, cloudFill, 60, -10) + wxCloud(60, 78, 1.5, cloudFill, 75, -40) + wxCloud(20, 112, 1.3, cloudFill, 66, -20);
+
+    if (kind === 'clear' && !night) {
+      front += wxBird(60, 16, 0) + wxBird(76, 22, -9);
+      front += `<g style="animation:wx-fly 20s linear -4s infinite"><g style="animation:wx-bob 1.2s ease-in-out infinite"><g class="wx-o" style="animation:wx-flapx .4s ease-in-out infinite"><ellipse cx="-4" cy="120" rx="4.5" ry="3.2" fill="#f4accc" stroke="${K.line}" stroke-width="1.6"/><ellipse cx="4" cy="120" rx="4.5" ry="3.2" fill="#f4accc" stroke="${K.line}" stroke-width="1.6"/></g></g></g>`;
+    }
+    if (kind === 'clear' && night) {
+      for (let f = 0; f < 7; f++) front += `<circle cx="${20 + f * 26}" cy="${148 + ((f * 17) % 28)}" r="2.4" fill="#f6e87a" style="animation:wx-fire ${(2.4 + (f % 3) * 0.8).toFixed(1)}s ease-in-out ${(f * 0.5).toFixed(1)}s infinite"/>`;
+    }
+    if (kind === 'partly' && !night) {
+      front += `<g transform="translate(152 56)"><g style="transform-origin:0 60px;animation:wx-kite 3s ease-in-out infinite"><path d="M0 -14 L10 0 L0 18 L-10 0Z" fill="#e0735f" stroke="${K.line}" stroke-width="2.5" stroke-linejoin="round"/><path d="M0 18 q-6 8 0 14 q6 8 0 14" fill="none" stroke="${K.line}" stroke-width="2"/></g><path d="M0 18 q-10 50 -16 94" fill="none" stroke="${K.line}" stroke-width="1.6" opacity=".6"/></g>`;
+    }
+    if (kind === 'overcast') {
+      for (let l = 0; l < 4; l++) front += `<g style="animation:wx-leaf ${(7 + l * 1.6).toFixed(1)}s linear ${(-l * 2.1).toFixed(1)}s infinite"><ellipse cx="0" cy="${106 + l * 14}" rx="4.5" ry="2.6" fill="${l % 2 ? '#e0a64a' : '#c46a3c'}" stroke="${K.line}" stroke-width="1.6"/></g>`;
+      front += wxWalker(night, false);
+    }
+    if (kind === 'rain') {
+      front += wxWalker(night, true);
+      for (let r = 0; r < 3; r++) front += `<ellipse class="wx-o" cx="${40 + r * 60}" cy="188" rx="14" ry="3" fill="none" stroke="#e8f2fa" stroke-width="1.6" style="animation:wx-rip 1.8s ease-out ${(r * 0.6).toFixed(1)}s infinite"/>`;
+      front += wxStreaks(26, 10, 0.9, 0.75, night ? '#9fb2d6' : '#e9f3fb');
+    }
+    if (kind === 'storm') {
+      front += `<polygon class="wx-o" points="132,60 118,100 128,100 112,146 144,92 132,92 146,60" fill="#fff6a8" stroke="${K.line}" stroke-width="2" style="animation:wx-bolt 5s linear infinite"/>`;
+      front += wxStreaks(46, 13, 0.55, 0.8, night ? '#8ea2d0' : '#dbe8f5');
+    }
+    if (kind === 'snow') {
+      for (let n = 0; n < 34; n++) front += `<circle cx="${(n * 41) % 200}" cy="-6" r="${(1.6 + (n % 3) * 0.5).toFixed(1)}" fill="#fff" stroke="${K.line}" stroke-width=".6" style="--y:${(n * 47) % 190}px;animation:wx-snow ${(4 + (n % 4) * 1.2).toFixed(1)}s linear ${(-(n % 9) * 0.6).toFixed(1)}s infinite"/>`;
+    }
+    if (kind === 'fog') {
+      front += `<g style="animation:wx-glow 3s ease-in-out infinite"><circle cx="40" cy="146" r="20" fill="#ffe8a0" opacity=".55"/></g><line x1="40" y1="144" x2="40" y2="186" stroke="${K.line}" stroke-width="3"/><circle cx="40" cy="142" r="5" fill="#ffe08a" stroke="${K.line}" stroke-width="2.4"/>`;
+      for (let m = 0; m < 3; m++) front += `<ellipse cx="${60 + m * 40}" cy="${112 + m * 26}" rx="95" ry="14" fill="${night ? '#6c7592' : '#ffffff'}" opacity="${(0.5 + m * 0.1).toFixed(1)}" style="animation:wx-mist ${9 + m * 3}s ease-in-out ${-m * 3}s infinite"/>`;
+    }
+    // raindrops sliding down the glass, and the flash of the lightning
+    if (kind === 'rain' || kind === 'storm') for (let g = 0; g < 5; g++) front += `<circle cx="${26 + g * 38}" cy="${20 + ((g * 31) % 40)}" r="2.6" fill="#fff" opacity=".55" style="animation:wx-slide ${5 + g}s ease-in ${(-g * 1.7).toFixed(1)}s infinite"/>`;
+    if (kind === 'storm') front += `<rect width="200" height="200" fill="#fff" opacity="0" style="animation:wx-flash 5s linear infinite"/>`;
+    const wrap = (inner) => (inner ? `<g class="wxfx" transform="translate(330 80)">${inner}</g>` : '');
+    return { back: wrap(back), front: wrap(front) };
   }
 
   // Flat cream curtains beside the window: opaque, a few fold lines, no sheer.
@@ -821,10 +908,15 @@
     const dim = light.lightsOff ? 0.25 + 0.75 * Math.max(0, Math.min(1, light.lamp)) : Math.max(0, Math.min(1, (light.alpha - 0.25) / 0.3));
     $('tv-glow').setAttribute('opacity', (light.tvOff ? 0 : dim).toFixed(3));
     $('sunbeam').setAttribute('opacity', light.beam.toFixed(3));
-    $('stars').setAttribute('opacity', light.isDay ? 0 : Math.min(1, light.lamp).toFixed(2));
+    // Thick cloud, rain or fog hides the sun, the moon and the stars.
+    const covered = !!light.skyCovered;
+    $('stars').setAttribute('opacity', covered || light.isDay ? 0 : (Math.min(1, light.lamp) * (light.starVis === undefined ? 1 : light.starVis)).toFixed(2));
     const sun = $('sun');
     const moon = $('moon');
-    if (light.isDay) {
+    if (covered) {
+      sun.setAttribute('display', 'none');
+      moon.setAttribute('display', 'none');
+    } else if (light.isDay) {
       const p = light.sunP;
       sun.setAttribute('display', 'inline');
       moon.setAttribute('display', 'none');
@@ -861,5 +953,5 @@
 
   const TV = { CHANNELS, show: tvShow, static: tvStatic, off: tvOff };
 
-  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, mixHex, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
+  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, mixHex, weatherArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
 })(globalThis.CatGame = globalThis.CatGame || {});

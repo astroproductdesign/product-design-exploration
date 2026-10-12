@@ -29,7 +29,7 @@
       log: [],
       journal: [],
       treasures: {},
-      settings: { muted: false, timeOffset: 0, seasonPreview: null, lights: 'on', lightsAt: 0, tv: 'on' },
+      settings: { muted: false, timeOffset: 0, seasonPreview: null, lights: 'on', lightsAt: 0, tv: 'on', weather: { place: null, asked: false, preview: null, last: null } },
     };
   }
 

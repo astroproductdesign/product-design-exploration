@@ -2430,3 +2430,114 @@ body.decorating #scene {
     transition: none;
   }
 }
+
+/* ---- Weather outside the window ---------------------------------------------------------- */
+/* Everything out there moves with CSS. The shapes are drawn in roomArt.js (weatherArt). */
+
+@keyframes wx-drift { from { transform: translateX(-80px); } to { transform: translateX(290px); } }
+@keyframes wx-fall { from { transform: translate(0, 0); } to { transform: translate(-14px, 235px); } }
+@keyframes wx-snow { 0% { transform: translate(0, 0); } 50% { transform: translate(8px, 115px); } 100% { transform: translate(-4px, 235px); } }
+@keyframes wx-rip { 0% { transform: scale(0.2); opacity: 0.9; } 100% { transform: scale(1.4); opacity: 0; } }
+@keyframes wx-walk { from { transform: translateX(-40px); } to { transform: translateX(240px); } }
+@keyframes wx-bob { 50% { transform: translateY(-2px); } }
+@keyframes wx-fly { from { transform: translate(-30px, 0); } 50% { transform: translate(100px, -14px); } to { transform: translate(240px, 6px); } }
+@keyframes wx-flap { 50% { transform: scaleY(0.25); } }
+@keyframes wx-flapx { 50% { transform: scaleX(0.3); } }
+@keyframes wx-leaf { 0% { transform: translate(-20px, 0) rotate(0); } 50% { transform: translate(110px, -24px) rotate(200deg); } 100% { transform: translate(230px, 14px) rotate(400deg); } }
+@keyframes wx-sway { 50% { transform: rotate(2.2deg); } }
+@keyframes wx-swayhard { 25% { transform: rotate(-3.5deg); } 75% { transform: rotate(4deg); } }
+@keyframes wx-bolt { 0%, 62%, 70%, 100% { opacity: 0; } 64%, 68%, 72% { opacity: 1; } 74% { opacity: 0; } 76% { opacity: 0.8; } }
+@keyframes wx-flash { 0%, 62%, 70%, 100% { opacity: 0; } 64%, 68%, 72% { opacity: 0.5; } 74% { opacity: 0; } 76% { opacity: 0.3; } }
+@keyframes wx-mist { 50% { transform: translateX(26px); } }
+@keyframes wx-glow { 50% { opacity: 0.25; } }
+@keyframes wx-kite { 50% { transform: rotate(6deg); } }
+@keyframes wx-fire { 0%, 100% { opacity: 0.1; transform: translate(0, 0); } 50% { opacity: 1; transform: translate(6px, -8px); } }
+@keyframes wx-slide { from { transform: translateY(0); } to { transform: translateY(80px); } }
+.wx-o {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.wx-tree {
+  transform-origin: 530px 250px;
+  animation: wx-sway 5s ease-in-out infinite;
+}
+.wx-tree.storm {
+  animation: wx-swayhard 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wxfx,
+  .wxfx * {
+    animation: none !important;
+  }
+  .wxfx [style*='--y'] {
+    transform: translateY(var(--y));
+  }
+}
+
+/* The weather card (first-run question, and Me → Weather) */
+.wx-card p {
+  margin: 0 0 10px;
+}
+.wx-now {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  font-weight: 800;
+}
+.wx-now small {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.wx-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.wx-city {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.wx-city[hidden] {
+  display: none;
+}
+.wx-city input {
+  flex: 1;
+  min-width: 0;
+}
+.wx-results {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.wx-results button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  padding: 8px 12px;
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 800;
+}
+.wx-results small {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.wx-msg {
+  min-height: 1.3em;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.wx-msg.err {
+  color: var(--accent-dark);
+}
