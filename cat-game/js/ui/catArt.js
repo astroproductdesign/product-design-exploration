@@ -583,9 +583,8 @@
       const inner = marks(['M -26 -40 L -28 -26', 'M -10 -42 L -12 -28']) + `<ellipse cx="22" cy="-12" rx="18" ry="12" fill="${C.belly}"/>`;
       return (
         `<g class="breathe">` +
-        pivot(-42, -14, 'tail-wag fast', tail('M -42 -14 C -60 -16 -74 -10 -86 -6', 9)) +
-        part(uid, 'body', body, C.tabby, inner) +
-        nub(-36, -3, 8, 4.5, C.leg) +
+        // the rear end: the butt wiggle before a pounce swings this about the front paws
+        pivot(26, -10, 'rear', pivot(-42, -14, 'tail-wag fast', tail('M -42 -14 C -60 -16 -74 -10 -86 -6', 9)) + part(uid, 'body', body, C.tabby, inner) + nub(-36, -3, 8, 4.5, C.leg)) +
         (o.bat ? '' : nub(28, -3, 6.5, 4.2) + nub(38, -3, 6.5, 4.2)) +
         (o.eat ? placeHead(uid, 44, -20, { rot: 18, scale: 0.86 }) : placeHead(uid, 40, -34, { scale: 0.86 })) +
         // Knocking a toy about: both front paws reach out past the chin (the stylesheet swings them).
@@ -593,6 +592,23 @@
         `</g>`
       );
     },
+  };
+
+  // Halfway up the curtain: stretched out upright, front paws hooked high, back feet pushing,
+  // the tail hanging down. The scene lifts it up the curtain and brings it back down.
+  POSES.climb = function (uid) {
+    const body = 'M -16 -4 C -24 -26 -22 -58 -8 -78 C 4 -92 24 -86 26 -66 C 28 -40 22 -12 10 -2 C 2 2 -10 2 -16 -4 Z';
+    return (
+      `<g class="breathe">` +
+      pivot(-14, -16, 'tail-wag slow', tail('M -14 -16 C -36 -10 -42 12 -32 30', 9)) +
+      pivot(-6, -22, 'push-a', tube('M -6 -22 L 16 -12', 8, C.leg) + nub(20, -10, 7, 5, C.leg)) +
+      part(uid, 'body', body, C.tabby, marks(['M -14 -62 L -6 -58', 'M -16 -42 L -6 -40', 'M -14 -22 L -6 -22']) + `<ellipse cx="14" cy="-42" rx="9" ry="28" fill="${C.belly}"/>`) +
+      pivot(-2, -34, 'push-b', tube('M -2 -34 L 20 -26', 8, C.leg) + nub(24, -24, 7, 5, C.leg)) +
+      pivot(14, -76, 'claw-b', tube('M 14 -76 L 38 -118', 7, C.paw) + nub(40, -122, 6.5, 5)) +
+      pivot(6, -78, 'claw-a', tube('M 6 -78 L 22 -122', 7, C.paw) + nub(23, -127, 6.5, 5)) +
+      placeHead(uid, 12, -100, { rot: -14, scale: 0.86 }) +
+      `</g>`
+    );
   };
 
   // On the toilet: crouched low, tail up and out of the way, a very serious
@@ -677,11 +693,11 @@
   // Where each pose's head sits (for petting zones, speech bubbles, hearts).
   const HEAD_AT = {
     sit: [0, -86], back: [0, -86], groom: [-2, -86], swipe: [2, -86], loaf: [28, -46], lie: [30, -40],
-    curl: [22, -26], walk: [32, -58], stretch: [40, -24], belly: [56, -28], crouch: [40, -34], boxgroom: [0, -86], squat: [34, -40],
+    curl: [22, -26], walk: [32, -58], stretch: [40, -24], belly: [56, -28], crouch: [40, -34], boxgroom: [0, -86], squat: [34, -40], climb: [12, -100],
   };
 
   // Rough height of each pose (for bubbles above the head).
-  const TOP = { sit: -136, back: -136, groom: -136, swipe: -136, loaf: -90, lie: -82, curl: -66, walk: -100, stretch: -64, belly: -68, crouch: -76, boxgroom: -140, squat: -76 };
+  const TOP = { sit: -136, back: -136, groom: -136, swipe: -136, loaf: -90, lie: -82, curl: -66, walk: -100, stretch: -64, belly: -68, crouch: -76, boxgroom: -140, squat: -76, climb: -140 };
 
   function render(pose, uid, opts) {
     const fn = POSES[pose] || POSES.sit;

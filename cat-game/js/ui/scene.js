@@ -10,7 +10,7 @@
 
   const SLEEP_EYES = new Set(['nap']);
   const DROWSY = new Set(['loaf', 'sunbathe', 'laptop', 'hide', 'knead']);
-  const WIDE = new Set(['hunt', 'zoomies', 'play', 'toy']);
+  const WIDE = new Set(['hunt', 'zoomies', 'play', 'toy', 'curtain', 'pounce']);
   const HAPPY = new Set(['eat', 'roll', 'scratch', 'come', 'beg']);
 
   // With "reduce motion" on, the camera cuts instead of zooming and the eyes stay put.
@@ -276,6 +276,7 @@
   Scene.prototype.baseMouth = function () {
     if (this.inGarden) return 'normal';
     const a = this.getState().activity;
+    if (this.catBody.classList.contains('lapping')) return Math.floor(performance.now() / 300) % 2 ? 'tongue' : 'normal';
     if (this.catBody.classList.contains('eating')) {
       // open as the head goes down, shut on the bite, then a second smaller nibble
       const ph = ((performance.now() - (this.eatT0 || 0)) % CHEW_MS) / CHEW_MS;
@@ -328,6 +329,8 @@
     if (a.id === 'eat' || a.id === 'grass' || a.id === 'vomit') opts.eat = true;
     if (a.id === 'knead') opts.knead = true;
     if (a.id === 'toy' && this.batToy(a)) opts.bat = true;
+    if (a.id === 'drink') Object.assign(opts, { eat: true, bat: true }); // head down at the bowl; the paw is hidden until it goes in
+    if (a.id === 'pounce') opts.wiggle = true;
     return [pose, opts];
   };
 
@@ -339,6 +342,7 @@
     this.placeCatInZ();
     this.cam.x = Math.max(0, Math.min(A.W - this.cam.w, p.x - this.cam.w / 2));
     this.syncPlayful();
+    this.startScript();
   };
 
   Scene.prototype.planTo = function (p, speed) {
@@ -359,6 +363,7 @@
   // Called whenever the simulation picks a new activity.
   Scene.prototype.onActivity = function (a, opts) {
     if (this.inGarden) return; // picked up when the intro ends
+    this.endScript();
     if (!this.cv) return this.teleport(a);
     this.cv.act = a.id + a.start;
     this.cv.zoom = a.id === 'zoomies';
@@ -405,6 +410,7 @@
     this.catBody.classList.toggle('retching', a.id === 'vomit');
     this.catBody.classList.remove('zoom');
     this.syncPlayful();
+    this.startScript();
   };
 
   // ---- TV ---------------------------------------------------------------------------
@@ -436,6 +442,300 @@
     return A.TV.CHANNELS[tv.ch];
   };
 
+  // ---- Set pieces ---------------------------------------------------------------------
+  // A few behaviours are little scenes with a start, a middle and an end: climbing the curtain, a
+  // wiggle and a pounce that misses, leaning too far out and falling off the sill, and a paw in
+  // the water bowl. The simulation only says that it is happening (and logs it); once the cat has
+  // got where it is going, a script plays it out. `steps` run once each at their second;
+  // `tick` runs every frame.
+
+  const SCRIPT_CLASSES = ['climbing', 'hanging', 'sliding', 'wiggling', 'lapping', 'dipping', 'flicking'];
+  const ease = (f) => f * f * (3 - 2 * f);
+  const pickOf = (list) => list[Math.floor(Math.random() * list.length)];
+  const CLIMB_H = 150; // how high up the curtain it goes
+
+  // What the cat has on its face for a moment.
+  Scene.prototype.face = function (eyes, mouth, ms) {
+    const until = performance.now() + (ms || 1200);
+    if (eyes) Object.assign(this.overrides, { eyes, eyesUntil: until });
+    if (mouth) Object.assign(this.overrides, { mouth, mouthUntil: until });
+    this.applyFace(true);
+  };
+
+  Scene.prototype.scriptClass = function (...names) {
+    const l = this.catBody.classList;
+    l.remove(...SCRIPT_CLASSES);
+    l.add(...names);
+  };
+
+  // A drop of water or two flung from a point: they arc and fall.
+  Scene.prototype.drops = function (x, y, vx, n) {
+    for (let i = 0; i < n; i++) {
+      const d = el('circle', { r: (2 + Math.random() * 2.4).toFixed(1), fill: '#bfe2f5', stroke: '#1b1714', 'stroke-width': 1.4, 'pointer-events': 'none' });
+      this.fx.append(d);
+      let px = x;
+      let py = y;
+      let ux = vx * (0.5 + Math.random());
+      let uy = -(150 + Math.random() * 130);
+      let last = performance.now();
+      const step = () => {
+        const nowT = performance.now();
+        const dt = Math.min(0.05, (nowT - last) / 1000);
+        last = nowT;
+        ux *= 0.99;
+        uy += 640 * dt;
+        px += ux * dt;
+        py += uy * dt;
+        d.setAttribute('cx', px.toFixed(1));
+        d.setAttribute('cy', py.toFixed(1));
+        if (uy > 0 && py > y + 26 + Math.random() * 6) return d.remove();
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+  };
+
+  Scene.prototype.ripple = function (x, y) {
+    const r = el('ellipse', { cx: x, cy: y, rx: 18, ry: 5, fill: 'none', stroke: '#fff', 'stroke-width': 3, class: 'ripple', 'pointer-events': 'none' });
+    this.fx.append(r);
+    setTimeout(() => r.remove(), 1000);
+  };
+
+  const MOTH =
+    `<g class="moth-wings" style="animation: wx-flapx 0.11s linear infinite; transform-box: fill-box; transform-origin: center">` +
+    `<ellipse cx="-8" cy="-3" rx="9" ry="6.5" fill="#efe6ff" stroke="#1b1714" stroke-width="2.2" transform="rotate(-20 -8 -3)"/>` +
+    `<ellipse cx="8" cy="-3" rx="9" ry="6.5" fill="#efe6ff" stroke="#1b1714" stroke-width="2.2" transform="rotate(20 8 -3)"/></g>` +
+    `<ellipse cx="0" cy="2" rx="2.6" ry="6" fill="#8a6a50" stroke="#1b1714" stroke-width="2"/>`;
+
+  const SCRIPTS = {
+    // Bored: up the curtain, hang there, slide down, and pretend it never happened.
+    curtain: {
+      steps: [
+        [0, function (sc) {
+          this.cv.facing = 1;
+          this.cv.groundY = sc.y0;
+          this.scriptClass('climbing');
+          this.svg.classList.add('curtain-shake');
+          this.face('wide', null, 1800);
+          if (this.hooks.sound) this.hooks.sound('scoop');
+        }],
+        [0.9, function () { if (this.hooks.sound) this.hooks.sound('scoop'); }],
+        [1.9, function () { this.scriptClass('hanging'); this.say('…', 1900, true); }],
+        [3.9, function () { this.say(pickOf(['Not my best idea.', 'Send help.', 'How do I get down?', 'I regret nothing. Mostly.']), 1800); }],
+        [5.0, function () { this.scriptClass('sliding'); if (this.hooks.sound) this.hooks.sound('scoop'); }],
+        [6.1, function (sc) {
+          this.cv.y = sc.y0;
+          this.cv.groundY = null;
+          this.svg.classList.remove('curtain-shake');
+          this.setArt('sit');
+          this.scriptClass();
+          this.miniHop(14);
+          this.face('closed', null, 1500);
+          if (this.hooks.sound) this.hooks.sound('pop');
+          this.say('Nobody saw that.', 2600, true);
+        }],
+      ],
+      tick(sc, t) {
+        const top = sc.y0 - CLIMB_H;
+        if (t < 1.9) this.cv.y = sc.y0 - ease(t / 1.9) * CLIMB_H;
+        else if (t < 5.0) this.cv.y = top + (t - 1.9) * 2.5;
+        else if (t < 6.1) {
+          const f = (t - 5.0) / 1.1;
+          this.cv.y = top + 7.75 + f * f * (CLIMB_H - 7.75);
+        }
+      },
+      cleanup(sc) {
+        this.cv.y = sc.y0;
+        this.cv.groundY = null;
+        this.svg.classList.remove('curtain-shake');
+      },
+    },
+
+    // Spots a moth. Wiggles. Pounces. Misses by a mile.
+    pounce: {
+      init(sc) {
+        const cv = this.cv;
+        const f = cv.x < A.W / 2 ? 1 : -1; // leap towards the middle of the room, where there is space
+        cv.facing = f;
+        sc.f = f;
+        sc.mx = cv.x + f * 88;
+        sc.my = cv.y - 46;
+        const g = el('g', { class: 'moth', 'pointer-events': 'none' }, MOTH);
+        this.fx.append(g);
+        sc.moth = g;
+        sc.nodes = [g];
+        g.setAttribute('transform', `translate(${sc.mx} ${sc.my})`);
+      },
+      steps: [
+        [0, function () { this.scriptClass('wiggling'); this.face('wide', null, 2500); }],
+        [2.4, function () { this.scriptClass(); if (this.hooks.sound) this.hooks.sound('pop'); }],
+        [3.0, function (sc) {
+          this.cv.hopY = 0;
+          this.cv.x = Math.max(40, Math.min(A.W - 40, sc.x0 + sc.f * 200));
+          this.setArt('belly');
+          this.scriptClass();
+          this.floatText('!', '#d44c34');
+          this.face('wide', null, 1200);
+          if (this.hooks.sound) this.hooks.sound('pop');
+        }],
+        [4.6, function () {
+          this.setArt('sit');
+          this.scriptClass();
+          this.face('closed', null, 1400);
+          this.say('I meant to do that.', 2800, true);
+        }],
+      ],
+      tick(sc, t) {
+        const cv = this.cv;
+        if (t >= 2.4 && t < 3.0) {
+          const k = (t - 2.4) / 0.6;
+          cv.x = Math.max(40, Math.min(A.W - 40, sc.x0 + sc.f * 200 * ease(k)));
+          cv.hopY = Math.sin(k * Math.PI) * 54;
+        }
+        // the moth bobs about, then flits up and away just as the cat lands
+        if (t < 2.55) sc.moth.setAttribute('transform', `translate(${(sc.mx + Math.sin(t * 3) * 4).toFixed(1)} ${(sc.my + Math.sin(t * 5.5) * 5).toFixed(1)})`);
+        else {
+          const k = t - 2.55;
+          sc.moth.setAttribute('transform', `translate(${(sc.mx - sc.f * k * 130).toFixed(1)} ${(sc.my - k * 190 + Math.sin(k * 12) * 6).toFixed(1)})`);
+          if (t > 4) sc.moth.setAttribute('opacity', Math.max(0, 1 - (t - 4) * 2));
+        }
+      },
+    },
+
+    // Leans out to see the bird, leans a little further, and is gone. Grooms as if it meant to.
+    topple: {
+      init(sc) {
+        const st = this.getState();
+        const floor = A.spotPos(st, st.activity.spot).floor;
+        sc.floor = floor;
+        sc.dir = Math.random() < 0.5 ? -1 : 1;
+        sc.ok = !!this.cv.high && !!floor;
+      },
+      steps: [
+        [0, function (sc) { if (sc.ok) this.face('wide', null, 3000); }],
+        [1.2, function (sc) { if (sc.ok && this.hooks.sound) this.hooks.sound('chirp'); }],
+        [2.2, function (sc) { if (sc.ok) this.say('!', 800); }],
+        [3.0, function (sc) {
+          if (!sc.ok) return;
+          this.cv.groundY = sc.floor.y;
+          this.cv.z = sc.floor.y + 2;
+          this.placeCatInZ();
+        }],
+        [3.65, function (sc) {
+          if (!sc.ok) return;
+          const cv = this.cv;
+          cv.y = sc.floor.y;
+          cv.x = sc.x0 + sc.dir * 34;
+          cv.fy = sc.floor.y;
+          cv.high = false;
+          cv.groundY = null;
+          cv.rot = 0;
+          sc.fell = true;
+          this.setArt('belly');
+          this.scriptClass();
+          this.miniHop(16);
+          this.face('closed', null, 1500);
+          this.floatText('💥', '#d44c34');
+          if (this.hooks.sound) this.hooks.sound('pop');
+        }],
+        [5.3, function (sc) {
+          if (!sc.ok) return;
+          this.setArt('sit');
+          this.face('open', null, 1200);
+          this.say('I meant to do that.', 2400, true);
+        }],
+        [7.0, function (sc) { if (sc.ok) { this.setArt('groom'); this.face('closed', null, 3000); } }],
+      ],
+      tick(sc, t) {
+        if (!sc.ok) return;
+        const cv = this.cv;
+        if (t < 3.0) {
+          const k = t / 3.0;
+          cv.rot = sc.dir * (k * k * 16 + Math.sin(t * 9) * 1.8 * k);
+        } else if (t < 3.65) {
+          const k = (t - 3.0) / 0.65;
+          cv.y = sc.y0 + (sc.floor.y - sc.y0) * k * k;
+          cv.x = sc.x0 + sc.dir * 34 * k;
+          cv.rot = sc.dir * (16 + 100 * k);
+        }
+      },
+      cleanup(sc) {
+        if (sc.ok && !sc.fell) {
+          Object.assign(this.cv, { x: sc.x0, y: sc.y0, groundY: null, rot: 0 });
+          this.cv.z = sc.z0;
+          this.placeCatInZ();
+        }
+      },
+    },
+
+    // Laps some water, tests it with a paw, flicks it, and is personally offended.
+    drink: {
+      steps: [
+        [0, function () { this.eatT0 = performance.now(); this.scriptClass('lapping'); }],
+        [3.4, function () { this.scriptClass('dipping'); this.face('wide', null, 1200); }],
+        [3.95, function () {
+          const p = this.pawTip();
+          this.ripple(474, 537);
+          this.drops(p.x, p.y, -this.cv.facing * 40, 3);
+          if (this.hooks.sound) this.hooks.sound('pop');
+        }],
+        [5.5, function () {
+          this.scriptClass('flicking');
+          const p = this.pawTip();
+          this.face('closed', 'frown', 900);
+          setTimeout(() => this.drops(p.x, p.y - 8, -this.cv.facing * 110, 7), 120);
+          if (this.hooks.sound) this.hooks.sound('pop');
+        }],
+        [6.6, function () {
+          this.face('angry', 'frown', 2200);
+          this.say('Wet.', 2400, true);
+        }],
+        [8.6, function () { this.scriptClass(); this.face('open', 'normal', 1000); }],
+      ],
+    },
+  };
+
+  // Where the front paw is, in the scene (when it is reaching out).
+  Scene.prototype.pawTip = function () {
+    const cv = this.cv;
+    const s = A.scaleAt(cv.fy);
+    return { x: cv.x + cv.facing * 84 * s, y: cv.y - 3 * s };
+  };
+
+  Scene.prototype.startScript = function () {
+    this.endScript();
+    const cv = this.cv;
+    const a = this.getState().activity;
+    const def = SCRIPTS[a.id];
+    if (!def || !cv || this.play || this.inGarden || cv.moving) return;
+    const sc = { id: a.id, def, t0: performance.now(), next: 0, x0: cv.x, y0: cv.y, z0: cv.z };
+    this.script = sc;
+    if (def.init) def.init.call(this, sc);
+    this.runScript(performance.now()); // the first step now, so nothing flashes up before it
+  };
+
+  // Called when the activity changes (or the script has run its course): put everything back.
+  Scene.prototype.endScript = function () {
+    const sc = this.script;
+    if (!sc) return;
+    this.script = null;
+    if (sc.def.cleanup) sc.def.cleanup.call(this, sc);
+    this.catBody.classList.remove(...SCRIPT_CLASSES);
+    for (const n of sc.nodes || []) n.remove();
+    this.cv.hopY = 0;
+    this.cv.rot = 0;
+    this.cv.groundY = null;
+  };
+
+  Scene.prototype.runScript = function (nowMs) {
+    const sc = this.script;
+    if (!sc) return;
+    const t = (nowMs - sc.t0) / 1000;
+    const steps = sc.def.steps;
+    while (sc.next < steps.length && t >= steps[sc.next][0]) steps[sc.next++][1].call(this, sc, t);
+    if (this.script === sc && sc.def.tick) sc.def.tick.call(this, sc, t);
+  };
+
   // ---- Per-frame update -------------------------------------------------------------
 
   Scene.prototype.frame = function (dt, nowMs) {
@@ -450,8 +750,10 @@
     const s = A.scaleAt(cv.fy);
     this.catG.setAttribute('transform', `translate(${cv.x.toFixed(1)} ${cv.y.toFixed(1)}) scale(${s.toFixed(3)})`);
     this.catFlip.setAttribute('transform', `scale(${cv.facing < 0 ? -1 : 1} 1)`);
-    this.catHop.setAttribute('transform', `translate(0 ${(-(cv.hopY || 0)).toFixed(1)})`);
-    this.catShadow.setAttribute('opacity', this.inGarden ? 0 : cv.hopY ? 0.06 : 0.12);
+    this.catHop.setAttribute('transform', `translate(0 ${(-(cv.hopY || 0)).toFixed(1)})${cv.rot ? ` rotate(${cv.rot.toFixed(1)})` : ''}`);
+    // while it is up the curtain (or falling) the shadow stays down on the floor
+    this.catShadow.setAttribute('cy', (2 + (cv.groundY != null ? (cv.groundY - cv.y) / s : 0)).toFixed(1));
+    this.catShadow.setAttribute('opacity', this.inGarden ? 0 : cv.hopY || cv.groundY != null ? 0.06 : 0.12);
     this.catShadow.setAttribute('rx', cv.pose === 'sit' || cv.pose === 'back' || cv.pose === 'groom' || cv.pose === 'swipe' ? 34 : 50);
 
     // blinking
@@ -523,7 +825,7 @@
     }
     const bird = this.svg.querySelector('#bird');
     if (bird) {
-      const show = a.id === 'birds' && G.Clock.lightingAt(G.Clock.now(st), G.Weather.sunFor(st)).isDay;
+      const show = (a.id === 'birds' || a.id === 'topple') && G.Clock.lightingAt(G.Clock.now(st), G.Weather.sunFor(st)).isDay;
       bird.setAttribute('display', show ? 'inline' : 'none');
       if (show && nowMs > this.nextChirp) {
         this.nextChirp = nowMs + 4000 + Math.random() * 6000;
@@ -534,6 +836,7 @@
       this.knockLater = 0;
       this.dropCup();
     }
+    this.runScript(nowMs);
   };
 
   Scene.prototype.miniHop = function (h) {

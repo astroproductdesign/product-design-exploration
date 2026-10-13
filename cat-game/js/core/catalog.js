@@ -55,6 +55,8 @@
     litter: { label: 'the litter box', at: 'in the litter box', tags: ['litter'] },
     litterOut: { label: 'the floor by the litter box', at: 'by the litter box', tags: [] },
     front: { label: 'right in front of you', at: 'right in front of you', tags: ['front'] },
+    curtain: { label: 'the curtains', at: 'on the curtains', tags: ['curtain'] },
+    water: { label: 'the water bowl', at: 'by the water bowl', tags: ['water'] },
   };
 
   const SLOT_COUNT = 3;

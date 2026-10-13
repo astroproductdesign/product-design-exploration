@@ -59,6 +59,13 @@
     { id: 'window5', icon: '🪟', name: 'Window Shopper', desc: 'Tap the window 5 times. Nothing is for sale.', key: 'windowTap', goal: 5 },
     { id: 'arrange10', icon: '🧘', name: 'Feng Shui Master', desc: 'Rearrange the furniture 10 times.', key: 'arrange', goal: 10 },
     { id: 'restyle5', icon: '🎨', name: 'Pink Is A Personality', desc: 'Change the colour of the furniture 5 times. The cat did not notice.', key: 'restyle', goal: 5 },
+    { id: 'curtain1', icon: '🧗', name: 'Curtain Cowboy', desc: 'Watch the cat climb the curtains out of boredom.', key: 'curtain', goal: 1 },
+    { id: 'curtain5', icon: '🪟', name: 'Free Solo', desc: 'Watch the curtain climb 5 times. The curtains are fine. Probably.', key: 'curtain', goal: 5 },
+    { id: 'topple1', icon: '🐦', name: 'Gravity Is A Suggestion', desc: 'See the cat fall off the windowsill. It meant to do that.', key: 'topple', goal: 1 },
+    { id: 'pounce1', icon: '🦋', name: 'Butt Wiggle Engineer', desc: 'See the cat wiggle, pounce and miss completely.', key: 'pounce', goal: 1 },
+    { id: 'pounce5', icon: '🎯', name: 'Zero For Five', desc: 'Watch the cat miss 5 pounces. Practice makes nothing.', key: 'pounce', goal: 5 },
+    { id: 'drink1', icon: '💧', name: 'Splish Splash', desc: 'See the cat dip a paw in the water bowl and judge it.', key: 'drink', goal: 1 },
+    { id: 'drink5', icon: '🌊', name: 'Hydration Disaster', desc: 'See the paw-in-the-water thing 5 times. Still wet.', key: 'drink', goal: 5 },
     { id: 'clearSpot', icon: '🧺', name: 'Marie Kondo', desc: 'Clear a spot entirely. Does it spark joy? No.', key: 'clearSpot', goal: 1 },
     { id: 'photo5', icon: '📷', name: 'Shutterbug', desc: 'Take 5 photos of the cat.', key: 'photo', goal: 5 },
     { id: 'photo25', icon: '🤳', name: 'Paparazzi', desc: 'Take 25 photos of the cat. It is not impressed.', key: 'photo', goal: 25 },
@@ -189,6 +196,10 @@
       case 'nap': if (e.rare) c('bellyNap'); break;
       case 'sunbathe': c('sunbathe'); break;
       case 'birds': c('birds'); break;
+      case 'curtain': c('curtain'); break;
+      case 'topple': c('topple'); break;
+      case 'pounce': c('pounce'); break;
+      case 'drink': c('drink'); break;
       case 'hide': c('hide'); break;
       case 'played': c('play'); break;
       case 'gacha': c('gacha'); c('prize:' + e.prize); if (e.dup) c('gachaDup'); break;

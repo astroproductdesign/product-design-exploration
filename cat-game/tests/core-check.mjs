@@ -189,14 +189,20 @@ test('lights: off is saved, naps more, and old saves default to on', () => {
   assert.ok(r.toast.includes('Lights off'));
   G.Interactions.setLights(s, t0, false);
   assert.equal(s.settings.lights, 'on');
-  // In the dark the cat naps more (same cat, same two days).
+  // In the dark the cat naps more (same cats, same two days; several cats so one lucky streak
+  // of random picks can't decide it).
   const napMins = (lights) => {
-    const x = fresh();
-    x.settings.lights = lights;
-    x.settings.lightsAt = t0;
-    x.bowl.portions = 99;
-    G.Sim.advance(x, t0 + 2 * DAY);
-    return x.log.filter((e) => e.type === 'nap').reduce((n, e) => n + e.mins, 0);
+    let total = 0;
+    for (let k = 0; k < 6; k++) {
+      const x = fresh();
+      x.seed = x.seed + k * 7919;
+      x.settings.lights = lights;
+      x.settings.lightsAt = t0;
+      x.bowl.portions = 99;
+      G.Sim.advance(x, t0 + 2 * DAY);
+      total += x.log.filter((e) => e.type === 'nap').reduce((n, e) => n + e.mins, 0);
+    }
+    return total;
   };
   assert.ok(napMins('off') > napMins('on'), 'naps ' + napMins('off') + ' vs ' + napMins('on'));
   delete s.settings.lights;
@@ -739,6 +745,54 @@ test('gachapon: costs coins, gives new things, duplicates pay some back', () => 
   assert.equal(old.coins, G.Gacha.COST);
   assert.equal(old.gacha.owned.length, 0);
   assert.equal(G.Achievements.DEFS.find((d) => d.id === 'gachaAll').goal, G.Gacha.PRIZES.length, 'collect-them-all counts every prize');
+});
+
+test('set pieces: curtain climbing, missed pounces, toppling off the sill, a paw in the water', () => {
+  const where = { curtain: 'curtain', pounce: 'rug', topple: 'sill', drink: 'water' };
+  for (const [id, spot] of Object.entries(where)) {
+    const s = fresh();
+    assert.ok(G.Sim.BEHAVIORS[id] && G.Catalog.SPOTS[spot], id + ' exists');
+    G.Sim.setActivity(s, t0, id, spot);
+    assert.ok(!/being a cat/.test(G.Sim.describe(s)), id + ' has its own status line');
+    assert.ok(G.Interactions.moodOf(s), 'still has a mood');
+    G.Sim.advance(s, s.activity.end + 1000);
+    assert.ok(s.log.some((e) => e.type === id), id + ' is logged for the diary and achievements');
+  }
+  // the achievements count them
+  const a = fresh();
+  G.Sim.setActivity(a, t0, 'curtain', 'curtain');
+  G.Sim.advance(a, a.activity.end + 1000);
+  assert.ok(a.achievements.curtain1, 'Curtain Cowboy');
+  // each only happens where it makes sense
+  const s = fresh();
+  s.bowl.portions = 9;
+  const seen = { curtain: 0, pounce: 0, topple: 0, drink: 0 };
+  for (let i = 0; i < 4000; i++) {
+    const n = G.Sim.chooseNext(s, t0 + i * 7919 * 1000, true);
+    if (n.id in seen) {
+      seen[n.id]++;
+      if (n.id === 'curtain') assert.equal(n.spot, 'curtain');
+      if (n.id === 'drink') assert.equal(n.spot, 'water');
+      if (n.id === 'topple') assert.ok(['sill', 'slot0', 'slot1', 'slot2', 'slot3'].includes(n.spot));
+      if (n.id === 'pounce') assert.ok(['rug', 'floorL', 'floorR'].includes(n.spot));
+    }
+  }
+  for (const id of Object.keys(seen)) assert.ok(seen[id] > 0, id + ' does come up (' + seen[id] + ')');
+  // a bored cat climbs the curtains far more than a happy one
+  const climbs = (happy) => {
+    const x = fresh();
+    x.bowl.portions = 9;
+    x.stats.happiness = happy;
+    let n = 0;
+    for (let i = 0; i < 3000; i++) {
+      x.stats.happiness = happy;
+      if (G.Sim.chooseNext(x, t0 + i * 7919 * 1000, true).id === 'curtain') n++;
+    }
+    return n;
+  };
+  const bored = climbs(15);
+  const content = climbs(90);
+  assert.ok(bored > content * 3, 'bored ' + bored + ' vs happy ' + content);
 });
 
 test('the wall note follows the cat when it is renamed', () => {

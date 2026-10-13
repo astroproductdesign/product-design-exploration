@@ -33,6 +33,14 @@
     scratch: { tags: ['scratch'], w: { dawn: 0.8, morning: 0.7, afternoon: 0.5, evening: 0.9, night: 0.3 }, dur: [3, 8], live: [10, 20], joy: 0.03 },
     // Nibbles the cat grass on the windowsill (only while there is some left to eat).
     grass: { need: (s) => s.room.grass >= GRASS_MIN, tags: ['grass'], w: { dawn: 0.5, morning: 1.2, afternoon: 0.8, evening: 0.7, night: 0.1 }, dur: [2, 5], live: [16, 26], joy: 0.05 },
+    // Little set pieces (the scene plays each one out; see SCRIPTS in scene.js). A bored cat climbs
+    // the curtains (see the boredom boost in chooseNext), a cat that spots a moth wiggles and
+    // pounces and misses, one that leans out to watch the birds falls off the sill, and one at the
+    // water bowl dips a paw in and is offended by the result.
+    curtain: { tags: ['curtain'], w: { dawn: 0.3, morning: 0.5, afternoon: 1, evening: 1.4, night: 0.4 }, dur: [1, 2], live: [15, 18], active: true, joy: 0.03 },
+    pounce: { tags: ['floor'], w: { dawn: 0.5, morning: 0.4, afternoon: 0.5, evening: 1.6, night: 1 }, dur: [1, 2], live: [14, 17], active: true, joy: 0.05 },
+    topple: { tags: ['watch'], w: { dawn: 0.3, morning: 0.9, afternoon: 0.7, evening: 0.3, night: 0 }, dur: [1, 1], live: [15, 18] },
+    drink: { tags: ['water'], w: { dawn: 0.8, morning: 1, afternoon: 1.2, evening: 1, night: 0.4 }, dur: [1, 3], live: [15, 18], joy: 0.01 },
     // Need-driven (picked by rules, not by weight).
     eat: { tags: ['bowl'], dur: [4, 8], live: [14, 20] },
     askFood: { tags: ['bowl'], dur: [10, 30], live: [30, 60] },
@@ -62,7 +70,7 @@
   const isDirty = (s) => s.room.litter.clumps.length >= DIRTY_AT || s.room.litter.mess > 0;
 
   // At ~3am, chaos.
-  const CHAOS = { zoomies: 6, hunt: 3, knock: 3, meow: 2, stare: 2, nap: 0.5 };
+  const CHAOS = { zoomies: 6, hunt: 3, knock: 3, meow: 2, stare: 2, curtain: 3, pounce: 3, nap: 0.5 };
 
   const STATUS = {
     nap: '{name} is napping {at}.',
@@ -94,6 +102,10 @@
     sulk: '{name} is sulking with their back to you.',
     grass: '{name} is nibbling the cat grass.',
     vomit: 'Uh oh. {name} is making worrying noises…',
+    curtain: '{name} is bored. The curtains look very climbable.',
+    pounce: '{name} spotted something. Butt wiggle engaged.',
+    topple: '{name} is leaning WAY too far out to watch the birds.',
+    drink: '{name} is having a drink. And maybe some mischief.',
   };
 
   function clamp(v, lo, hi) {
@@ -156,8 +168,13 @@
         return spot.key === 'sill' ? 'loaf' : 'lie';
       case 'birds':
       case 'stare':
+      case 'topple':
         return 'back';
+      case 'curtain':
+        return 'climb';
       case 'hunt':
+      case 'pounce':
+      case 'drink':
       case 'eat':
       case 'toy':
       case 'play':
@@ -253,6 +270,8 @@
       if (chaos && CHAOS[id]) w *= CHAOS[id];
       if (st.fullness < 20 && (id === 'stare' || id === 'meow')) w *= 2;
       if (st.happiness > 75 && (id === 'roll' || id === 'knead')) w *= 1.6;
+      // A bored (unhappy) cat finds something to climb.
+      if (id === 'curtain') w *= st.happiness < 35 ? 5 : st.happiness < 50 ? 2.5 : 0.7;
       w *= quirkMul('behaviors', id);
       entries.push([id, w]);
     }
@@ -428,6 +447,14 @@
         break;
       case 'askFood':
         G.State.log(s, Object.assign(base, { yell: !!a.yell }));
+        break;
+      case 'curtain':
+        st.happiness = clamp(st.happiness + 3, 12, 100); // got that out of its system
+        G.State.log(s, base);
+        break;
+      case 'topple':
+        st.happiness = clamp(st.happiness - 2, 12, 100); // wounded pride
+        G.State.log(s, base);
         break;
       case 'play':
         break; // logged by the play session itself

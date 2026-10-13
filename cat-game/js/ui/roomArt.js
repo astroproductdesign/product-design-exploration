@@ -140,6 +140,10 @@
     litter: { x: 845 + DX.right, y: 458, z: 484, floor: { x: 845 + DX.right, y: 500 } },
     litterOut: { x: 724 + DX.right, y: 500, z: 500 },
     front: { x: 520 + DX.mid, y: 590, z: 591 },
+    // At the foot of the left curtain, which the cat climbs when it is bored.
+    curtain: { x: 466, y: 440, z: 441, face: 1 },
+    // Right of the water bowl, facing it, for a drink (and the paw that goes in).
+    water: { x: 536, y: 548, z: 549, face: -1 },
   };
 
   const SLOTS = [
@@ -320,7 +324,7 @@
       if (p.dots)
         for (let r = 0; r < 12; r++)
           for (let c = 0; c < 3; c++) dots += `<circle cx="${x + (11 + c * 22 + (r % 2) * 11) * m}" cy="${66 + r * 28}" r="4.5" fill="${p.dots}"/>`;
-      return S(d, p.fill, 3) + dots + L(`M ${x + 22 * m} 60 L ${x + 22 * m} 396 M ${x + 44 * m} 60 L ${x + 44 * m} 396`, p.fold, 3);
+      return `<g class="cur ${flip ? 'cur-r' : 'cur-l'}">${S(d, p.fill, 3)}${dots}${L(`M ${x + 22 * m} 60 L ${x + 22 * m} 396 M ${x + 44 * m} 60 L ${x + 44 * m} 396`, p.fold, 3)}</g>`;
     };
     return (
       panel(264, false) +

@@ -308,7 +308,7 @@
   // ---- Inviting the cat over, and the lights --------------------------------
 
   // What each behaviour looks like in a thought bubble.
-  const THOUGHT = { nap: '💤', loaf: '💤', groom: '🛁', stretch: '🧘', sunbathe: '☀️', birds: '🐦', knock: '🥛', hide: '📦', hunt: '🐭', zoomies: '💨', stare: '👀', knead: '🍞', roll: '🌀', laptop: '💻', supervise: '📺', gift: '🎁', meow: '💬', sit: '…', toy: '🧶', scratch: '🪵', eat: '🍽️', askFood: '🍽️', litter: '🧻', sulk: '💢', grass: '🌱', vomit: '🤢' };
+  const THOUGHT = { nap: '💤', loaf: '💤', groom: '🛁', stretch: '🧘', sunbathe: '☀️', birds: '🐦', knock: '🥛', hide: '📦', hunt: '🐭', zoomies: '💨', stare: '👀', knead: '🍞', roll: '🌀', laptop: '💻', supervise: '📺', gift: '🎁', meow: '💬', sit: '…', toy: '🧶', scratch: '🪵', eat: '🍽️', askFood: '🍽️', litter: '🧻', sulk: '💢', grass: '🌱', vomit: '🤢', curtain: '🧗', pounce: '🦋', topple: '🐦', drink: '💧' };
   const thoughtOf = (id) => THOUGHT[id] || '…';
 
   // You tapped an item (or the chair, the window, the TV). The cat may well go and use it, but

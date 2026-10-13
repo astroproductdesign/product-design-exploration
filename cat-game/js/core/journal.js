@@ -17,7 +17,7 @@
       napMins: 0, napSpots: {}, ateBowl: 0, fed: [], treats: 0, pets: {}, trap: 0, played: [], knock: 0,
       gifts: [], birds: 0, zoomies: 0, chaosZoomies: 0, stare: 0, yell: 0, askFood: 0, renames: [], rare: 0,
       levelups: 0, came: 0, ignored: 0, hide: {}, laptop: 0, sunbathe: 0, supervise: 0, groom: 0, hunt: 0,
-      knead: 0, roll: 0, toy: 0, scratch: 0, litter: 0, accidents: 0, scoops: 0, angry: {}, invited: 0, snubbed: 0, lightsOff: 0, lightsOn: 0, darkNight: 0, grass: 0, vomit: 0, cleaned: 0,
+      knead: 0, roll: 0, toy: 0, scratch: 0, litter: 0, accidents: 0, scoops: 0, angry: {}, invited: 0, snubbed: 0, lightsOff: 0, lightsOn: 0, darkNight: 0, grass: 0, vomit: 0, cleaned: 0, curtain: 0, pounce: 0, topple: 0, drink: 0,
     };
     for (const e of events) {
       switch (e.type) {
@@ -61,6 +61,10 @@
         case 'scoop': c.scoops++; break;
         case 'grass': c.grass++; break;
         case 'vomit': c.vomit++; break;
+        case 'curtain': c.curtain++; break;
+        case 'pounce': c.pounce++; break;
+        case 'topple': c.topple++; break;
+        case 'drink': c.drink++; break;
         case 'cleaned': c.cleaned++; break;
         case 'invited': if (e.result === 'accepted') c.invited++; else if (e.result === 'declined') c.snubbed++; break;
         case 'dawnLights': if (e.rested) c.darkNight++; break;
@@ -116,6 +120,10 @@
     if (c.vomit) add(7, pk(['I ate the grass from the windowsill. Then I gave it back. On the floor. Art.', 'The windowsill grass and I had a disagreement. It lost. Then I did.']));
     else if (c.grass) add(4, pk(['I ate some of the grass on the windowsill. It is called cat grass. It is MY grass.', 'The green stuff on the windowsill is delicious. I will say no more.']));
     if (c.cleaned) add(6, 'The human cleaned up my masterpiece. Rude, but appreciated.');
+    if (c.curtain) add(7, pk(['I got bored, so I climbed the curtains. They are still up. I am a little disappointed.', 'Curtain climbing: 10 out of 10, would do it again. Do not look at the bottom edge.']));
+    if (c.topple) add(7, pk(['I leaned out to see the bird. The windowsill ended. I meant to do that.', 'I was NOT on the windowsill when it happened. Nobody saw anything.']));
+    if (c.pounce) add(6, pk(['I spotted a moth. I wiggled. I pounced. I missed by a mile. The moth knows what it did.', 'The wiggle was perfect. The pounce was perfect. The moth was not there. Typical.']));
+    if (c.drink) add(5, pk(['I put my paw in the water bowl. The water was wet. I am filing a complaint.', 'I tested the water with my paw. It is, in fact, wet. Nobody warned me.']));
     if (c.invited) add(5, 'The human kept pointing at things. One of them was a good idea. I decided it was mine.');
     if (c.snubbed) add(4, 'The human pointed at furniture. I looked at it. I stayed exactly where I was.');
     if (c.darkNight) add(6, 'The lights stayed off all night. Best sleep of my whole life. Please do this more.');
@@ -223,6 +231,10 @@
     if (c.birds) add(6, '🐦', 'stared at a bird out the window');
     if (c.stare) add(5, '🧱', 'stared at the wall for no clear reason');
     if (c.hunt) add(5, '👀', 'chased something invisible');
+    if (c.curtain) add(6, '🧗', 'climbed the curtains out of boredom');
+    if (c.topple) add(6, '🐦', 'fell off the windowsill (and meant to)');
+    if (c.pounce) add(5, '🦋', 'wiggled, pounced and missed');
+    if (c.drink) add(4, '💧', 'dipped a paw in the water bowl');
     const hid = top(c.hide);
     if (hid) add(5, '📦', `sat ${spotAt(hid)}`);
     if (c.laptop) add(5, '💻', 'sat on your laptop');
