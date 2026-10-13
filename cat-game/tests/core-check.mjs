@@ -795,6 +795,50 @@ test('set pieces: curtain climbing, missed pounces, toppling off the sill, a paw
   assert.ok(bored > content * 3, 'bored ' + bored + ' vs happy ' + content);
 });
 
+test('new toys: unlock with bond, and old saves get them; the cat fetches by how it feels', () => {
+  assert.deepEqual(['mouse', 'launcher', 'bubbles'].map((id) => G.Catalog.TOYS[id].level), [2, 4, 5]);
+  // a new game only has the feather; a save that is already at level 5 gets the rest
+  const fresh1 = fresh();
+  assert.ok(G.Progression.isUnlocked(fresh1, 'toy:feather') && !G.Progression.isUnlocked(fresh1, 'toy:launcher'));
+  const old = fresh();
+  old.stats.bond = 200;
+  old.unlocked = old.unlocked.filter((k) => !['toy:mouse', 'toy:laser', 'toy:launcher', 'toy:bubbles'].includes(k));
+  const m = G.State.migrate(old);
+  for (const k of ['toy:mouse', 'toy:laser', 'toy:launcher', 'toy:bubbles']) assert.ok(m.unlocked.includes(k), k);
+  assert.ok(m.unseenUnlocks.includes('toy:launcher'), 'and you are told');
+  // the ball launcher: the cat decides
+  const rate = (setup, hour = 8) => {
+    let fetched = 0;
+    const n = 500;
+    for (let i = 0; i < n; i++) {
+      const x = fresh();
+      x.seed += i;
+      x.stats.bond = 200;
+      setup(x);
+      const t = new Date(2026, 9, 9, hour, 0).getTime() + i * 997;
+      x.activity = { id: 'sit', spot: 'rug', key: 'rug', pose: 'sit', start: t, end: t + HOUR, facing: 1 };
+      const d = G.Interactions.launchDecision(x, t);
+      assert.ok(['fetch', 'chase', 'watch', 'ignore'].includes(d.kind) && d.say, 'a decision with a line');
+      if (d.kind === 'fetch') fetched++;
+    }
+    return fetched / n;
+  };
+  const eager = rate((x) => Object.assign(x.stats, { happiness: 92, energy: 85, fullness: 70 }));
+  const meh = rate((x) => Object.assign(x.stats, { happiness: 55, energy: 55, fullness: 70 }));
+  const grumpy = rate((x) => Object.assign(x.stats, { happiness: 15, energy: 60, fullness: 70 }));
+  const hungry = rate((x) => Object.assign(x.stats, { happiness: 80, energy: 70, fullness: 8 }));
+  const sleepy = rate((x) => Object.assign(x.stats, { happiness: 80, energy: 8, fullness: 70 }));
+  assert.ok(eager > 0.65 && eager > meh && meh > grumpy, `eager ${eager}, meh ${meh}, grumpy ${grumpy}`);
+  assert.ok(grumpy < 0.2 && hungry < eager - 0.2 && sleepy === 0, `hungry ${hungry}, sleepy ${sleepy}`);
+  // evenings are the cat's time
+  const evening = rate((x) => Object.assign(x.stats, { happiness: 55, energy: 55, fullness: 70 }), 19);
+  assert.ok(evening > meh, `evening ${evening} vs morning ${meh}`);
+  // a sleeping cat does not even look up
+  const asleep = fresh();
+  asleep.activity = { id: 'nap', spot: 'rug', key: 'rug', pose: 'curl', start: t0, end: t0 + HOUR, facing: 1 };
+  for (let i = 0; i < 50; i++) assert.equal(G.Interactions.launchDecision(asleep, t0 + i).kind, 'ignore');
+});
+
 test('the wall note follows the cat when it is renamed', () => {
   const s = fresh();
   const oldName = s.cat.name;

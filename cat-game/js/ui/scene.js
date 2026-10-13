@@ -1086,10 +1086,27 @@
   };
 
   // ---- Play mode ------------------------------------------------------------------------
+  // Toys you move about (feather, mouse on a string, laser), a bubble wand the cat jumps at, and a
+  // ball launcher the cat may or may not go and fetch from. While playing, `this.play` holds it all.
+
+  const CATCH = { feather: 0.65, mouse: 0.75, laser: 0 }; // how often a pounce gets it
+  const FLOOR_MIN = 448; // the floor, front and back
+  const FLOOR_MAX = 596;
+  const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const rand = (lo, hi) => lo + Math.random() * (hi - lo);
 
   Scene.prototype.startPlay = function (toy, joined) {
     this.userPan = null;
-    this.play = { toy, joined, x: A.SPOTS.rug.x + 10, y: 470, px: A.SPOTS.rug.x + 10, py: 470, speed: 0, lastMove: performance.now(), cool: 0, pounce: null };
+    const x0 = A.SPOTS.rug.x + 10;
+    const pl = (this.play = { toy, joined, x: x0, y: 470, px: x0, py: 470, speed: 0, lastMove: performance.now(), cool: 0, pounce: null });
+    if (toy === 'mouse') Object.assign(pl, { y: 520, mx: x0, my: 520, mdir: 1, mspeed: 0, held: 0 });
+    if (toy === 'bubbles') pl.bub = { list: [], lastBlow: 0, leap: null, cool: 0 };
+    if (toy === 'launcher') {
+      const lx = clampN(this.cam.x + this.cam.w * 0.5, 540, A.W - 160); // clear of the bowls, in the middle of what you see
+      pl.ln = { x: lx, y: 588, ball: null, aiming: false, cat: null, kick: 0 };
+      pl.x = lx + 170; // where the aim starts
+      pl.y = 530;
+    }
     this.toyG.setAttribute('display', 'inline');
     this.drawToy();
     if (joined) {
@@ -1113,6 +1130,8 @@
   Scene.prototype.endPlay = function () {
     this.play = null;
     this.toyG.setAttribute('display', 'none');
+    this.toyG.innerHTML = '';
+    this.catBody.classList.remove('wiggling');
   };
 
   Scene.prototype.moveToy = function (p) {
@@ -1122,16 +1141,153 @@
     const dt = Math.max(16, now - pl.lastMove) / 1000;
     const d = Math.hypot(p.x - pl.x, p.y - pl.y);
     pl.speed = pl.speed * 0.6 + (d / dt) * 0.4;
-    pl.x = Math.max(10, Math.min(A.W - 10, p.x));
-    pl.y = Math.max(10, Math.min(A.H - 6, p.y));
+    pl.x = clampN(p.x, 10, A.W - 10);
+    pl.y = clampN(p.y, 10, A.H - 6);
+    if (pl.toy === 'mouse') pl.y = clampN(pl.y, FLOOR_MIN + 4, FLOOR_MAX); // it stays on the floor
+    if (pl.toy === 'launcher') {
+      pl.y = clampN(pl.y, FLOOR_MIN, FLOOR_MAX); // you aim at a spot on the floor
+      pl.ln.aiming = true;
+    }
     pl.lastMove = now;
     this.drawToy();
   };
 
+  // Let go of the pointer: the launcher fires at where it was aimed.
+  Scene.prototype.releaseToy = function () {
+    const pl = this.play;
+    if (pl && pl.toy === 'launcher' && pl.ln.aiming) this.fireBall();
+  };
+
+  // ---- drawing the toys
+
+  const BALL_PINK = '#f4accc';
+  function ballSvg(b, carriedAt) {
+    const x = carriedAt ? carriedAt.x : b.x;
+    const y = carriedAt ? carriedAt.y : b.y;
+    const z = carriedAt ? 0 : b.z;
+    const r = 12 * (A.scaleAt(carriedAt ? y + 30 : y) / 0.8);
+    const sh = carriedAt ? '' : `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${(r * (1 - Math.min(0.5, z / 260))).toFixed(1)}" ry="${(r * 0.32).toFixed(1)}" fill="#000" opacity="${Math.max(0.05, 0.16 - z / 900).toFixed(2)}"/>`;
+    const cy = carriedAt ? y : y - z - r;
+    return (
+      sh +
+      `<g transform="translate(${x.toFixed(1)} ${cy.toFixed(1)}) rotate(${(b.rot || 0).toFixed(0)})">` +
+      `<circle r="${r.toFixed(1)}" fill="${BALL_PINK}" stroke="#1b1714" stroke-width="2.6"/>` +
+      `<circle r="${(r * 0.38).toFixed(1)}" fill="#ecbc44" stroke="#1b1714" stroke-width="1.8"/>` +
+      `<path d="M ${-r} 0 Q 0 ${(r * 0.5).toFixed(1)} ${r} 0 M 0 ${-r} Q ${(-r * 0.5).toFixed(1)} 0 0 ${r}" fill="none" stroke="#c9677f" stroke-width="2"/></g>`
+    );
+  }
+
+  // Where the launched ball would be, t seconds in (ground position and height).
+  function flight(ln, ball0, target, t) {
+    const g = 900;
+    const T = flightTime(ln, target);
+    const vz = (0.5 * g * T * T - ball0.z) / T;
+    return { x: ball0.x + ((target.x - ball0.x) / T) * t, y: ball0.y + ((target.y - ball0.y) / T) * t, z: Math.max(0, ball0.z + vz * t - 0.5 * g * t * t), T, vz };
+  }
+  function flightTime(ln, target) {
+    return clampN(0.45 + Math.hypot(target.x - muzzle(ln, target).x, target.y - muzzle(ln, target).y) / 800, 0.55, 1.3);
+  }
+  // The end of the barrel: it points at whichever side the target is on.
+  function muzzle(ln, target) {
+    const dir = target.x >= ln.x ? 1 : -1;
+    return { x: ln.x + dir * 42 * A.scaleAt(ln.y), y: ln.y, z: 52, dir };
+  }
+
+  function launcherSvg(pl, now) {
+    const ln = pl.ln;
+    const tgt = { x: clampN(pl.x, 30, A.W - 30), y: clampN(pl.y, FLOOR_MIN, FLOOR_MAX) };
+    const m = muzzle(ln, tgt);
+    const s = A.scaleAt(ln.y);
+    const ink = '#1b1714';
+    let out = '';
+    // aim: a dotted arc to a ring where the ball will come down
+    if (ln.aiming && !(ln.ball && ln.ball.carried)) {
+      const b0 = { x: m.x, y: m.y, z: m.z };
+      const pts = [];
+      for (let i = 0; i <= 12; i++) {
+        const f = flight(ln, b0, tgt, (flightTime(ln, tgt) * i) / 12);
+        pts.push(`${f.x.toFixed(1)} ${(f.y - f.z).toFixed(1)}`);
+      }
+      const d = 'M ' + pts.join(' L ');
+      out += `<path d="${d}" fill="none" stroke="${ink}" stroke-width="7" stroke-linecap="round" stroke-dasharray="1 15"/><path d="${d}" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-dasharray="1 15"/>`;
+      out += `<ellipse cx="${tgt.x}" cy="${tgt.y}" rx="${(26 * s).toFixed(1)}" ry="${(8 * s).toFixed(1)}" fill="rgba(255,210,63,.35)" stroke="#ff8a00" stroke-width="3.4" stroke-dasharray="7 5"/>`;
+    }
+    // the launcher: a stubby pink cannon on two wheels
+    const kick = ln.kick > 0 ? ln.kick * 14 : 0;
+    const ang = -(18 + Math.min(32, Math.hypot(tgt.x - ln.x, tgt.y - ln.y) / 18));
+    out +=
+      `<g transform="translate(${ln.x} ${ln.y}) scale(${(m.dir * s).toFixed(3)} ${s.toFixed(3)})">` +
+      `<ellipse cx="0" cy="2" rx="40" ry="8" fill="#000" opacity=".14"/>` +
+      `<g transform="translate(${-kick.toFixed(1)} 0) rotate(${ang.toFixed(1)} 4 -40)"><rect x="4" y="-52" width="46" height="24" rx="8" fill="#ffd7e0" stroke="${ink}" stroke-width="3.2"/><rect x="40" y="-56" width="14" height="32" rx="5" fill="#ff6f91" stroke="${ink}" stroke-width="3.2"/></g>` +
+      `<rect x="-30" y="-44" width="44" height="26" rx="9" fill="#ff6f91" stroke="${ink}" stroke-width="3.4"/>` +
+      `<circle cx="-14" cy="-10" r="12" fill="#5a3040" stroke="${ink}" stroke-width="3"/><circle cx="-14" cy="-10" r="4" fill="#ffd7e0"/>` +
+      `<circle cx="10" cy="-6" r="8" fill="#5a3040" stroke="${ink}" stroke-width="3"/>` +
+      `<circle cx="-18" cy="-34" r="3.2" fill="#ecbc44" stroke="${ink}" stroke-width="1.8"/></g>`;
+    return out;
+  }
+
+  function mouseSvg(pl) {
+    const s = A.scaleAt(pl.my) * 1.15;
+    const held = pl.held > performance.now();
+    const hx = Math.min(A.W - 20, pl.x + 150);
+    const hy = Math.max(40, pl.y - 230);
+    const ink = '#1b1714';
+    return (
+      `<path d="M ${hx + 60} ${hy - 50} L ${hx} ${hy}" stroke="${ink}" stroke-width="9" stroke-linecap="round"/>` +
+      `<path d="M ${hx + 60} ${hy - 50} L ${hx} ${hy}" stroke="#e2b078" stroke-width="5" stroke-linecap="round"/>` +
+      `<path d="M ${hx} ${hy} Q ${(hx + pl.mx) / 2 + 10} ${(hy + pl.my) / 2 + 40} ${pl.mx} ${pl.my - 14 * s}" fill="none" stroke="${ink}" stroke-width="2"/>` +
+      `<ellipse cx="${pl.mx.toFixed(1)}" cy="${pl.my.toFixed(1)}" rx="${(20 * s).toFixed(1)}" ry="${(5 * s).toFixed(1)}" fill="#000" opacity=".13"/>` +
+      `<g transform="translate(${pl.mx.toFixed(1)} ${pl.my.toFixed(1)}) scale(${(pl.mdir * s).toFixed(3)} ${(held ? s * 0.7 : s).toFixed(3)})">` +
+      `<path d="M -16 -8 Q -30 -4 -36 ${held ? -2 : -16}" fill="none" stroke="#e98aa0" stroke-width="3" stroke-linecap="round"/>` +
+      `<path d="M -18 -2 Q -16 -22 2 -20 Q 18 -18 17 -4 Q 0 2 -18 -2 Z" fill="#b8b4ad" stroke="${ink}" stroke-width="2.6" stroke-linejoin="round"/>` +
+      `<circle cx="6" cy="-21" r="6.5" fill="#f4accc" stroke="${ink}" stroke-width="2.2"/>` +
+      `<circle cx="10" cy="-11" r="2" fill="${ink}"/><circle cx="19" cy="-7" r="2.2" fill="#f4accc" stroke="${ink}" stroke-width="1.2"/></g>`
+    );
+  }
+
+  function bubblesSvg(pl) {
+    const ink = '#1b1714';
+    let out = '';
+    for (const b of pl.bub.list) {
+      const fade = b.life - b.t < 0.7 ? Math.max(0.3, (b.life - b.t) / 0.7) : 1;
+      out +=
+        `<g opacity="${fade.toFixed(2)}"><circle cx="${b.x.toFixed(1)}" cy="${b.y.toFixed(1)}" r="${b.r.toFixed(1)}" fill="#e8f6fc" fill-opacity=".45" stroke="${ink}" stroke-width="2.4"/>` +
+        `<path d="M ${(b.x - b.r * 0.55).toFixed(1)} ${(b.y - b.r * 0.1).toFixed(1)} A ${(b.r * 0.6).toFixed(1)} ${(b.r * 0.6).toFixed(1)} 0 0 1 ${(b.x - b.r * 0.05).toFixed(1)} ${(b.y - b.r * 0.58).toFixed(1)}" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></g>`;
+    }
+    // the wand: a ring on a stick
+    out +=
+      `<path d="M ${pl.x + 12} ${pl.y + 12} L ${pl.x + 70} ${pl.y + 80}" stroke="${ink}" stroke-width="10" stroke-linecap="round"/>` +
+      `<path d="M ${pl.x + 12} ${pl.y + 12} L ${pl.x + 70} ${pl.y + 80}" stroke="#8fd3c6" stroke-width="5.4" stroke-linecap="round"/>` +
+      `<circle cx="${pl.x}" cy="${pl.y}" r="17" fill="#e8f6fc" fill-opacity=".35" stroke="${ink}" stroke-width="5"/><circle cx="${pl.x}" cy="${pl.y}" r="17" fill="none" stroke="#8fd3c6" stroke-width="2.4"/>`;
+    return out;
+  }
+
   Scene.prototype.drawToy = function () {
     const pl = this.play;
+    if (!pl) return;
+    const now = performance.now();
     if (pl.toy === 'laser') {
       this.toyG.innerHTML = `<circle cx="${pl.x}" cy="${pl.y}" r="16" fill="#ff3b3b" opacity=".25"/><circle cx="${pl.x}" cy="${pl.y}" r="6" fill="#ff2a2a"/><circle cx="${pl.x}" cy="${pl.y}" r="2.5" fill="#fff"/>`;
+      return;
+    }
+    if (pl.toy === 'mouse') {
+      this.toyG.innerHTML = mouseSvg(pl);
+      return;
+    }
+    if (pl.toy === 'bubbles') {
+      this.toyG.innerHTML = bubblesSvg(pl);
+      return;
+    }
+    if (pl.toy === 'launcher') {
+      const ln = pl.ln;
+      let ball = '';
+      if (ln.ball) {
+        if (ln.ball.carried) {
+          const hp = this.headPoint();
+          ball = ballSvg(ln.ball, { x: hp.x + this.cv.facing * 30 * hp.s, y: hp.y + 14 * hp.s });
+        } else ball = ballSvg(ln.ball);
+      }
+      this.toyG.innerHTML = launcherSvg(pl, now) + ball;
       return;
     }
     const hx = Math.min(A.W - 20, pl.x + 150);
@@ -1146,13 +1302,335 @@
       `<circle cy="-11" r="4" fill="#f3c66b" stroke="#1b1714" stroke-width="2"/></g></g>`;
   };
 
+  // A little ring of pop lines where a bubble was.
+  Scene.prototype.burst = function (x, y, r) {
+    const g = el('g', { class: 'bubble-burst', 'pointer-events': 'none', transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` });
+    let s = '';
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      s += `<path d="M ${(Math.cos(a) * r * 0.7).toFixed(1)} ${(Math.sin(a) * r * 0.7).toFixed(1)} L ${(Math.cos(a) * r * 1.35).toFixed(1)} ${(Math.sin(a) * r * 1.35).toFixed(1)}" stroke="#7fb4d9" stroke-width="3" stroke-linecap="round"/>`;
+    }
+    g.innerHTML = `<g class="burst-in">${s}</g>`;
+    this.fx.append(g);
+    setTimeout(() => g.remove(), 450);
+  };
+
+  // ---- the ball launcher
+
+  Scene.prototype.fireBall = function () {
+    const pl = this.play;
+    const ln = pl.ln;
+    ln.aiming = false;
+    const busy = ln.cat && ['carry', 'return', 'keep', 'keeping'].includes(ln.cat.phase);
+    if (busy) return; // the cat has the last one
+    const tgt = { x: clampN(pl.x, 30, A.W - 30), y: clampN(pl.y, FLOOR_MIN, FLOOR_MAX) };
+    const m = muzzle(ln, tgt);
+    if (Math.hypot(tgt.x - ln.x, tgt.y - ln.y) < 60) return; // a tiny tap isn't a shot
+    const T = flightTime(ln, tgt);
+    const g = 900;
+    ln.ball = { x: m.x, y: m.y, z: m.z, gx: (tgt.x - m.x) / T, gy: (tgt.y - m.y) / T, vz: (0.5 * g * T * T - m.z) / T, rot: 0, rest: false, carried: false, bounces: 0 };
+    ln.kick = 0.25;
+    if (this.hooks.sound) this.hooks.sound('pop');
+    // the cat decides, by how it feels, and gets going a moment after the bang
+    const out = this.hooks.launch ? this.hooks.launch() : { kind: 'watch', say: '…' };
+    ln.cat = Object.assign({ phase: 'react', at: performance.now() + 380 }, out);
+  };
+
+  Scene.prototype.tickBall = function (dt, now) {
+    const pl = this.play;
+    const ln = pl.ln;
+    ln.kick = Math.max(0, ln.kick - dt);
+    if (ln.reloadAt && now > ln.reloadAt) {
+      ln.reloadAt = 0;
+      ln.ball = null;
+    }
+    const b = ln.ball;
+    if (!b || b.carried || b.rest) return;
+    b.vz -= 900 * dt;
+    b.z += b.vz * dt;
+    b.x += b.gx * dt;
+    b.y += b.gy * dt;
+    b.rot += b.gx * dt * 0.9;
+    if (b.z <= 0) {
+      b.z = 0;
+      if (Math.abs(b.vz) > 90) {
+        b.vz = -b.vz * 0.45;
+        b.gx *= 0.72;
+        b.gy *= 0.72;
+        b.bounces++;
+        if (b.bounces <= 2 && this.hooks.sound) this.hooks.sound('pop');
+      } else b.vz = 0;
+    }
+    if (b.z === 0 && b.vz === 0) {
+      const f = Math.exp(-dt * 1.7);
+      b.gx *= f;
+      b.gy *= f;
+      if (Math.hypot(b.gx, b.gy) < 9) {
+        b.gx = b.gy = 0;
+        b.rest = true;
+      }
+    }
+    // walls bounce it back; the back and front of the floor too
+    if (b.x < 26) { b.x = 26; b.gx = Math.abs(b.gx) * 0.6; }
+    if (b.x > A.W - 26) { b.x = A.W - 26; b.gx = -Math.abs(b.gx) * 0.6; }
+    if (b.y < FLOOR_MIN - 4) { b.y = FLOOR_MIN - 4; b.gy = Math.abs(b.gy) * 0.6; }
+    if (b.y > FLOOR_MAX) { b.y = FLOOR_MAX; b.gy = -Math.abs(b.gy) * 0.6; }
+    pl.x = b.x; // the camera follows the ball
+    pl.y = b.y;
+  };
+
+  // What the cat does about the ball (see Interactions.launchDecision for why).
+  Scene.prototype.launcherCat = function (dt, now) {
+    const pl = this.play;
+    const ln = pl.ln;
+    const cv = this.cv;
+    const c = ln.cat;
+    const b = ln.ball;
+    if (!c || !b || now < c.at) {
+      if (!c && cv.pose !== 'crouch' && !cv.moving) {
+        this.setArt('crouch');
+        this.catBody.classList.remove('zoom');
+      }
+      return;
+    }
+    const goto = (tx, ty, speed, run) => {
+      const dx = tx - cv.x;
+      const dy = ty - cv.y;
+      const dist = Math.hypot(dx, dy);
+      if (Math.abs(dx) > 6) cv.facing = dx > 0 ? 1 : -1;
+      if (cv.pose !== 'walk') this.setArt('walk');
+      this.catBody.classList.toggle('zoom', !!run);
+      if (dist > 1) {
+        const k = Math.min(speed * dt, dist) / dist;
+        cv.x += dx * k;
+        cv.y += dy * k;
+      }
+      cv.fy = cv.y;
+      this.syncZ();
+      return dist;
+    };
+    const sit = (eyes) => {
+      this.setArt('sit');
+      this.catBody.classList.remove('zoom');
+      if (eyes) this.face(eyes, null, 1600);
+    };
+    switch (c.phase) {
+      case 'react':
+        if (c.kind === 'fetch') {
+          this.say(c.say, 900);
+          this.face('wide', null, 1500);
+          c.phase = 'run';
+        } else if (c.kind === 'chase') {
+          this.say('!', 800);
+          this.face('wide', null, 1200);
+          c.until = now + rand(900, 1500);
+          c.phase = 'run';
+        } else if (c.kind === 'watch') {
+          this.flash('tilt', 1400);
+          this.face('wide', null, 1600);
+          this.say(c.say, 1600, true);
+          c.phase = 'done';
+        } else {
+          // ignores it: turns away, yawns, looks at something more interesting
+          cv.facing = b.x > cv.x ? -1 : 1;
+          sit('half');
+          this.say(c.say, 1800, c.say === '*yawn*' ? false : true);
+          c.phase = 'done';
+        }
+        break;
+      case 'run': {
+        const near = goto(b.x, b.y, 340, true) < 34;
+        if (c.kind === 'chase') {
+          if (now > c.until || near) {
+            sit('half');
+            this.say('Meh.', 1700, true);
+            if (this.hooks.pounce) this.hooks.pounce(false);
+            c.phase = 'done';
+          }
+        } else if (near && b.z < 42) {
+          // got it
+          b.carried = true;
+          this.setArt('walk');
+          this.catBody.classList.remove('zoom');
+          this.miniHop(16);
+          if (this.hooks.sound) this.hooks.sound('bell');
+          this.say(c.keep ? 'Mine.' : 'GOT IT!', 1100);
+          c.phase = c.keep ? 'keep' : 'carry';
+        }
+        break;
+      }
+      case 'carry': {
+        // trots back to you with it
+        const dropX = ln.x + 96 > A.W - 40 ? ln.x - 96 : ln.x + 96;
+        if (goto(dropX, 588, 230, false) < 6) {
+          b.carried = false;
+          b.x = cv.x + cv.facing * 36;
+          b.y = cv.y;
+          b.z = 0;
+          b.rest = true;
+          this.setArt('crouch');
+          this.hearts(2);
+          this.say('Mrrp!', 1400);
+          if (this.hooks.sound) this.hooks.sound('chime');
+          if (this.hooks.pounce) this.hooks.pounce(true);
+          if (this.hooks.fetched) this.hooks.fetched(false);
+          ln.reloadAt = now + 1700; // back in the launcher
+          c.phase = 'done';
+        }
+        break;
+      }
+      case 'keep': {
+        // and then does not give it back
+        const kx = cv.x < A.W / 2 ? 110 : A.W - 110;
+        if (goto(kx, 530, 220, false) < 6) {
+          this.setArt('crouch');
+          this.say('Mine now.', 2400);
+          this.face('closed', null, 1600);
+          if (this.hooks.pounce) this.hooks.pounce(true);
+          if (this.hooks.fetched) this.hooks.fetched(true);
+          c.until = now + 2400;
+          c.phase = 'keeping';
+        }
+        break;
+      }
+      case 'keeping':
+        if (now > c.until) {
+          b.carried = false;
+          ln.ball = null; // it has been hidden somewhere; a new one is in the launcher
+          c.phase = 'done';
+        }
+        break;
+      default:
+    }
+  };
+
+  // ---- the bubble wand
+
+  Scene.prototype.popBubble = function (b, byCat) {
+    const B = this.play.bub;
+    const i = B.list.indexOf(b);
+    if (i >= 0) B.list.splice(i, 1);
+    this.burst(b.x, b.y, b.r);
+    if (byCat) {
+      if (this.hooks.sound) this.hooks.sound('pop');
+      this.face(null, 'open', 350);
+      if (Math.random() < 0.5) this.hearts(1);
+      if (this.hooks.bubble) this.hooks.bubble();
+      if (this.hooks.pounce) this.hooks.pounce(true);
+    }
+  };
+
+  Scene.prototype.tickBubbles = function (dt, now) {
+    const pl = this.play;
+    const B = pl.bub;
+    // wave the wand and bubbles come off it
+    if (pl.speed > 150 && now - B.lastBlow > 340 && B.list.length < 9) {
+      B.lastBlow = now;
+      for (let i = 0; i < 1; i++) {
+        B.list.push({ x: pl.x + rand(-8, 8), y: pl.y + rand(-8, 8), r: rand(8, 18), vx: rand(-26, 26), vy: -rand(10, 34), t: 0, life: rand(7, 11), ph: rand(0, 6) });
+      }
+    }
+    for (const b of B.list.slice()) {
+      b.t += dt;
+      b.x += (b.vx + Math.sin(b.t * 2 + b.ph) * 18) * dt;
+      b.y += b.vy * dt;
+      b.vy = Math.min(32, b.vy + 15 * dt); // rises a little off the wand, then drifts slowly down, like real ones
+      if (b.x < 20 || b.x > A.W - 20) b.vx = -b.vx;
+      if (b.t > b.life || b.y < 60 || b.y > FLOOR_MAX) this.popBubble(b, false);
+    }
+  };
+
+  Scene.prototype.bubbleCat = function (dt, now) {
+    const pl = this.play;
+    const B = pl.bub;
+    const cv = this.cv;
+    const s = A.scaleAt(cv.fy);
+    if (B.leap) {
+      const L = B.leap;
+      L.t += dt;
+      const f = Math.min(1, L.t / 0.55);
+      cv.hopY = Math.sin(f * Math.PI) * L.peak;
+      if (!L.done && f >= 0.5) {
+        L.done = true;
+        const b = L.b;
+        const headY = cv.y - cv.hopY - 62 * s;
+        if (B.list.includes(b) && Math.abs(b.x - cv.x) < 54 && Math.abs(b.y - headY) < 66) this.popBubble(b, true);
+        else if (this.hooks.pounce) this.hooks.pounce(false);
+      }
+      if (f >= 1) {
+        cv.hopY = 0;
+        B.leap = null;
+        B.cool = now + 250;
+        this.setArt('crouch');
+      }
+      this.syncZ();
+      return;
+    }
+    // the nearest bubble it can reach
+    let best = null;
+    let bd = 1e9;
+    for (const b of B.list) {
+      const h = cv.y - b.y;
+      if (h < 10 || h > 165) continue;
+      const d = Math.abs(b.x - cv.x);
+      if (d < bd) {
+        bd = d;
+        best = b;
+      }
+    }
+    if (!best) {
+      if (cv.pose !== 'sit') {
+        this.setArt('sit');
+        this.catBody.classList.remove('zoom');
+      }
+      return;
+    }
+    const dx = best.x - cv.x;
+    if (Math.abs(dx) > 20) {
+      cv.facing = dx > 0 ? 1 : -1;
+      cv.x += Math.sign(dx) * Math.min(270 * dt, Math.abs(dx));
+      cv.fy = cv.y;
+      if (cv.pose !== 'walk') {
+        this.setArt('walk');
+        this.catBody.classList.add('zoom');
+      }
+      this.syncZ();
+      return;
+    }
+    if (cv.pose !== 'crouch') {
+      this.setArt('crouch');
+      this.catBody.classList.remove('zoom');
+    }
+    if (now > B.cool) {
+      const h = cv.y - best.y;
+      B.leap = { t: 0, b: best, peak: clampN(h - 52 * s, 24, 96), done: false };
+    }
+  };
+
+  // ---- the mouse on a string
+
+  Scene.prototype.tickMouse = function (dt, now) {
+    const pl = this.play;
+    const k = pl.held > now ? 0 : 1 - Math.exp(-dt * 7); // it trails behind the string, and stays put when caught
+    const nx = pl.mx + (pl.x - pl.mx) * k;
+    const ny = pl.my + (pl.y - pl.my) * k;
+    if (Math.abs(nx - pl.mx) > 0.3) pl.mdir = nx > pl.mx ? 1 : -1;
+    pl.mspeed = Math.hypot(nx - pl.mx, ny - pl.my) / Math.max(dt, 0.001);
+    pl.mx = nx;
+    pl.my = ny;
+  };
+
   Scene.prototype.updatePlay = function (dt, now) {
     const pl = this.play;
     const cv = this.cv;
     pl.speed *= Math.pow(0.1, dt);
+    if (pl.toy === 'launcher') this.tickBall(dt, now);
+    else if (pl.toy === 'bubbles') this.tickBubbles(dt, now);
+    else if (pl.toy === 'mouse') this.tickMouse(dt, now);
+    if (pl.toy === 'launcher' || pl.toy === 'bubbles' || pl.toy === 'mouse') this.drawToy();
     if (!pl.joined) {
       if (cv.moving) this.stepPath(dt);
-      if (pl.speed > 200 && this.hooks.tempt) this.hooks.tempt();
+      if (pl.speed > 200 && pl.toy !== 'launcher' && this.hooks.tempt) this.hooks.tempt();
       return;
     }
     if (cv.high && !cv.moving) {
@@ -1160,9 +1638,16 @@
       cv.moving = true;
     }
     if (cv.moving) return this.stepPath(dt);
+    if (pl.toy === 'launcher') return this.launcherCat(dt, now);
+    if (pl.toy === 'bubbles') return this.bubbleCat(dt, now);
 
-    const tx = Math.max(40, Math.min(A.W - 40, pl.x));
-    const ty = Math.max(452, Math.min(594, pl.y + 20));
+    // feather, laser and the mouse: stalk it, and pounce when it moves quickly
+    const mouse = pl.toy === 'mouse';
+    const px = mouse ? pl.mx : pl.x;
+    const py = mouse ? pl.my : pl.y;
+    const spd = mouse ? pl.mspeed : pl.speed;
+    const tx = Math.max(40, Math.min(A.W - 40, px));
+    const ty = Math.max(452, Math.min(594, py + (mouse ? 0 : 20)));
     if (pl.pounce) {
       const P = pl.pounce;
       P.t += dt;
@@ -1175,12 +1660,16 @@
         cv.hopY = 0;
         pl.pounce = null;
         pl.cool = now + 900;
-        const near = Math.hypot(pl.x - cv.x, pl.y + 20 - cv.y) < 70;
-        const caught = pl.toy === 'feather' && near && Math.random() < 0.65;
+        const near = Math.hypot(px - cv.x, py + (mouse ? 0 : 20) - cv.y) < 70;
+        const caught = near && Math.random() < (CATCH[pl.toy] || 0);
         if (this.hooks.pounce) this.hooks.pounce(caught);
         if (caught) {
-          this.say(Math.random() < 0.5 ? 'GOT IT!' : 'Mrah!', 1200);
+          this.say(mouse ? 'Squeak!' : Math.random() < 0.5 ? 'GOT IT!' : 'Mrah!', 1200);
           this.hearts(1);
+          if (mouse) {
+            pl.held = now + 1100; // pinned under a paw for a moment
+            if (this.hooks.mouseCatch) this.hooks.mouseCatch();
+          }
         }
         this.setArt('crouch');
       }
@@ -1191,21 +1680,24 @@
     const dy = ty - cv.y;
     const dist = Math.hypot(dx, dy);
     if (Math.abs(dx) > 6) cv.facing = dx > 0 ? 1 : -1;
-    if (dist > 95 || (dist > 30 && pl.speed < 60)) {
-      const sp = 280 * dt;
+    if (dist > 95 || (dist > 30 && spd < 60)) {
+      // creeping up on a mouse; racing after a feather
+      const sp = (mouse ? 190 : 280) * dt;
       cv.x += (dx / dist) * Math.min(sp, dist);
       cv.y += (dy / dist) * Math.min(sp, dist);
       cv.fy = cv.y;
-      if (cv.pose !== 'walk') {
-        this.setArt('walk');
-        this.catBody.classList.add('zoom');
-      }
+      if (cv.pose !== 'walk') this.setArt('walk');
+      this.catBody.classList.toggle('zoom', !mouse);
+      this.catBody.classList.remove('wiggling');
     } else {
       if (cv.pose !== 'crouch') {
         this.setArt('crouch');
         this.catBody.classList.remove('zoom');
       }
-      if (pl.speed > 140 && now > pl.cool) {
+      // still close to a mouse that is lying still: the butt wiggle
+      this.catBody.classList.toggle('wiggling', mouse && spd < 90 && now > pl.held);
+      if (spd > 140 && now > pl.cool && now > pl.held) {
+        this.catBody.classList.remove('wiggling');
         pl.pounce = { t: 0, fx: cv.x, fy: cv.y, tx: tx - 36 * Math.sign(dx || 1), ty };
       }
     }

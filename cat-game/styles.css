@@ -1325,6 +1325,16 @@ input:focus {
   from { transform: scale(0.3); opacity: 0.95; }
   to { transform: scale(1.7); opacity: 0; }
 }
+/* A bubble popping: a ring of little lines that flares and fades. */
+.bubble-burst .burst-in {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: popBurst 0.4s ease-out forwards;
+}
+@keyframes popBurst {
+  from { transform: scale(0.5); opacity: 1; }
+  to { transform: scale(1.5); opacity: 0; }
+}
 .item.dribble {
   --spin: 0.12;
   transform-box: fill-box;

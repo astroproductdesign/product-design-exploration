@@ -14,7 +14,10 @@
 
   const TOYS = {
     feather: { name: 'Feather wand', level: 1 },
+    mouse: { name: 'Mouse on a string', level: 2 },
     laser: { name: 'Laser pointer', level: 3 },
+    launcher: { name: 'Ball launcher', level: 4 },
+    bubbles: { name: 'Bubble wand', level: 5 },
   };
 
   // Things you can place in the room. `tags` say what the cat may do there.

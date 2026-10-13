@@ -54,6 +54,17 @@
       const m = s.activity && /^slot(\d)$/.exec(s.activity.spot || '');
       if (m && Number(m[1]) >= 1) s.activity.spot = 'slot' + (Number(m[1]) + 1);
     }
+    // Toys added since the save was made are there for anyone whose bond is already high enough.
+    if (G.Progression && G.Catalog) {
+      const lv = G.Progression.level(s);
+      for (const [id, t] of Object.entries(G.Catalog.TOYS)) {
+        const key = 'toy:' + id;
+        if (t.level <= lv && !s.unlocked.includes(key)) {
+          s.unlocked.push(key);
+          if (!s.unseenUnlocks.includes(key)) s.unseenUnlocks.push(key);
+        }
+      }
+    }
     s.cat.coat = G.Coats.normalize(s.cat.coat);
     s.cat.accessory = G.Coats.normalizeAccessory(s.cat.accessory);
     s.cat.tail = G.Coats.normalizeTail(s.cat.tail, s.cat.coat); // old saves get their breed's usual tail

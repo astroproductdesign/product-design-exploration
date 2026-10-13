@@ -270,6 +270,48 @@
     return { ok: true, toast: stats.pounces === 0 ? '' : tired ? '{name} flopped over, completely worn out. Good hunt!' : '{name} sat down and started grooming like nothing happened.' };
   }
 
+  // ---- Ball launcher ------------------------------------------------------------
+  // The ball is launched; the cat decides what to do about it, by how it feels. The scene plays
+  // the decision out: 'fetch' (runs, catches it, brings it back, or keeps it), 'chase' (sets off,
+  // loses interest halfway), 'watch' (follows it with its head and does nothing) or 'ignore'.
+
+  // How likely the cat is to go and get it (before the dice). Happy and energetic is high; hungry,
+  // sleepy and grumpy are low; evenings are the cat's time.
+  function fetchChance(s, t) {
+    const st = s.stats;
+    const ph = G.Clock.phaseAt(t);
+    let p = 0.08 + (st.happiness / 100) * 0.55 + ((st.energy - 40) / 100) * 0.3 + G.Progression.level(s) * 0.015;
+    if (ph === 'evening') p += 0.1;
+    if (st.fullness < 25) p -= 0.2;
+    if (st.energy < 25) p -= 0.3;
+    if (moodOf(s) === 'grumpy') p -= 0.3;
+    return clamp(p, 0.03, 0.92);
+  }
+
+  const FETCH_LINES = ['!', 'Mrrp!', 'Mine!', 'GOT IT!'];
+  const WATCH_LINES = ['…', 'Hm.', '?'];
+  const IGNORE_LINES = ['Not now.', 'Hmph.', 'Seen it.', '*yawn*'];
+
+  function launchDecision(s, t) {
+    const r = rngFor(s, t, 'launch');
+    const st = s.stats;
+    const sleeping = G.Sim.isSleeping(s);
+    let kind;
+    if (sleeping || st.energy < 12) kind = 'ignore';
+    else if (r() < fetchChance(s, t)) kind = 'fetch';
+    else {
+      const q = r();
+      const grumpy = moodOf(s) === 'grumpy';
+      if (grumpy && q < 0.7) kind = 'ignore';
+      else if (q < (st.energy > 40 ? 0.35 : 0.18)) kind = 'chase';
+      else if (q < 0.72) kind = 'watch';
+      else kind = 'ignore';
+    }
+    const out = { kind, keep: kind === 'fetch' && r() < 0.3 };
+    out.say = R.pick(r, kind === 'fetch' ? FETCH_LINES : kind === 'ignore' ? IGNORE_LINES : WATCH_LINES);
+    return out;
+  }
+
   // ---- Call by name -----------------------------------------------------------
 
   function call(s, t) {
@@ -422,5 +464,5 @@
     return withBond({ ok: true, rarity: info.rarity, toast: `You got ${info.name} from {name}.${tag} Added to your treasures.` }, res);
   }
 
-  G.Interactions = { moodOf, MOOD_LABEL, feed, treat, pet, scoop, cleanVomit, invite, setLights, startPlay, tempt, pounce, endPlay, call, validateName, rename, pickUpCup, collectGift };
+  G.Interactions = { moodOf, MOOD_LABEL, feed, treat, pet, scoop, cleanVomit, invite, setLights, startPlay, tempt, pounce, endPlay, fetchChance, launchDecision, call, validateName, rename, pickUpCup, collectGift };
 })(globalThis.CatGame = globalThis.CatGame || {});

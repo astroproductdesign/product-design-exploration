@@ -34,6 +34,9 @@
     close: I('<path d="M6 6l12 12M18 6L6 18" stroke-width="3"/>'),
     feed: I('<path d="M2.5 11h19a9.5 7 0 0 1-19 0z" fill="#f2a28f"/><path d="M7 8.6c1.2-1.4 2.6-1.4 3.8 0M12.6 7.6c1.2-1.4 2.6-1.4 3.8 0"/>'),
     treat: I('<path d="M2.5 12c3-5.5 9.5-6.5 13.5-2l4.5-3.5v11L16 14c-4 4.5-10.5 3.5-13.5-2z" fill="#f3c66b"/><circle cx="7" cy="11.2" r=".9" fill="currentColor"/>'),
+    mouse: I('<path d="M3 20c6 1 12-1 15-6" fill="none"/><path d="M6 17c-1-5 2-8 6-8s7 3 6 7c-3 3-9 3-12 1z" fill="#b8b4ad"/><circle cx="9" cy="8" r="2.4" fill="#f4accc"/><circle cx="17.5" cy="15" r=".9" fill="currentColor"/>'),
+    launcher: I('<rect x="3" y="10" width="11" height="7" rx="2.5" fill="#ff6f91"/><path d="M13 11.5l7-3.5v9.5l-7-3z" fill="#ffd7e0"/><circle cx="7" cy="19.5" r="2.2" fill="#fffdf6"/><circle cx="11.5" cy="19.5" r="1.6" fill="#fffdf6"/>'),
+    bubbles: I('<circle cx="9" cy="14.5" r="6" fill="#e8f6fc"/><circle cx="17.5" cy="6.5" r="3.2" fill="#e8f6fc"/><path d="M6.5 13a3 3 0 0 1 2.4-2.2"/>'),
     play: I('<path d="M3 21 14 10"/><path d="M14 10c1-5 7-7 7-7s-1 6-6 7.5" fill="#7fb4d9"/><path d="M14 10c-1 4 1 7 1 7" fill="none"/>'),
     paw: I('<ellipse cx="12" cy="16" rx="5" ry="4" fill="#fffdf6"/><circle cx="5.5" cy="10.5" r="2" fill="#fffdf6"/><circle cx="9.5" cy="6.5" r="2" fill="#fffdf6"/><circle cx="14.5" cy="6.5" r="2" fill="#fffdf6"/><circle cx="18.5" cy="10.5" r="2" fill="#fffdf6"/>'),
     call: I('<path d="M3.5 4.5h17v11H10l-5 4v-4H3.5z" fill="#fffdf6"/><path d="M8.5 10h.01M12 10h.01M15.5 10h.01" stroke-width="2.8"/>'),
@@ -73,6 +76,19 @@
       sound: (n) => sound(n),
       tempt: () => tempt(),
       pounce: (caught) => pounce(caught),
+      // ball launcher: the cat decides what to do about each shot, by how it feels
+      launch: () => {
+        const o = G.Interactions.launchDecision(state, now());
+        ach('launch');
+        if (o.kind === 'ignore') ach('launchIgnore');
+        return o;
+      },
+      fetched: (kept) => {
+        ach('fetch');
+        if (kept) ach('fetchKept');
+      },
+      bubble: () => ach('bubblePop'),
+      mouseCatch: () => ach('mouseCatch'),
     });
     scene.renderRoom(true, t);
     scene.teleport(state.activity);
@@ -250,6 +266,14 @@
   const MOOD_FACE = { happy: ['happy', 'normal'], content: ['open', 'normal'], sleepy: ['half', 'normal'], grumpy: ['angry', 'frown'], hungry: ['open', 'open'] };
   let lastMood = '';
 
+  // What the caption says while you are playing.
+  function playCaption() {
+    if (play.toy === 'launcher') return play.joined ? 'Drag to aim, let go to launch the ball. Will {name} fetch?' : 'Launch a ball and see what {name} thinks…';
+    if (play.toy === 'bubbles') return play.joined ? 'Wave the wand! {name} is eyeing the bubbles.' : 'Wave the wand to tempt {name}…';
+    if (play.toy === 'mouse') return play.joined ? '{name} is stalking the mouse. Hold still, then yank it!' : 'Skitter the mouse to tempt {name}…';
+    return play.joined ? '{name} is in hunting mode! Wiggle the toy.' : 'Wiggle the toy to tempt {name}…';
+  }
+
   function updateHUD() {
     const t = now();
     const st = state.stats;
@@ -274,7 +298,7 @@
     const last = wcfg().last;
     $('clockPhase').textContent = G.Clock.PHASE_LABEL[G.Clock.phaseAt(t)] + (wk ? ' · ' + G.Weather.LABEL[wk] : '') + (seasons.length ? ' · ' + seasons.map((x) => G.Clock.SEASON_LABEL[x]).join(' & ') : '');
     $('clockPhase').title = wk && last && !wcfg().preview && last.temp !== null ? `${last.temp}°C outside` : '';
-    setCaption(play ? (play.joined ? nm('{name} is in hunting mode! Wiggle the toy.') : nm('Wiggle the toy to tempt {name}…')) : nm(G.Sim.describe(state)));
+    setCaption(play ? nm(playCaption()) : nm(G.Sim.describe(state)));
     const b = state.stats.bond;
     if (shownBond !== null && b - shownBond >= 0.5) floatUp($('bondRow'), `+${half(b - shownBond)} ♥`, 'bond');
     shownBond = b;
@@ -683,6 +707,7 @@
       }
     });
     const end = (e) => {
+      if (play) scene.releaseToy();
       if (petting && !petting.stroked && petting.dist < 14) doPet(scene.toScene(e.clientX, e.clientY), e.clientX, e.clientY);
       petting = null;
       if (gesture) {
@@ -932,7 +957,15 @@
     menu.style.setProperty('--arrow', `${Math.max(16, Math.min(w - 16, cx - x)).toFixed(1)}px`);
   }
 
-  // Tap the toy basket: pick a toy, then drag it around the room.
+  const TOY_BLURB = {
+    feather: 'Drag it around. Pounce!',
+    mouse: 'Skitter it along the floor. Stalk, wiggle, pounce.',
+    laser: 'Impossible to catch. Chaos.',
+    launcher: 'Aim and fire. Will they fetch? Depends on the mood.',
+    bubbles: 'Wave it about. Pop pop pop.',
+  };
+
+  // Tap the toy basket: pick a toy, then play with it.
   function openPlayMenu() {
     if (introActive || play || panel || decor) return;
     const menu = $('thingMenu');
@@ -940,12 +973,12 @@
       .map(([id, toy]) => {
         const ok = G.Progression.isUnlocked(state, 'toy:' + id);
         return `<button class="bm-item ${ok ? '' : 'locked'}" data-toy="${id}" ${ok ? '' : 'disabled'}>
-          <span class="bm-ico">${ICONS.play}</span>
-          <span class="bm-txt"><b>${esc(toy.name)}</b><small>${ok ? (id === 'laser' ? 'Impossible to catch. Chaos.' : 'Drag it around. Pounce!') : `Bond Lv ${toy.level}`}</small></span></button>`;
+          <span class="bm-ico">${ICONS[id] || ICONS.play}</span>
+          <span class="bm-txt"><b>${esc(toy.name)}</b><small>${ok ? TOY_BLURB[id] || 'Drag it around. Pounce!' : `Bond Lv ${toy.level}`}</small></span></button>`;
       })
       .join('');
     menu.innerHTML =
-      `<div class="bm-head"><b>Play with ${esc(state.cat.name)}</b><small>Pick a toy, then drag it around the room. Wiggle it fast to make ${esc(state.cat.name)} pounce.</small></div>` +
+      `<div class="bm-head"><b>Play with ${esc(state.cat.name)}</b><small>Pick a toy and play with ${esc(state.cat.name)}. How ${esc(state.cat.name)} feels decides how keen they are.</small></div>` +
       `<div class="bm-list">${items}</div><i class="bm-arrow"></i>`;
     menu.hidden = false;
     menuOpen = true;
@@ -975,7 +1008,7 @@
     $('toolbar').hidden = true;
     document.body.classList.add('playing');
     $('playbar').hidden = false;
-    $('playHint').textContent = toy === 'laser' ? 'Move the red dot around!' : 'Drag the feather around!';
+    $('playHint').textContent = { laser: 'Move the red dot around!', mouse: 'Skitter the mouse along the floor!', bubbles: 'Wave the wand around!', launcher: 'Drag to aim, let go to launch!' }[toy] || 'Drag the feather around!';
     updateHUD();
   }
 
