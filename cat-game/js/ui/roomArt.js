@@ -70,6 +70,29 @@
       pink: { top: '#ffd9e2', body: '#f4accc', feet: '#c9708f' },
     },
   };
+  // The colour chip for each choice in the Room panel (CSS backgrounds).
+  const SWATCH = {
+    wall: { base: '#f6ead6', peach: '#f8d2bc', mint: '#cfe8d7', lavender: '#ddd0f3' },
+    curtains: { base: '#fcfcfc', pink: '#fad3df', sky: '#d2e9f7', polka: 'radial-gradient(circle at 28% 30%, #d44c34 0 17%, transparent 19%), radial-gradient(circle at 72% 68%, #d44c34 0 17%, transparent 19%), #fcfcfc' },
+    clock: { base: '#d44c34', pink: '#ff6f91', mint: '#3fa58f', midnight: '#3a3a40' },
+    rug: { base: '#d44c34', blue: '#5b8fd4', lavender: '#a98bd9' },
+    chair: { base: '#8cac64', red: '#e0735f', navy: '#5574ad' },
+    lamp: { base: '#ecbc44', mint: '#8fd3c6', pink: '#f6b3cf' },
+    desk: { base: '#d39a64', white: '#fbf8f2', pink: '#ffd9e2' },
+  };
+  const skinSwatch = (piece, colour) => (SWATCH[piece] && (SWATCH[piece][colour || 'base'] || SWATCH[piece].base)) || '#ccc';
+
+  // Where each piece is in the room (x, y, width, height), to point at it.
+  const PIECE_BOX = {
+    wall: { x: 20, y: 44, w: 1208, h: 372 }, // the width of the room, less a margin
+    curtains: { x: 414, y: 34, w: 368, h: 388 },
+    clock: { x: 922, y: 78, w: 80, h: 90 },
+    rug: { x: 462, y: 500, w: 352, h: 94 },
+    chair: { x: 798, y: 282, w: 156, h: 214 },
+    lamp: { x: 1090, y: 86, w: 86, h: 60 },
+    desk: { x: 56, y: 316, w: 212, h: 156 },
+  };
+
   // The colours a piece is drawn in right now.
   const paint = (state, piece) => {
     const v = state && G.Gacha ? G.Gacha.skinOf(state, piece) : '';
@@ -1237,5 +1260,5 @@
 
   const TV = { CHANNELS, show: tvShow, static: tvStatic, off: tvOff };
 
-  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, SKINS, skinIcon, mixHex, weatherArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
+  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, SKINS, skinIcon, skinSwatch, PIECE_BOX, mixHex, weatherArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
 })(globalThis.CatGame = globalThis.CatGame || {});

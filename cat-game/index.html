@@ -50,6 +50,10 @@
 
       <nav class="decorbar" id="decorbar" aria-label="Arrange the room" hidden>
         <div class="decor-head"><p id="decorHint"></p><button class="btn primary" id="decorDone">Done</button></div>
+        <div class="decor-tabs" id="decorTabs" role="tablist" aria-label="What to change">
+          <button type="button" role="tab" data-tab="items" aria-selected="true">Furniture &amp; toys</button>
+          <button type="button" role="tab" data-tab="colours" aria-selected="false">Colours <i class="tab-dot" id="coloursDot" hidden></i></button>
+        </div>
         <div class="decor-tray" id="decorTray"></div>
       </nav>
       <nav class="toolbar playbar" id="playbar" hidden>

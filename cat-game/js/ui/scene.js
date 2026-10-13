@@ -116,6 +116,7 @@
     this.paintTv();
     this.placeCatInZ();
     this.updateLighting(t, true);
+    this.syncPlayful(); // the items were just redrawn
   };
 
   // How each kind of weather changes the light: how much it greys the sky, how much darker the
@@ -230,9 +231,56 @@
     return 'open';
   };
 
+  // The toys the cat bats about with its paws, and which of them roll rather than slide.
+  const BAT_TOYS = new Set(['mouse', 'ball', 'yarn', 'fishToy']);
+  const ROLL_TOYS = new Set(['ball', 'yarn']);
+  // How far each toy sits from where it was put when the cat is knocking it about, so it lands just
+  // beyond the front paws instead of behind the cat's chin (scene units).
+  const BAT_OFFSET = { mouse: 57, ball: 54, yarn: 52, fishToy: 63 };
+  const CHEW_MS = 900; // one round of bites; the head bob in the stylesheet runs on the same beat
+
+  // Switch on the extra movement for what the cat is doing where it stands: chewing at the bowl,
+  // or knocking a toy back and forth between its front paws. (The CSS does the moving; this only
+  // sets the classes, and has to run again whenever the cat's art or the room is redrawn.)
+  // The toy the cat is playing with, if it is one it bats about.
+  Scene.prototype.batToy = function (a) {
+    const m = /^slot(\d)$/.exec(a.spot || '');
+    const toy = m ? this.getState().room.slots[Number(m[1])] : null;
+    return toy && BAT_TOYS.has(toy) ? toy : null;
+  };
+
+  Scene.prototype.syncPlayful = function () {
+    const cv = this.cv;
+    if (!cv) return;
+    const st = this.getState();
+    const a = st.activity;
+    const still = !cv.moving && !this.play && !this.inGarden;
+    const eating = still && (a.id === 'eat' || a.id === 'grass');
+    const toy = still && a.id === 'toy' ? this.batToy(a) : null;
+    const batting = !!toy;
+    if (eating && !this.catBody.classList.contains('eating')) this.eatT0 = performance.now();
+    this.catBody.classList.toggle('eating', eating);
+    this.catBody.classList.toggle('batting', batting);
+    for (const n of this.svg.querySelectorAll('.item.dribble')) {
+      n.classList.remove('dribble', 'round');
+      n.style.removeProperty('--off');
+    }
+    if (batting)
+      for (const n of this.svg.querySelectorAll(`.item[data-spot="${a.spot}"]`)) {
+        n.classList.add('dribble', ...(ROLL_TOYS.has(toy) ? ['round'] : []));
+        n.style.setProperty('--off', BAT_OFFSET[toy] + 'px');
+      }
+    this.applyFace(true);
+  };
+
   Scene.prototype.baseMouth = function () {
     if (this.inGarden) return 'normal';
     const a = this.getState().activity;
+    if (this.catBody.classList.contains('eating')) {
+      // open as the head goes down, shut on the bite, then a second smaller nibble
+      const ph = ((performance.now() - (this.eatT0 || 0)) % CHEW_MS) / CHEW_MS;
+      return ph < 0.37 || (ph >= 0.55 && ph < 0.78) ? 'open' : 'normal';
+    }
     if (a.rare || a.id === 'groom') return 'tongue';
     return 'normal';
   };
@@ -279,6 +327,7 @@
     const opts = {};
     if (a.id === 'eat' || a.id === 'grass' || a.id === 'vomit') opts.eat = true;
     if (a.id === 'knead') opts.knead = true;
+    if (a.id === 'toy' && this.batToy(a)) opts.bat = true;
     return [pose, opts];
   };
 
@@ -289,6 +338,7 @@
     this.setArt(...this.artFor(a));
     this.placeCatInZ();
     this.cam.x = Math.max(0, Math.min(A.W - this.cam.w, p.x - this.cam.w / 2));
+    this.syncPlayful();
   };
 
   Scene.prototype.planTo = function (p, speed) {
@@ -327,7 +377,7 @@
     this.cv.moving = true;
     this.setArt('walk');
     this.catBody.classList.toggle('zoom', !!this.cv.zoom);
-    this.applyFace(true);
+    this.syncPlayful();
   };
 
   Scene.prototype.arrive = function () {
@@ -354,7 +404,7 @@
     this.catBody.classList.toggle('sleeping', G.Sim.isSleeping(this.getState()));
     this.catBody.classList.toggle('retching', a.id === 'vomit');
     this.catBody.classList.remove('zoom');
-    this.applyFace(true);
+    this.syncPlayful();
   };
 
   // ---- TV ---------------------------------------------------------------------------
@@ -654,6 +704,22 @@
       this.zoomingOut = true;
       this.edit.innerHTML = '';
     }
+  };
+
+  // A glowing outline around a piece of furniture (shown in the arranging view, which has the whole
+  // room on screen), so you can see what just changed.
+  Scene.prototype.flashPiece = function (piece) {
+    const b = A.PIECE_BOX[piece];
+    if (!b) return;
+    for (const n of this.edit.querySelectorAll('.piece-flash')) n.remove();
+    const g = el('g', { class: 'piece-flash', 'pointer-events': 'none' });
+    g.innerHTML = `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="${piece === 'wall' ? 18 : 14}"/>`;
+    this.edit.append(g);
+    setTimeout(() => g.remove(), 2200);
+  };
+
+  Scene.prototype.clearSpots = function () {
+    this.edit.innerHTML = '';
   };
 
   Scene.prototype.drawSpots = function (sel) {

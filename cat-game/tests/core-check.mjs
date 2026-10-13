@@ -741,6 +741,29 @@ test('gachapon: costs coins, gives new things, duplicates pay some back', () => 
   assert.equal(G.Achievements.DEFS.find((d) => d.id === 'gachaAll').goal, G.Gacha.PRIZES.length, 'collect-them-all counts every prize');
 });
 
+test('the wall note follows the cat when it is renamed', () => {
+  const s = fresh();
+  const oldName = s.cat.name;
+  // find a day whose note is a wish ("{name} would like to say")
+  let t = t0;
+  while (G.Notes.today(s, t).kind !== 'wish') t += DAY;
+  assert.equal(G.Notes.today(s, t).head, oldName + ' would like to say');
+  assert.ok(G.Interactions.rename(s, t, 'Biscuit').ok);
+  const n = G.Notes.today(s, t);
+  assert.equal(n.head, 'Biscuit would like to say', 'the heading uses the new name');
+  assert.ok(!n.text.includes(oldName) && !n.head.includes(oldName));
+  // earlier notes read the same way
+  assert.ok(G.Notes.earlier(s, t + 5 * DAY, 3).every((x) => !x.head.includes(oldName)));
+  // a note saved by an older version (name already written in) is put right too
+  const old = fresh();
+  const n0 = { day: G.Clock.dayKey(t), kind: 'wish', head: oldName + ' would like to say', text: oldName + ' wants a snack, not ' + oldName + 'ton.' };
+  old.notes = [n0];
+  G.Interactions.rename(old, t, 'Biscuit');
+  const v = G.Notes.today(old, t);
+  assert.equal(v.head, 'Biscuit would like to say');
+  assert.equal(v.text, 'Biscuit wants a snack, not ' + oldName + 'ton.', 'only the whole name changes');
+});
+
 test('furniture colours: only ones you have won, and back to the original', () => {
   const s = fresh();
   assert.equal(G.Gacha.skinOf(s, 'clock'), '');

@@ -161,10 +161,11 @@
   const KINDS = ['fact', 'me', 'wish'];
   const HEAD = { fact: 'Did you know?', me: 'A little about me', wish: '{name} would like to say' };
 
-  function fill(text, s, f) {
+  // `keepName` leaves {name} in the text: a stored note has to follow the cat when it is renamed.
+  function fill(text, s, f, keepName) {
     const quirks = G.Profile.quirks.filter((q) => q.on);
     const quirk = quirks.length ? quirks[R.hash(s.seed, 'quirk', f.days) % quirks.length].text : '';
-    const vars = { name: s.cat.name, days: f.days, bond: f.bond, treasures: f.treasures, s: f.treasures === 1 ? '' : 's', nap: f.nap, toy: f.toy, food: f.food, pet: f.pet, quirk };
+    const vars = { name: keepName ? '{name}' : s.cat.name, days: f.days, bond: f.bond, treasures: f.treasures, s: f.treasures === 1 ? '' : 's', nap: f.nap, toy: f.toy, food: f.food, pet: f.pet, quirk };
     return text.replace(/\{(\w+)\}/g, (m, k) => (vars[k] === undefined || vars[k] === null ? '' : String(vars[k])));
   }
 
@@ -187,11 +188,30 @@
       if (now.length) text = now[R.hash(s.seed, 'wish', key) % now.length].text;
       else text = WISH[shuffled(WISH.length, R.hash(s.seed, 'wishes'))[occ % WISH.length]];
     }
-    return { day: key, kind, head: fill(HEAD[kind], s, f), text: fill(text, s, f) };
+    return { day: key, kind, tpl: true, head: fill(HEAD[kind], s, f, true), text: fill(text, s, f, true) };
   }
 
-  // Today's note (written now if it's the first time it's been asked for).
-  function today(s, t) {
+  // A note as it reads now: today's name for the cat, even if it was renamed after the note was
+  // written. (Notes saved before this kept the old name written into them, so swap those back.)
+  function view(s, n) {
+    const name = s.cat.name;
+    let { head, text } = n;
+    if (n.tpl) {
+      head = head.split('{name}').join(name);
+      text = text.split('{name}').join(name);
+    } else {
+      for (const h of s.cat.nameHistory || []) {
+        if (!h.name || h.name === name) continue;
+        const re = new RegExp('(^|[^\\p{L}\\p{N}])' + h.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}\\p{N}])', 'gu');
+        head = head.replace(re, (m, pre) => pre + name);
+        text = text.replace(re, (m, pre) => pre + name);
+      }
+    }
+    return { day: n.day, kind: n.kind, head, text };
+  }
+
+  // Today's note as stored (written now if it's the first time it's been asked for).
+  function stored(s, t) {
     if (!Array.isArray(s.notes)) s.notes = [];
     const key = G.Clock.dayKey(t);
     let n = s.notes.find((x) => x.day === key);
@@ -204,16 +224,20 @@
     return n;
   }
 
+  function today(s, t) {
+    return view(s, stored(s, t));
+  }
+
   // Past notes, newest first (not counting today's).
   function earlier(s, t, max) {
     const key = G.Clock.dayKey(t);
-    return (s.notes || []).filter((x) => x.day < key).slice(-(max || 14)).reverse();
+    return (s.notes || []).filter((x) => x.day < key).slice(-(max || 14)).reverse().map((n) => view(s, n));
   }
 
   // Reading today's note for the first time: marks it read and earns a bond point.
   function read(s, t) {
     const was = fresh(s, t);
-    today(s, t);
+    stored(s, t);
     s.flags.noteSeen = G.Clock.dayKey(t);
     return { fresh: was, res: was ? G.Progression.addBond(s, 1, t) : null };
   }

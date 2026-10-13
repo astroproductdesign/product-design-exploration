@@ -586,9 +586,10 @@
         pivot(-42, -14, 'tail-wag fast', tail('M -42 -14 C -60 -16 -74 -10 -86 -6', 9)) +
         part(uid, 'body', body, C.tabby, inner) +
         nub(-36, -3, 8, 4.5, C.leg) +
-        nub(28, -3, 6.5, 4.2) +
-        nub(38, -3, 6.5, 4.2) +
+        (o.bat ? '' : nub(28, -3, 6.5, 4.2) + nub(38, -3, 6.5, 4.2)) +
         (o.eat ? placeHead(uid, 44, -20, { rot: 18, scale: 0.86 }) : placeHead(uid, 40, -34, { scale: 0.86 })) +
+        // Knocking a toy about: both front paws reach out past the chin (the stylesheet swings them).
+        (o.bat ? pivot(22, -6, 'bat-a', tube('M 22 -6 L 82 -3', 7, C.paw) + nub(84, -3, 6.5, 4.6)) + pivot(22, -10, 'bat-b', tube('M 22 -10 L 76 -9', 7, C.paw) + nub(78, -9, 6.5, 4.6)) : '') +
         `</g>`
       );
     },
