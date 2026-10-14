@@ -612,7 +612,8 @@ button {
 .modal .naming .btn,
 .modal .away .btn,
 .modal .celebrate .btn,
-.modal .updates > .btn {
+.modal .updates > .btn,
+.modal .updates > .row {
   margin-top: 14px;
 }
 .small {
@@ -2518,34 +2519,7 @@ body.no-anim *::before {
   border: 2.5px solid var(--ink);
   border-radius: 50%;
 }
-/* The Colours tab: one card per piece of furniture, with a chip for each colour. */
-.ccard {
-  flex: none;
-  width: 172px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 6px 6px 8px;
-  background: var(--paper);
-  border: var(--line);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-}
-.ccard .dcard-ico {
-  width: 96px;
-  height: 52px;
-}
-.ccard b {
-  font-size: 13px;
-  line-height: 1.15;
-}
-.ccard small {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ink-soft);
-  min-height: 13px;
-}
+/* The Colours tab: first the pieces of furniture, then one piece's colours. */
 .swatches {
   display: flex;
   flex-wrap: wrap;
@@ -2571,9 +2545,11 @@ body.no-anim *::before {
 .swatch:hover:not(.locked) {
   transform: scale(1.08);
 }
+.colcard.on .swatch,
 .swatch.on {
   box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink);
 }
+.colcard.on .swatch::after,
 .swatch.on::after {
   content: '';
   position: absolute;
@@ -2591,9 +2567,6 @@ body.no-anim *::before {
   border-style: dashed;
   border-color: rgba(27, 23, 20, 0.45);
   color: rgba(27, 23, 20, 0.5);
-}
-.ccard.empty .dcard-ico {
-  opacity: 0.55;
 }
 
 /* What just changed in the room glows for a moment. */
@@ -3339,6 +3312,30 @@ body.decorating #scene {
 .updates > .btn {
   width: 100%;
 }
+.updates > .row {
+  display: flex;
+  gap: 8px;
+}
+.updates > .row .btn {
+  flex: 1;
+}
+.upd-link {
+  display: block;
+  margin: 10px auto 0;
+  padding: 4px 8px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.upd-link:hover {
+  color: var(--ink);
+}
 .upd-pill {
   display: inline-block;
   margin-bottom: 8px;
@@ -3356,12 +3353,6 @@ body.decorating #scene {
 }
 .updates .small {
   margin: 0 0 14px;
-}
-.upd-date {
-  margin: 18px 0 8px;
-  padding-top: 12px;
-  border-top: 2.5px dashed var(--ink-soft);
-  font-size: 15px;
 }
 .upd-list {
   list-style: none;
@@ -3416,4 +3407,366 @@ body.decorating #scene {
   font-weight: 700;
   line-height: 1.5;
   color: var(--ink-soft);
+}
+
+/* Colours tab, step 1: a card per piece of furniture */
+.pcard {
+  flex: none;
+  width: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 6px 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.pcard:hover {
+  background: #fff;
+}
+.pcard:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+.pcard .dcard-ico {
+  width: 92px;
+  height: 48px;
+}
+.pcard b {
+  font-size: 13px;
+  line-height: 1.15;
+}
+.pcard small {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.pcard.empty .dcard-ico {
+  opacity: 0.55;
+}
+.pdots {
+  display: flex;
+  gap: 3px;
+  min-height: 10px;
+}
+.pdot {
+  width: 10px;
+  height: 10px;
+  background: var(--c, #ccc);
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+}
+.pdot.on {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--ink);
+}
+
+/* Colours tab, step 2: the colours of one piece, wrapping so a long list stays reachable */
+.decor-tray.wrap {
+  flex-wrap: wrap;
+  align-content: flex-start;
+  max-height: 148px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+.colcard {
+  flex: none;
+  width: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 4px 6px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: var(--line);
+  border-radius: 14px;
+  cursor: pointer;
+}
+.colcard:hover:not(.on) {
+  background: #fff;
+}
+.colcard.on {
+  background: #ffd23f;
+  box-shadow: var(--shadow);
+}
+.colcard .swatch {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  cursor: inherit;
+}
+.colcard .swatch svg {
+  width: 20px;
+  height: 20px;
+}
+.colcard .swatch.back {
+  background: var(--paper-2);
+}
+.colcard b {
+  font-size: 11.5px;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.colcard.locked,
+.colcard.back {
+  background: transparent;
+  border-style: dashed;
+}
+.colcard.locked {
+  color: rgba(27, 23, 20, 0.55);
+}
+.colcard.back {
+  color: var(--ink);
+}
+@media (max-width: 760px) {
+  .pcard {
+    width: 108px;
+  }
+  .colcard {
+    width: 72px;
+  }
+}
+
+/* Updates page: one tappable row per release */
+.upd-rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.upd-row {
+  position: relative;
+  width: 100%;
+  display: block;
+  text-align: left;
+  padding: 10px 40px 10px 14px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  cursor: pointer;
+}
+.upd-row:hover {
+  background: #fff;
+}
+.upd-row:active {
+  transform: translateY(2px);
+}
+.upd-when {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 1px 10px;
+  background: var(--gold);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+.upd-row b {
+  display: block;
+  font-size: 15px;
+  font-weight: 900;
+}
+.upd-sum {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+.upd-row small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.upd-go {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+}
+
+/* Diary: a list of days (this week, or saved), then one day's page */
+.d-shelves {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 8px;
+}
+.d-shelves button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font: inherit;
+  font-weight: 900;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.d-shelves button[aria-selected='true'] {
+  background: var(--gold);
+  box-shadow: var(--shadow);
+}
+.d-shelves i {
+  min-width: 22px;
+  padding: 0 6px;
+  font-style: normal;
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+}
+.d-note {
+  margin: 0 0 8px;
+}
+.d-rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.d-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  cursor: pointer;
+}
+.d-row:hover {
+  background: #fff;
+}
+.d-row:active {
+  transform: translateY(2px);
+}
+.d-row.now {
+  background: #fff3c4;
+}
+.d-tile {
+  flex: none;
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3px 0 4px;
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 10px;
+  line-height: 1.05;
+}
+.d-tile small {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.d-tile b {
+  font-size: 22px;
+  font-weight: 900;
+}
+.d-text {
+  flex: 1;
+  min-width: 0;
+}
+.d-text b {
+  display: block;
+  font-size: 15px;
+  font-weight: 900;
+}
+.d-text span {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.d-mark svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  color: var(--ink);
+}
+.d-go {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+.d-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+.d-back,
+.d-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 6px 10px;
+  font: inherit;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.d-back svg {
+  width: 16px;
+  height: 16px;
+}
+.d-save svg {
+  width: 18px;
+  height: 18px;
+}
+.d-save {
+  padding-left: 12px;
+}
+.d-save.on {
+  background: var(--gold);
+  box-shadow: var(--shadow);
+}
+.d-back:hover,
+.d-save:hover:not(.on) {
+  background: #fff;
+}
+.d-later {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-align: right;
 }

@@ -341,6 +341,25 @@ test('names: validation and history', () => {
   assert.equal(G.Journal.todayEntry(s, t0 + 2 * DAY).name, 'Kopi');
 });
 
+test('diary: keeps the last week, and pages you save are kept for good', () => {
+  const s = fresh();
+  const days = (n) => {
+    for (let i = n; i >= 1; i--) s.journal.push({ day: G.Clock.dayKey(t0 - i * DAY), name: 'Mochi', open: 'o', lines: ['l'], close: 'c' });
+  };
+  days(20);
+  const keepDay = G.Clock.dayKey(t0 - 15 * DAY);
+  assert.equal(G.Journal.toggleSave(s, keepDay), true, 'saved');
+  G.Journal.finalize(s, t0);
+  const kept = s.journal.map((e) => e.day);
+  assert.ok(kept.includes(keepDay), 'a saved page from two weeks ago stays');
+  assert.equal(kept.filter((d) => d !== keepDay).every((d) => d >= G.Journal.weekStart(t0)), true, 'the rest are only from this week');
+  assert.equal(kept.length, 1 + 6, 'six earlier days plus the saved one (today is written separately)');
+  assert.equal(G.Journal.toggleSave(s, keepDay), false, 'unsaved again');
+  G.Journal.finalize(s, t0);
+  assert.ok(!s.journal.some((e) => e.day === keepDay), 'and then it is let go');
+  assert.equal(G.Journal.toggleSave(s, '2000-01-01'), false, 'no such page');
+});
+
 test('unlocks arrive with bond levels', () => {
   const s = fresh();
   assert.ok(!G.Progression.isUnlocked(s, 'toy:laser'));
@@ -896,7 +915,8 @@ test('room spots: four of them, and older three-spot saves keep their items', ()
 test("what's new: shown once to saves that haven't seen it, never to a new adoption's follow-ups", () => {
   const U = G.Updates;
   assert.equal(U.latest().v, U.VERSION, 'newest release matches the version');
-  assert.ok(U.RELEASES.every((r) => r.items.length > 0 && r.items.every((i) => i.title && i.text && i.icon)));
+  assert.ok(U.RELEASES.every((r) => r.date && r.name && r.title && r.summary && r.items.length > 0 && r.items.every((i) => i.title && i.text && i.icon)), 'every release has what the list and its page need');
+  assert.deepEqual(U.RELEASES.map((r) => r.v), U.RELEASES.map((r) => r.v).sort((a, b) => b - a), 'newest first');
   const old = G.State.migrate(JSON.parse(JSON.stringify(fresh())));
   delete old.flags.updatesSeen; // a save from before the pop-up existed
   assert.ok(U.pending(G.State.migrate(old)), 'old saves see it');

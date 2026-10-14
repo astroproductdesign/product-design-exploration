@@ -1069,7 +1069,7 @@
   // item back on the tray puts it away.
 
   const SPOT_NAMES = ['Left corner', 'By the bowls', 'By the chair', 'By the table'];
-  let decor = null; // {sel: the spot being filled, tab: 'items' | 'colours'}
+  let decor = null; // {sel: the spot being filled, tab: 'items' | 'colours', piece: the piece open in Colours}
   let drag = null;
 
   // `opts` (optional): { tab: 'colours' } to open on the colours, { flash: 'clock' } to point at a piece.
@@ -1080,7 +1080,7 @@
     setHot.clear();
     const slots = state.room.slots;
     const empty = slots.findIndex((x) => !x);
-    decor = { sel: empty >= 0 ? empty : 0, tab: o.tab || 'items' };
+    decor = { sel: empty >= 0 ? empty : 0, tab: o.tab || 'items', piece: o.flash || null };
     document.body.classList.add('decorating');
     $('toolbar').hidden = true;
     $('decorbar').hidden = false;
@@ -1110,27 +1110,43 @@
     $('coloursDot').hidden = !(wonSkins() > ((state.flags && state.flags.skinsSeen) || 0)) || decor.tab === 'colours';
   }
 
-  // The Colours tab: every piece of furniture that can change colour, with a chip for each
-  // colour you've won (tap one to paint it) and a dashed "?" for each one still to find.
+  // The Colours tab has two steps, so it keeps working as the list of colours grows:
+  // first the pieces of furniture (each says how many of its colours you've won), then
+  // tapping one shows that piece's colours as a wrapping grid, with a "?" for each still to find.
   function drawColours() {
     state.flags.skinsSeen = wonSkins(); // looked at them
-    const cards = G.Gacha.PIECES.map((piece) => {
-      const all = G.Gacha.PRIZES.filter((p) => p.kind === 'skin' && p.ref.split(':')[0] === piece.id).map((p) => p.ref.split(':')[1]);
-      const won = G.Gacha.skinsFor(state, piece.id);
-      const cur = G.Gacha.skinOf(state, piece.id);
-      const chip = (colour, label) =>
-        `<button class="swatch ${colour === cur ? 'on' : ''}" data-piece="${piece.id}" data-colour="${colour}" style="--c:${G.RoomArt.skinSwatch(piece.id, colour)}" aria-label="${esc(piece.name)}: ${esc(label)}" aria-pressed="${colour === cur}"></button>`;
-      const chips = [chip('', 'Original')].concat(won.map((c) => chip(c, skinName(piece.id, c)))).join('');
-      const locked = all.filter((c) => !won.includes(c)).map(() => `<button class="swatch locked" data-locked="1" aria-label="${esc(piece.name)}: a colour still to win from the gachapon">?</button>`).join('');
-      return `<div class="ccard ${won.length ? '' : 'empty'}"><span class="dcard-ico">${G.RoomArt.skinIcon(piece.id, cur)}</span><b>${esc(piece.name)}</b><div class="swatches" role="group" aria-label="${esc(piece.name)} colour">${chips}${locked}</div><small>${esc(skinName(piece.id, cur))}</small></div>`;
-    });
-    const total = G.Gacha.PRIZES.filter((p) => p.kind === 'skin').length;
-    $('decorHint').innerHTML = wonSkins()
-      ? `<b>Colours</b> (${wonSkins()} of ${total} won). Tap a colour to repaint that piece. The <b>?</b> ones come out of the gachapon by the TV.`
-      : `<b>Colours.</b> You haven't won any yet. Spin the gachapon by the TV for new colours; each <b>?</b> below is one to find.`;
+    const G2 = G.Gacha;
+    const allOf = (piece) => G2.PRIZES.filter((p) => p.kind === 'skin' && p.ref.split(':')[0] === piece).map((p) => p.ref.split(':')[1]);
+    const total = G2.PRIZES.filter((p) => p.kind === 'skin').length;
     const tray = $('decorTray');
     const keep = tray.scrollLeft;
-    tray.innerHTML = cards.join('');
+    const piece = decor.piece && G2.PIECES.find((x) => x.id === decor.piece);
+    tray.classList.toggle('wrap', !!piece);
+    if (!piece) {
+      decor.piece = null;
+      $('decorHint').innerHTML = wonSkins()
+        ? `<b>Colours</b> (${wonSkins()} of ${total} won). Pick a piece of furniture to repaint it. New colours come out of the gachapon by the TV.`
+        : `<b>Colours.</b> You haven't won any yet. Spin the gachapon by the TV, then pick a piece here to repaint it.`;
+      tray.innerHTML = G2.PIECES.map((pc) => {
+        const all = allOf(pc.id);
+        const won = G2.skinsFor(state, pc.id);
+        const cur = G2.skinOf(state, pc.id);
+        const dots = [''].concat(won).slice(0, 6).map((c) => `<i class="pdot ${c === cur ? 'on' : ''}" style="--c:${G.RoomArt.skinSwatch(pc.id, c)}"></i>`).join('');
+        return `<button class="pcard ${won.length ? '' : 'empty'}" data-pick="${pc.id}" aria-label="${esc(pc.name)}: ${won.length} of ${all.length} colours won"><span class="dcard-ico">${G.RoomArt.skinIcon(pc.id, cur)}</span><b>${esc(pc.name)}</b><span class="pdots">${dots}</span><small>${won.length} of ${all.length} colours</small></button>`;
+      }).join('');
+    } else {
+      const all = allOf(piece.id);
+      const won = G2.skinsFor(state, piece.id);
+      const cur = G2.skinOf(state, piece.id);
+      $('decorHint').innerHTML = `<b>${esc(piece.name)}</b> is ${esc(skinName(piece.id, cur).toLowerCase())}. Tap a colour to repaint it${won.length < all.length ? '; the <b>?</b> ones come out of the gachapon' : ''}.`;
+      const card = (colour) =>
+        `<button class="colcard ${colour === cur ? 'on' : ''}" data-piece="${piece.id}" data-colour="${colour}" aria-pressed="${colour === cur}"><i class="swatch" style="--c:${G.RoomArt.skinSwatch(piece.id, colour)}"></i><b>${esc(skinName(piece.id, colour))}</b></button>`;
+      const locked = all.filter((c) => !won.includes(c)).map(() => `<button class="colcard locked" data-locked="1" aria-label="${esc(piece.name)}: a colour still to win from the gachapon"><i class="swatch locked">?</i><b>Gachapon</b></button>`);
+      tray.innerHTML =
+        `<button class="colcard back" data-back="1" aria-label="Back to all furniture"><i class="swatch back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>All pieces</b></button>` +
+        [''].concat(won).map(card).join('') +
+        locked.join('');
+    }
     tray.scrollLeft = keep;
     scene.clearSpots();
   }
@@ -1163,6 +1179,7 @@
     );
     const tray = $('decorTray');
     const keep = tray.scrollLeft;
+    tray.classList.remove('wrap');
     tray.innerHTML = cards.join('');
     tray.scrollLeft = keep;
     scene.drawSpots(sel);
@@ -1316,9 +1333,21 @@
       if (decor.tab === 'colours') save(true);
     });
     $('decorTray').addEventListener('click', (e) => {
-      const c = e.target.closest('.swatch');
-      if (!c || !decor) return;
+      const c = e.target.closest('.pcard, .colcard');
+      if (!c || !decor || decor.tab !== 'colours') return;
       G.Sound.unlock();
+      if (c.hasAttribute('data-pick')) {
+        sound('pop');
+        decor.piece = c.getAttribute('data-pick');
+        $('decorTray').scrollLeft = 0;
+        drawDecor();
+        return scene.flashPiece(decor.piece);
+      }
+      if (c.hasAttribute('data-back')) {
+        sound('pop');
+        decor.piece = null;
+        return drawDecor();
+      }
       if (c.hasAttribute('data-locked')) return toast('You win new colours from the gachapon machine by the TV.');
       chooseSkin(c.getAttribute('data-piece'), c.getAttribute('data-colour'));
     });
@@ -1548,8 +1577,41 @@
       <div class="trophies">${[...done, ...todo, ...secret].map(card).join('')}</div>`;
   }
 
-  function openBook(tab) {
+  // The diary has two shelves: "This week" (the last seven days, written automatically) and "Saved"
+  // (pages you chose to keep for good). Each is a list of days; tapping one opens that day's page.
+  let diaryView = { shelf: 'week', day: null };
+
+  const BOOKMARK = (on) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h11a1 1 0 0 1 1 1V21l-6.5-4.5L5.5 21V4.5a1 1 0 0 1 1-1z" fill="${on ? '#ff4f86' : 'none'}" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>`;
+
+  function diaryList(shelf, entries) {
+    const days = entries.slice().sort((a, b) => (a.day < b.day ? 1 : -1));
+    const row = (e) => {
+      const [y, m, d] = e.day.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      const wd = dt.toLocaleDateString([], { weekday: 'short' });
+      const mon = dt.toLocaleDateString([], { month: 'short' });
+      const full = e.today ? 'Today' : G.Clock.formatDay(e.day);
+      const peek = (e.lines && e.lines[0]) || e.open;
+      return `<li><button class="d-row ${e.today ? 'now' : ''}" data-day="${e.day}"><span class="d-tile"><small>${esc(wd)}</small><b>${d}</b><small>${esc(mon)}</small></span><span class="d-text"><b>${esc(full)}</b><span>${esc(peek)}</span></span>${e.saved ? `<span class="d-mark" aria-label="Saved">${BOOKMARK(true)}</span>` : ''}<svg class="d-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></li>`;
+    };
+    if (!days.length)
+      return `<p class="empty">${shelf === 'saved' ? `Nothing saved yet. Open a page and tap <b>Save</b> to keep it for good. Pages you don't save are tucked away after a week.` : 'No pages yet.'}</p>`;
+    return `<ul class="d-rows">${days.map(row).join('')}</ul>`;
+  }
+
+  // One day's page, with the button to keep it (or let it go).
+  function diaryPage(e) {
+    const back = diaryView.shelf === 'saved' ? 'Saved' : 'This week';
+    const save = e.today
+      ? `<span class="d-later">Today's page can be saved tomorrow.</span>`
+      : `<button class="d-save ${e.saved ? 'on' : ''}" id="dSave" aria-pressed="${!!e.saved}">${BOOKMARK(!!e.saved)}<span>${e.saved ? 'Saved' : 'Save this page'}</span></button>`;
+    return `<div class="d-bar"><button class="d-back" id="dBack"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>${back}</button>${save}</div>${diaryCard(e)}`;
+  }
+
+  // keepView: re-drawn from the diary's own controls, so stay on the day being read.
+  function openBook(tab, keepView) {
     photoView = -1;
+    if (tab === 'diary' && !keepView) diaryView = { shelf: 'week', day: null };
     const tabs = [
       ['diary', 'Diary'],
       ['album', 'Album'],
@@ -1559,8 +1621,21 @@
     ];
     let body = '';
     if (tab === 'diary') {
-      const entries = [G.Journal.todayEntry(state, now()), ...state.journal.slice().reverse()];
-      body = `<p class="small">Written by ${esc(state.cat.name)}, in paw.</p>` + entries.map(diaryCard).join('');
+      const todayE = G.Journal.todayEntry(state, now());
+      const week = [todayE, ...state.journal.filter((e) => e.day >= G.Journal.weekStart(now()))];
+      const saved = state.journal.filter((e) => e.saved);
+      const open = diaryView.day && [...week, ...saved].find((e) => e.day === diaryView.day);
+      if (diaryView.day && !open) diaryView.day = null; // that page has been tucked away
+      if (open) body = diaryPage(open);
+      else {
+        const shelves = [['week', 'This week', week.length], ['saved', 'Saved', saved.length]];
+        body =
+          `<p class="small">Written by ${esc(state.cat.name)}, in paw.</p>` +
+          `<div class="d-shelves" role="tablist">${shelves.map(([k, l, n]) => `<button role="tab" aria-selected="${diaryView.shelf === k}" data-shelf="${k}">${l}<i>${n}</i></button>`).join('')}</div>` +
+          (diaryView.shelf === 'saved'
+            ? diaryList('saved', saved)
+            : `<p class="small muted d-note">The last ${G.Journal.WEEK_DAYS} days. Save the pages you love to keep them for good.</p>` + diaryList('week', week));
+      }
     } else if (tab === 'album') {
       body = album.length
         ? `<div class="album">${album.map((p, i) => `<figure data-photo="${i}"><img src="${p.url}" alt=""><figcaption>${esc(nm(p.caption))}<small>${esc(photoDate(p))}</small></figcaption></figure>`).join('')}</div>`
@@ -1601,6 +1676,34 @@
        ${sitter ? `<button class="sitter" id="sitter" aria-label="Shoo the cat off the diary"><svg viewBox="-80 -120 170 130">${G.CatArt.render('loaf', 'sitter')}</svg><span>${esc(state.cat.name)} is sitting on your diary. Tap to shoo.</span></button>` : ''}`,
       (box) => {
         box.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => openBook(b.getAttribute('data-tab'))));
+        box.querySelectorAll('[data-shelf]').forEach((b) =>
+          b.addEventListener('click', () => {
+            sound('pop');
+            diaryView.shelf = b.getAttribute('data-shelf');
+            openBook('diary', true);
+          })
+        );
+        box.querySelectorAll('.d-row').forEach((b) =>
+          b.addEventListener('click', () => {
+            sound('pop');
+            diaryView.day = b.getAttribute('data-day');
+            openBook('diary', true);
+          })
+        );
+        const dBack = box.querySelector('#dBack');
+        if (dBack)
+          dBack.addEventListener('click', () => {
+            diaryView.day = null;
+            openBook('diary', true);
+          });
+        const dSave = box.querySelector('#dSave');
+        if (dSave)
+          dSave.addEventListener('click', () => {
+            const on = G.Journal.toggleSave(state, diaryView.day);
+            sound(on ? 'chime' : 'pop');
+            save(true);
+            openBook('diary', true);
+          });
         box.querySelectorAll('[data-photo]').forEach((f) => f.addEventListener('click', () => openPhoto(Number(f.getAttribute('data-photo')))));
         const s = box.querySelector('#sitter');
         if (s) {
@@ -1799,7 +1902,7 @@
     );
   }
 
-  // The note on the wall: today's, and the ones before it.
+  // The note on the wall: just today's. A new one goes up every day.
   function openNote() {
     const t = now();
     const today = G.Notes.today(state, t);
@@ -1808,11 +1911,9 @@
     if (noteBond && noteBond.levelUp) setTimeout(() => celebrate(noteBond), 600);
     save(true);
     if (wasFresh) scene.renderRoom(true, t); // the ring goes away
-    const past = G.Notes.earlier(state, t, 14);
     openModal(
       `<div class="note-card"><div class="paper"><small>${esc(today.head)}</small><p class="note-text">${esc(today.text)}</p><p class="sign">${esc(state.cat.name)}</p></div>
-       <p class="small muted">A new note goes up every day.</p>
-       ${past.length ? `<h3>Earlier notes</h3><ul class="note-list">${past.map((n) => `<li><b>${esc(G.Clock.formatDay(n.day))}</b><span>${esc(n.text)}</span></li>`).join('')}</ul>` : ''}</div>`
+       <p class="small muted">A new note goes up every day.</p></div>`
     );
   }
 
@@ -2569,30 +2670,63 @@
     );
   }
 
-  // What's new. auto: the one-time pop-up (newest release only); otherwise the Updates page, every release.
+  // What's new. The Updates page is a list of releases (date, name, one-line summary); tapping
+  // one opens its full breakdown. The one-time pop-up on login goes straight to the newest.
   function showUpdates(auto) {
-    const U = G.Updates;
-    const rel = (r, i) =>
-      `${i > 0 || !auto ? `<h3 class="upd-date">${esc(r.date)}</h3>` : ''}
-       <ul class="upd-list">${r.items
-         .map(
-           (it) =>
-             `<li><i class="upd-ico tone-${it.tone}">${ICONS[it.icon] || ICONS.paw}</i><div><b>${esc(it.title)}</b><span>${esc(it.text)}</span></div></li>`
-         )
-         .join('')}</ul>
-       ${r.also ? `<p class="upd-also">${esc(r.also)}</p>` : ''}`;
-    const list = auto ? [U.latest()] : U.RELEASES;
-    openModal(
-      `<div class="updates"><span class="upd-pill">${auto ? 'New updates' : 'Updates'}</span>
-       <h2>Your purrfriend has been busy</h2>
-       <p class="small muted">${auto ? `Here's what's new since ${esc(U.latest().since)}.` : 'Everything that has been added to the game.'}</p>
-       ${list.map(rel).join('')}
-       <button class="btn primary" data-close>${auto ? "Got it, let's play" : 'Close'}</button></div>`
-    );
-    if (U.pending(state)) {
-      U.markSeen(state);
+    if (auto) showRelease(G.Updates.latest(), true, false);
+    else showUpdatesList(false);
+    if (G.Updates.pending(state)) {
+      G.Updates.markSeen(state);
       save(true);
     }
+  }
+
+  function showUpdatesList(replace) {
+    const U = G.Updates;
+    openModal(
+      `<div class="updates"><span class="upd-pill">Updates</span>
+       <h2>What's new</h2>
+       <p class="small muted">Everything that has been added to the game. Tap one to see what changed.</p>
+       <ul class="upd-rows">${U.RELEASES.map(
+         (r, i) =>
+           `<li><button class="upd-row" data-rel="${i}"><span class="upd-when">${esc(r.date)}</span><b>${esc(r.name)}</b><span class="upd-sum">${esc(r.summary)}</span><small>${r.items.length} updates</small><svg class="upd-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></li>`
+       ).join('')}</ul>
+       <button class="btn primary" data-close>Close</button></div>`,
+      (box) =>
+        box.querySelectorAll('[data-rel]').forEach((b) =>
+          b.addEventListener('click', () => {
+            sound('pop');
+            showRelease(U.RELEASES[Number(b.getAttribute('data-rel'))], false, true);
+          })
+        ),
+      replace
+    );
+  }
+
+  // One release in full. auto: the login pop-up (offers the list); otherwise a page you came to from the list.
+  function showRelease(r, auto, replace) {
+    const U = G.Updates;
+    const items = r.items
+      .map((it) => `<li><i class="upd-ico tone-${it.tone}">${ICONS[it.icon] || ICONS.paw}</i><div><b>${esc(it.title)}</b><span>${esc(it.text)}</span></div></li>`)
+      .join('');
+    const sub = auto ? `Here's what's new since ${esc(r.since || r.date)}.` : esc(r.summary);
+    openModal(
+      `<div class="updates"><span class="upd-pill">${auto ? 'New updates' : esc(r.date)}</span>
+       <h2>${esc(r.title)}</h2>
+       <p class="small muted">${sub}</p>
+       <ul class="upd-list">${items}</ul>
+       ${r.also ? `<p class="upd-also">${esc(r.also)}</p>` : ''}
+       ${
+         auto
+           ? `<button class="btn primary" data-close>Got it, let's play</button><button class="upd-link" id="updAll">See all updates</button>`
+           : `<div class="row"><button class="btn" id="updBack">All updates</button><button class="btn primary" data-close>Close</button></div>`
+       }</div>`,
+      (box) => {
+        const go = box.querySelector('#updAll, #updBack');
+        if (go) go.addEventListener('click', () => (sound('pop'), showUpdatesList(true)));
+      },
+      replace
+    );
   }
 
   // ---- Modal ----------------------------------------------------------------------------

@@ -183,6 +183,20 @@
     };
   }
 
+  // The first day still in 'this week': today and the six days before it.
+  const WEEK_DAYS = 7;
+  function weekStart(t) {
+    return G.Clock.dayKey(t - (WEEK_DAYS - 1) * G.Clock.DAY);
+  }
+
+  // Keep (or let go of) one finished day's page. Today's page is still being written, so it can't be saved yet.
+  function toggleSave(s, day) {
+    const e = s.journal.find((x) => x.day === day);
+    if (!e) return false;
+    e.saved = !e.saved;
+    return e.saved;
+  }
+
   // Write entries for finished days, then trim old log entries.
   function finalize(s, t) {
     const today = G.Clock.dayKey(t);
@@ -196,7 +210,9 @@
       if (!written.has(d)) s.journal.push(buildEntry(s, d, byDay[d]));
     }
     s.journal.sort((a, b) => (a.day < b.day ? -1 : 1));
-    if (s.journal.length > 120) s.journal.splice(0, s.journal.length - 120);
+    // The diary keeps the last week; older pages are tucked away unless you saved them.
+    const from = weekStart(t);
+    s.journal = s.journal.filter((e) => e.saved || e.day >= from);
     // Keep 3 days of raw events (enough for any summary), drop the rest.
     const cutoff = t - 3 * G.Clock.DAY;
     s.log = s.log.filter((e) => e.t >= cutoff);
@@ -259,5 +275,5 @@
     return { duration: to - from, lines: L.slice(0, 7).map(([, icon, text]) => ({ icon, text })) };
   }
 
-  G.Journal = { finalize, todayEntry, awaySummary, tally };
+  G.Journal = { WEEK_DAYS, weekStart, toggleSave, finalize, todayEntry, awaySummary, tally };
 })(globalThis.CatGame = globalThis.CatGame || {});

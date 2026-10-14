@@ -1,5 +1,6 @@
 // What's new: the list behind the "New updates" pop-up and the Updates page.
 // To announce something: add a release at the top of RELEASES and raise VERSION by one.
+// Each release has a date, a short name and one-line summary (for the list), a title (for its page) and its items.
 // Everyone whose save has seen a lower version gets the pop-up once more.
 (function (G) {
   'use strict';
@@ -12,6 +13,9 @@
       v: 2,
       date: '12–14 Oct',
       since: '12 Oct',
+      name: 'Gachapon, colours, and new toys',
+      title: 'Your purrfriend has been busy',
+      summary: 'The gachapon machine, furniture colours, three new toys, four silly cat moments, and trophies.',
       items: [
         { icon: 'coin', tone: 'gold', title: 'Gachapon machine', text: 'Earn cat coins, then win furniture, toys, collars, and new colours.' },
         { icon: 'palette', tone: 'pink', title: 'Furniture colours', text: 'Recolour the clock, curtains, rug, chair, lamp, TV desk, and walls in the new Colours tab.' },
@@ -25,6 +29,9 @@
     {
       v: 1,
       date: 'Earlier',
+      name: 'Weather, wall note, and cat sounds',
+      title: 'Where it all started',
+      summary: 'Real weather outside the window, a daily wall note, a wider room, and recorded cat sounds.',
       items: [
         { icon: 'cloud', tone: 'mint', title: 'Real weather', text: 'The window shows the weather where you live, and the sun follows the real sunrise and sunset.' },
         { icon: 'note', tone: 'gold', title: 'Daily wall note', text: 'A new note on the wall every day, with facts, things about your cat, and wishes.' },
