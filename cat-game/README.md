@@ -84,6 +84,7 @@ cat-game/
     gacha.js            the gachapon: prizes, rarity, spending coins, furniture colours
     achievements.js     the silly achievements, counted from what happens (State.log) and a few UI counters
     notes.js            the daily wall note: facts, things about your cat, wishes
+    updates.js          what's new: the list for the pop-up and the Updates page (add a release, raise VERSION)
     weather.js          real weather lookup (Open-Meteo): kinds, readings, location and city search
     random.js           seeded randomness (same story every time it's replayed)
     catalog.js          foods, toys, items, spots, gifts, bond levels

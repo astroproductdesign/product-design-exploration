@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
-const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'achievements', 'weather', 'sim', 'interactions', 'gacha', 'journal', 'notes'];
+const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'achievements', 'weather', 'sim', 'interactions', 'gacha', 'journal', 'notes', 'updates'];
 const ctx = vm.createContext({ console, Math, Date, JSON });
 for (const f of files) vm.runInContext(readFileSync(path.join(dir, '../js/core', f + '.js'), 'utf8'), ctx, { filename: f });
 const G = ctx.CatGame;
@@ -891,6 +891,21 @@ test('room spots: four of them, and older three-spot saves keep their items', ()
   assert.equal(m.room.slots[2], 'cushion');
   assert.equal(m.room.slots[3], 'box');
   assert.equal(m.activity.spot, 'slot3', 'the cat stays on the box');
+});
+
+test("what's new: shown once to saves that haven't seen it, never to a new adoption's follow-ups", () => {
+  const U = G.Updates;
+  assert.equal(U.latest().v, U.VERSION, 'newest release matches the version');
+  assert.ok(U.RELEASES.every((r) => r.items.length > 0 && r.items.every((i) => i.title && i.text && i.icon)));
+  const old = G.State.migrate(JSON.parse(JSON.stringify(fresh())));
+  delete old.flags.updatesSeen; // a save from before the pop-up existed
+  assert.ok(U.pending(G.State.migrate(old)), 'old saves see it');
+  const s = fresh();
+  assert.ok(U.pending(s));
+  U.markSeen(s);
+  assert.ok(!U.pending(s), 'gone once seen');
+  s.flags.updatesSeen = U.VERSION - 1;
+  assert.ok(U.pending(s), 'a newer release shows it again');
 });
 
 console.log(`\n${passed} checks passed`);

@@ -42,6 +42,14 @@
     call: I('<path d="M3.5 4.5h17v11H10l-5 4v-4H3.5z" fill="#fffdf6"/><path d="M8.5 10h.01M12 10h.01M15.5 10h.01" stroke-width="2.8"/>'),
     room: I('<path d="M4 20v-6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v6" fill="#e2b078"/><path d="M2.5 15.5h3v4.5M21.5 15.5h-3v4.5M6.5 11V8a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3"/>'),
     photo: I('<rect x="2.5" y="7" width="19" height="13.5" rx="3" fill="#9fd9cf"/><path d="M8 7l1.8-3h4.4L16 7"/><circle cx="12" cy="13.6" r="3.6" fill="#fffdf6"/>'),
+    updates: I('<path d="M12 3l2.2 5.6L20 11l-5.8 2.4L12 19l-2.2-5.6L4 11l5.8-2.4z" fill="#ecbc44"/><path d="M19 3.5v3M17.5 5h3" stroke-width="1.8"/>'),
+    palette: I('<path d="M12 3a9 9 0 1 0 0 18c1.6 0 2-1.2 1.4-2.2-.7-1.2 0-2.6 1.5-2.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z" fill="#fffdf6"/><circle cx="7.5" cy="11" r="1.2" fill="#d44c34"/><circle cx="10" cy="7.2" r="1.2" fill="#ecbc44"/><circle cx="14.5" cy="7.2" r="1.2" fill="#8cac64"/>'),
+    ball: I('<circle cx="12" cy="12" r="9" fill="#fffdf6"/><path d="M4 8.5c4 1 12 1 16 0M4 15.5c4-1 12-1 16 0"/>'),
+    smile: I('<circle cx="12" cy="12" r="9" fill="#fffdf6"/><path d="M8.5 14.5c1.9 2 5.1 2 7 0"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.8"/>'),
+    trophy: I('<path d="M7 4h10v5a5 5 0 0 1-10 0z" fill="#ecbc44"/><path d="M7 6H4c0 3 1.2 4.5 3 4.8M17 6h3c0 3-1.2 4.5-3 4.8M12 14v4M8 20h8"/>'),
+    cloud: I('<path d="M7 18a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 9.6 4.2 4.2 0 0 1 17.5 18z" fill="#fffdf6"/>'),
+    note: I('<path d="M5 4h14v11l-5 5H5z" fill="#fff3c4"/><path d="M14 20v-5h5M8.5 9h7M8.5 12.5h4"/>'),
+    sound: I('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="#fffdf6"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/>'),
     book: I('<path d="M3.5 4.5H10a2 2 0 0 1 2 2V20a2 2 0 0 0-2-2H3.5z" fill="#f6c9cf"/><path d="M20.5 4.5H14a2 2 0 0 0-2 2V20a2 2 0 0 1 2-2h6.5z" fill="#fffdf6"/>'),
     settings: I('<circle cx="12" cy="12" r="3.2" fill="#f3c66b"/><path d="M12 2.5v3M12 18.5v3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M2.5 12h3M18.5 12h3M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>'),
     soundOn: I('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="#fffdf6"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
@@ -99,9 +107,12 @@
     bindDecor();
     updateHUD();
 
+    // A brand-new adoption has nothing to catch up on; everyone else sees the newest updates once.
+    if (!state.named) G.Updates.markSeen(state);
     const welcomeBack = () => {
       showAway(awayFrom, t);
       visitReward(res);
+      if (G.Updates.pending(state)) showUpdates(true);
     };
     if (withIntro) showIntro(!state.named, welcomeBack);
     else welcomeBack();
@@ -528,6 +539,7 @@
       ['call', 'Call', callCat],
       ['room', 'Room', openRoom],
       ['photo', 'Photo', takePhoto],
+      ['updates', 'Updates', () => showUpdates(false)],
     ];
     const tb = $('toolbar');
     tb.innerHTML =
@@ -2555,6 +2567,32 @@
        <p class="small">${esc(nm(moodLine))}</p>
        <button class="btn primary" data-close>Say hi</button></div>`
     );
+  }
+
+  // What's new. auto: the one-time pop-up (newest release only); otherwise the Updates page, every release.
+  function showUpdates(auto) {
+    const U = G.Updates;
+    const rel = (r, i) =>
+      `${i > 0 || !auto ? `<h3 class="upd-date">${esc(r.date)}</h3>` : ''}
+       <ul class="upd-list">${r.items
+         .map(
+           (it) =>
+             `<li><i class="upd-ico tone-${it.tone}">${ICONS[it.icon] || ICONS.paw}</i><div><b>${esc(it.title)}</b><span>${esc(it.text)}</span></div></li>`
+         )
+         .join('')}</ul>
+       ${r.also ? `<p class="upd-also">${esc(r.also)}</p>` : ''}`;
+    const list = auto ? [U.latest()] : U.RELEASES;
+    openModal(
+      `<div class="updates"><span class="upd-pill">${auto ? 'New updates' : 'Updates'}</span>
+       <h2>Your purrfriend has been busy</h2>
+       <p class="small muted">${auto ? `Here's what's new since ${esc(U.latest().since)}.` : 'Everything that has been added to the game.'}</p>
+       ${list.map(rel).join('')}
+       <button class="btn primary" data-close>${auto ? "Got it, let's play" : 'Close'}</button></div>`
+    );
+    if (U.pending(state)) {
+      U.markSeen(state);
+      save(true);
+    }
   }
 
   // ---- Modal ----------------------------------------------------------------------------
