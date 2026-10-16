@@ -5,10 +5,24 @@
 (function (G) {
   'use strict';
 
-  const VERSION = 3;
+  const VERSION = 4;
 
   // icon: a key into the icons in app.js; tone: the tile colour (a CSS colour variable name)
   const RELEASES = [
+    {
+      v: 4,
+      date: '16 Oct',
+      since: '15 Oct',
+      name: 'Daily check-in stamp card',
+      title: 'Stamp your card',
+      summary: 'Check in on the laptop and your cat stamps a paw print on your card.',
+      items: [
+        { icon: 'paw', tone: 'pink', title: 'Daily check-in', text: "Tap the laptop on the table to open the stamp card. Tap today's circle and your cat's paw pops up and stamps it, with the date under the print." },
+        { icon: 'coin', tone: 'gold', title: 'Five stamps, one bonus', text: 'Any 5 check-ins fill a card, in a row or not. Each stamp pays 1 coin, and the fifth pays 10.' },
+        { icon: 'smile', tone: 'mint', title: 'Your cat, your paw', text: "The paw matches your cat's own colours." },
+      ],
+      also: 'Also new: missed days never cost you a stamp, and the old automatic login reward is now the stamp card.',
+    },
     {
       v: 3,
       date: '15–16 Oct',

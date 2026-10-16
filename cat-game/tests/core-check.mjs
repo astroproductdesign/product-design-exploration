@@ -669,20 +669,20 @@ test('bond: a gentler curve, roomier daily limits, streaks, and coins', () => {
   assert.deepEqual([...G.Catalog.LEVELS], [0, 25, 60, 110, 180, 270, 390, 540, 740, 1000]);
   const C = G.Progression.CAPS;
   assert.ok(C.pet === 20 && C.play === 20 && C.feed === 8 && C.invite === 4);
-  // checking in on days in a row: more bond each day (up to +5 extra) and a coin, more at milestones
+  // showing up on days in a row builds the streak (for the trophies); the reward is the stamp card
   const s = fresh();
   const coins0 = s.coins;
-  const got = [];
+  const bond0 = s.stats.bond;
+  const streaks = [];
   for (let d = 1; d <= 8; d++) {
-    const b = s.stats.bond;
     const r = G.Progression.dailyVisit(s, t0 + d * DAY);
-    got.push([r.streak, s.stats.bond - b]);
+    streaks.push(r.streak);
     assert.equal(G.Progression.dailyVisit(s, t0 + d * DAY + HOUR), null, 'once a day');
   }
   // (the day the cat arrived counts as the first day)
-  assert.deepEqual(got.map((g) => g[0]), [2, 3, 4, 5, 6, 7, 8, 9]);
-  assert.ok(got[0][1] === 6 && got[3][1] === 9 && got[4][1] === 10 && got[7][1] === 10, 'streak bonus, capped at +5: ' + JSON.stringify(got));
-  assert.ok(s.coins - coins0 >= 8 + 2 + 4, 'a coin a day, plus streak bonuses (and level-ups): ' + (s.coins - coins0));
+  assert.deepEqual([...streaks], [2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.equal(s.coins, coins0, 'a visit alone pays nothing now');
+  assert.equal(s.stats.bond, bond0);
   // missing a day starts the streak again
   const r = G.Progression.dailyVisit(s, t0 + 11 * DAY);
   assert.equal(r.streak, 1);
@@ -1028,6 +1028,46 @@ test('more ways to earn coins: new treasures, the real coin, and daily care', ()
   assert.equal(d.coins, before + G.Progression.CARE_COINS);
   assert.equal(G.Progression.payDailyGoals(d, t0 + 2 * MIN), 0, 'once a day');
   assert.equal(G.Progression.payDailyGoals(d, t0 + DAY + MIN), 0, 'a new day starts again from nothing');
+});
+
+test('daily check-in: five stamps on any days, the fifth pays the bonus, then a fresh card', () => {
+  const P = G.Progression;
+  const s = fresh();
+  assert.equal(P.CARD_SIZE, 5);
+  assert.ok(P.canCheckIn(s, t0));
+  assert.deepEqual([...P.checkinView(s, t0).stamps], []);
+  const c0 = s.coins;
+  const b0 = s.stats.bond;
+  const a = P.checkIn(s, t0);
+  assert.equal(a.n, 1);
+  assert.equal(a.coins, P.STAMP_COINS);
+  assert.equal(s.coins, c0 + P.STAMP_COINS);
+  assert.ok(s.stats.bond >= b0 + P.STAMP_BOND);
+  assert.equal(P.checkIn(s, t0 + HOUR), null, 'once a day');
+  assert.ok(!P.canCheckIn(s, t0 + HOUR));
+  assert.ok(P.checkinView(s, t0 + HOUR).done);
+  // days do not have to be in a row: skip a week, the stamps are still there
+  P.checkIn(s, t0 + 9 * DAY);
+  P.checkIn(s, t0 + 10 * DAY);
+  P.checkIn(s, t0 + 30 * DAY);
+  assert.equal(P.checkinView(s, t0 + 31 * DAY).stamps.length, 4, 'four stamps after missing days');
+  const before = s.coins;
+  const last = P.checkIn(s, t0 + 40 * DAY);
+  assert.ok(last.full && last.n === 5);
+  assert.equal(last.coins, P.CARD_COINS);
+  assert.equal(s.coins - before - last.levelCoins, P.CARD_COINS, 'the fifth stamp pays the bonus (plus any level-up coins)');
+  assert.equal(s.checkin.cards, 1);
+  // the finished card stays on show that day, and is replaced at the next check-in
+  assert.equal(P.checkinView(s, t0 + 40 * DAY + HOUR).stamps.length, 5);
+  assert.equal(P.checkinView(s, t0 + 41 * DAY).stamps.length, 0, 'the next day shows a fresh card');
+  const next = P.checkIn(s, t0 + 41 * DAY);
+  assert.equal(next.n, 1);
+  assert.equal(next.coins, P.STAMP_COINS);
+  assert.equal(s.checkin.total, 6);
+  // older saves get an empty card
+  const old = fresh();
+  delete old.checkin;
+  assert.deepEqual(JSON.parse(JSON.stringify(G.State.migrate(old).checkin)), { stamps: [], last: '', cards: 0, total: 0 });
 });
 
 console.log(`\n${passed} checks passed`);

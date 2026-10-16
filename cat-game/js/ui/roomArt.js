@@ -516,8 +516,23 @@
     );
   }
 
-  function table(state) {
-    let s = tableBody(alt(state, 'table')) + laptopArt(alt(state, 'laptop'));
+  // The laptop is where the daily check-in lives: tap it to open the stamp card. It pulses, with a
+  // little "Check in!" label, until you have checked in today.
+  function laptopTap(state, can) {
+    return (
+      `<g class="laptop act" data-act="laptop" role="button" tabindex="0" aria-label="Laptop: daily check-in" style="cursor:pointer">` +
+      `<rect x="826" y="280" width="94" height="70" rx="10" fill="none" pointer-events="all"/>` +
+      laptopArt(alt(state, 'laptop')) +
+      (can
+        ? `<ellipse class="nudge" cx="869" cy="318" rx="56" ry="38" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>` +
+          `<g class="ck-tip"><rect x="829" y="246" width="80" height="24" rx="12" fill="#fcf4ec" stroke="${K.line}" stroke-width="3"/><text x="869" y="263" text-anchor="middle" font-size="13" font-weight="800" fill="${K.line}" font-family="inherit">Check in!</text></g>`
+        : '') +
+      `</g>`
+    );
+  }
+
+  function table(state, opts) {
+    let s = tableBody(alt(state, 'table')) + laptopTap(state, !!(opts && opts.canCheckIn));
     if (!state.room.cupOnFloor) s += mug(924, 343, 0);
     return s;
   }
@@ -1169,7 +1184,7 @@
     out.push({ z: 460, svg: at(DX.tv, desk(paint(state, 'desk'), alt(state, 'desk'))) });
     out.push({ z: 463, svg: gachaMachine(!!(opts && opts.canSpin) && guide(state, 'gacha')) });
     out.push({ z: 480, svg: at(DX.chair, `<g class="item act" data-act="chair" data-spot="chair" style="cursor:pointer">${chair(paint(state, 'chair'), alt(state, 'chair'))}</g>`) });
-    out.push({ z: 494, svg: at(DX.right, table(state)) });
+    out.push({ z: 494, svg: at(DX.right, table(state, opts)) });
     out.push({ z: 530, svg: at(DX.basket, bowls(state)) });
     out.push({ z: 500, svg: at(DX.basket, toyBasket()) });
     out.push({ z: 300, svg: at(DX.right, diaryShelf(state)) });

@@ -107,12 +107,25 @@
     bindInput();
     bindDecor();
     updateHUD();
+    G.CheckIn.init({
+      state: () => state,
+      now,
+      esc,
+      sound,
+      save,
+      updateHUD,
+      openModal,
+      closeModal,
+      celebrate,
+      renderRoom: () => scene.renderRoom(true, now()),
+      coinSvg: ICONS.coin,
+    });
 
     // A brand-new adoption has nothing to catch up on; everyone else sees the newest updates once.
     if (!state.named) G.Updates.markSeen(state);
     const welcomeBack = () => {
       showAway(awayFrom, t);
-      visitReward(res);
+      checkinNudge();
       if (G.Updates.pending(state)) showUpdates(true);
     };
     if (withIntro) showIntro(!state.named, welcomeBack);
@@ -188,7 +201,8 @@
     if (day !== lastDay) {
       lastDay = day;
       G.Journal.finalize(state, t);
-      visitReward(G.Progression.dailyVisit(state, t));
+      G.Progression.dailyVisit(state, t);
+      checkinNudge();
     }
     // Feeding lives on the bowl now: say so once, when nothing else is going on.
     if (!state.flags.bowlTip && state.named && !introActive && !panel && !modalOpen && performance.now() > 8000) {
@@ -500,13 +514,12 @@
     save(true);
   }
 
-  // The first check-in of the day: bond and a coin, more for a streak of days in a row.
-  function visitReward(res) {
-    if (!res) return;
-    const bond = 5 + (res.streakBonus || 0);
-    const coins = res.coins || 0;
-    setTimeout(() => toast(res.streak > 1 ? `🔥 ${res.streak} days in a row! +${bond} ♥ and +${coins} cat coin${coins > 1 ? 's' : ''}` : `Welcome back! +${bond} ♥ and +${coins} cat coin${coins > 1 ? 's' : ''}`, 5000), 1200);
-    celebrate(res);
+  // The daily check-in lives on the laptop: point at it when there is a stamp to collect.
+  function checkinNudge() {
+    if (!state.named || !G.Progression.canCheckIn(state, now())) return;
+    setTimeout(() => {
+      if (!modalOpen && !introActive && G.Progression.canCheckIn(state, now())) toast('Tap the laptop on the table to check in and stamp your card.', 6000);
+    }, 1800);
   }
 
   // A little "+1 ♥" (or "+2" coins) that floats up from the HUD when it changes.
@@ -811,6 +824,7 @@
       scene.updateLighting(now(), true);
       return;
     }
+    if (target.closest('.laptop')) return void (sound('pop'), G.CheckIn.open());
     if (target.closest('.gacha')) return void (sound('pop'), learn('gacha'), openGacha());
     if (target.closest('.note')) return void (sound('pop'), learn('note'), openNote());
     if (target.closest('.diary')) return void (sound('pop'), learn('diary'), ach('diaryOpen'), openBook('diary'));
@@ -2876,18 +2890,22 @@
 
   let modalOpen = false;
   let modalLocked = false;
+  let modalGuard = null;
 
   // replace: swap content of the open modal (menus that re-render)
-  function openModal(html, onOpen, replace, locked) {
+  // opts: { cls: an extra class for the card, guard: a function that returns true while it must stay open }
+  function openModal(html, onOpen, replace, locked, opts) {
     if (modalOpen && !replace) {
-      modalQueue.push([html, onOpen, locked]);
+      modalQueue.push([html, onOpen, locked, opts]);
       return;
     }
     modalOpen = true;
     modalLocked = !!locked;
+    modalGuard = (opts && opts.guard) || null;
     const box = $('modalBox');
+    box.className = 'modal' + (opts && opts.cls ? ' ' + opts.cls : '');
     // Every card closes with the X in its top right corner (not the naming card, which must be filled in).
-    box.innerHTML = (locked ? '' : `<button class="modal-x" data-close aria-label="Close">${ICONS.close}</button>`) + html;
+    box.innerHTML = (locked || modalGuard ? '' : `<button class="modal-x" data-close aria-label="Close">${ICONS.close}</button>`) + html;
     $('modal').hidden = false;
     if (onOpen) onOpen(box);
   }
@@ -2895,13 +2913,16 @@
   function closeModal() {
     // The naming card stays open until the cat has a name.
     if (modalLocked && !(state && state.named)) return;
+    if (modalGuard && modalGuard()) return; // e.g. the check-in stays until you have checked in
+    modalGuard = null;
     modalLocked = false;
     modalOpen = false;
     photoView = -1;
     $('modal').hidden = true;
     $('modalBox').innerHTML = '';
+    $('modalBox').className = 'modal';
     const next = modalQueue.shift();
-    if (next) openModal(next[0], next[1], false, next[2]);
+    if (next) openModal(next[0], next[1], false, next[2], next[3]);
   }
 
   G.App = { boot, get state() { return state; }, timeTravel };

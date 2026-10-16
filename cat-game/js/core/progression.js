@@ -20,10 +20,9 @@
   // so spamming one button doesn't race through the levels.
   const CAPS = { pet: 20, play: 20, feed: 8, care: 4, invite: 4 };
 
-  // Cat coins (spent on the gachapon): one for each day you check in, a bonus at streak
-  // milestones, three for every bond level, and some for achievements (achievements.js).
+  // Cat coins (spent in the gachapon and the shop): a coin for each daily check-in (ten for a full
+  // stamp card), three for every bond level, and some for achievements (achievements.js).
   const LEVEL_COINS = 3;
-  const STREAK_COINS = { 3: 2, 7: 4, 14: 6, 30: 10 };
 
   function addCoins(s, n) {
     s.coins = (s.coins || 0) + n;
@@ -69,8 +68,8 @@
     return lost;
   }
 
-  // The first check-in each day: +5 bond, plus 1 more for every day in a row before it (up to
-  // +5), and a cat coin (more at streak milestones).
+  // The first visit each day: just keeps count of days in a row (for the streak trophies). The
+  // reward for showing up is the stamp card, which you collect from the laptop (see checkIn).
   function dailyVisit(s, t) {
     const k = G.Clock.dayKey(t);
     if (s.lastVisitDay === k) return null;
@@ -78,14 +77,48 @@
     s.flags.streak = s.lastVisitDay === yesterday ? (s.flags.streak || 1) + 1 : 1;
     s.flags.bestStreak = Math.max(s.flags.bestStreak || 0, s.flags.streak);
     s.lastVisitDay = k;
-    const extra = Math.min(5, s.flags.streak - 1);
-    const res = addBond(s, 5 + extra, t);
-    const coins = addCoins(s, 1 + (STREAK_COINS[s.flags.streak] || 0));
-    res.coins = (res.coins || 0) + coins;
-    res.streak = s.flags.streak;
-    res.streakBonus = extra;
     G.State.log(s, { t, type: 'visit', streak: s.flags.streak });
-    return res;
+    return { streak: s.flags.streak };
+  }
+
+  // ---- The daily check-in: a stamp card on the laptop -------------------------------------------
+  // Check in on any five days (in a row or not) to fill a card; the fifth stamp pays a bonus.
+  // A finished card stays on show until your next check-in, then a fresh one starts.
+  const CARD_SIZE = 5;
+  const STAMP_COINS = 1;
+  const CARD_COINS = 10;
+  const STAMP_BOND = 5;
+
+  const checkin = (s) => s.checkin || (s.checkin = { stamps: [], last: '', cards: 0, total: 0 });
+
+  function canCheckIn(s, t) {
+    return checkin(s).last !== G.Clock.dayKey(t);
+  }
+
+  // What the card shows right now: the day keys stamped on it, and whether today's is done.
+  function checkinView(s, t) {
+    const c = checkin(s);
+    const done = c.last === G.Clock.dayKey(t);
+    const fresh = !done && c.stamps.length >= CARD_SIZE; // yesterday's full card is replaced
+    return { stamps: fresh ? [] : c.stamps.slice(), done, cards: c.cards, total: c.total, size: CARD_SIZE };
+  }
+
+  // Check in for today (once a day): stamp the card, pay the coins and some bond.
+  function checkIn(s, t) {
+    if (!canCheckIn(s, t)) return null;
+    const c = checkin(s);
+    const day = G.Clock.dayKey(t);
+    if (c.stamps.length >= CARD_SIZE) c.stamps = [];
+    c.stamps.push(day);
+    c.last = day;
+    c.total += 1;
+    const n = c.stamps.length;
+    const full = n === CARD_SIZE;
+    if (full) c.cards += 1;
+    const coins = addCoins(s, full ? CARD_COINS : STAMP_COINS);
+    const res = addBond(s, STAMP_BOND, t); // may level up
+    G.State.log(s, { t, type: 'checkin', n, full });
+    return { n, full, day, coins, bond: STAMP_BOND, levelUp: res.levelUp, unlocked: res.unlocked, levelCoins: res.coins || 0 };
   }
 
   // Another way to earn coins: look after the cat three ways in one day (feed, play, tidy up)
@@ -140,5 +173,5 @@
     return best;
   }
 
-  G.Progression = { level, progress, addBond, addCoins, loseBond, dailyVisit, dailyGoals, payDailyGoals, CARE_COINS, LEVEL_COINS, STREAK_COINS, passiveDay, isUnlocked, bump, favorite, CAPS };
+  G.Progression = { level, progress, addBond, addCoins, loseBond, dailyVisit, canCheckIn, checkinView, checkIn, CARD_SIZE, STAMP_COINS, CARD_COINS, STAMP_BOND, dailyGoals, payDailyGoals, CARE_COINS, LEVEL_COINS, passiveDay, isUnlocked, bump, favorite, CAPS };
 })(globalThis.CatGame = globalThis.CatGame || {});

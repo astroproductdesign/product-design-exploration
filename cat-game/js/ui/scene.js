@@ -88,7 +88,8 @@
     const noteFresh = G.Notes.fresh(s, t);
     const noteText = G.Notes.today(s, t).text; // the sticky note shows its first words
     const canSpin = (s.coins || 0) >= G.Gacha.COST;
-    const sig = JSON.stringify([s.room, s.shop, s.bowl, seasons, (s.unseenUnlocks || []).length > 0, G.Achievements.unclaimed(s).length > 0, noteFresh, noteText, canSpin, s.flags.learned || null]);
+    const canCheckIn = G.Progression.canCheckIn(s, t); // the laptop pulses until you have checked in today
+    const sig = JSON.stringify([s.room, s.shop, s.bowl, seasons, canCheckIn, (s.unseenUnlocks || []).length > 0, G.Achievements.unclaimed(s).length > 0, noteFresh, noteText, canSpin, s.flags.learned || null]);
     if (!force && sig === this.roomSig) return;
     // The background holds the framed photo of the cat and the wall, rug, curtains, clock and
     // lamp, so a new look or a new colour from the gachapon redraws it too.
@@ -103,7 +104,7 @@
       this.lastLightMin = -1;
     }
     this.mid.innerHTML = '';
-    const items = A.midLayer(s, seasons, { noteFresh, noteText, canSpin }).sort((a, b) => a.z - b.z);
+    const items = A.midLayer(s, seasons, { noteFresh, noteText, canSpin, canCheckIn }).sort((a, b) => a.z - b.z);
     // The intro's box, left on the rug for a moment after the cat hops out.
     const tb = this.tempBox;
     if (tb) {
