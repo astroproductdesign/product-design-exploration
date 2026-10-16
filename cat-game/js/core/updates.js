@@ -5,10 +5,24 @@
 (function (G) {
   'use strict';
 
-  const VERSION = 4;
+  const VERSION = 5;
 
   // icon: a key into the icons in app.js; tone: the tile colour (a CSS colour variable name)
   const RELEASES = [
+    {
+      v: 5,
+      date: '16 Oct',
+      since: '16 Oct',
+      name: 'Screensaver mode',
+      title: 'Sit back and watch',
+      summary: 'Press H to hide the screen and just watch your cat.',
+      items: [
+        { icon: 'room', tone: 'sage', title: 'Screensaver mode', text: 'Press H to hide everything except the time and sound control. Any other key, or a click, brings it all back.' },
+        { icon: 'paw', tone: 'pink', title: 'Follows your cat', text: 'The camera follows your cat while the screen is hidden, so you never lose them.' },
+        { icon: 'smile', tone: 'paper', title: 'A gentle hint', text: 'Sit still for about 20 seconds and a small hint shows you the shortcut.' },
+      ],
+      also: 'Also fixed: the laptop can be tapped again, and the check-in window has an X to close it.',
+    },
     {
       v: 4,
       date: '16 Oct',
