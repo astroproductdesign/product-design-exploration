@@ -106,6 +106,7 @@
     buildToolbar();
     bindInput();
     bindDecor();
+    bindCalm();
     updateHUD();
     G.CheckIn.init({
       state: () => state,
@@ -205,10 +206,10 @@
       checkinNudge();
     }
     // Feeding lives on the bowl now: say so once, when nothing else is going on.
-    if (!state.flags.bowlTip && state.named && !introActive && !panel && !modalOpen && performance.now() > 8000) {
+    if (!calm && !state.flags.bowlTip && state.named && !introActive && !panel && !modalOpen && performance.now() > 8000) {
       state.flags.bowlTip = true;
       toast(nm('Tap things in the room: the food bowl to feed {name}, the toy basket to play, the diary on the shelf.'), 7000);
-    } else if (state.flags.bowlTip && !state.flags.inviteTip && state.named && !introActive && !panel && !modalOpen && !decor && performance.now() > 24000) {
+    } else if (!calm && state.flags.bowlTip && !state.flags.inviteTip && state.named && !introActive && !panel && !modalOpen && !decor && performance.now() > 24000) {
       state.flags.inviteTip = true;
       toast(nm('Tap a bed, box or the chair to invite {name} over (they decide). Tap the lamp to switch the lights.'), 7000);
     }
@@ -222,8 +223,9 @@
       updateHUD();
       save(true);
     }
+    calmTick();
     checkWeather();
-    if (state.named && !introActive && !panel && !modalOpen && !decor && !play && !wcfg().asked && !wcfg().place && performance.now() > 12000) openWeatherAsk();
+    if (!calm && state.named && !introActive && !panel && !modalOpen && !decor && !play && !wcfg().asked && !wcfg().place && performance.now() > 12000) openWeatherAsk();
     scene.renderRoom(false, t);
     scene.updateLighting(t);
     updateHUD();
@@ -781,6 +783,7 @@
       if (e.target.id === 'modal' || e.target.closest('[data-close]')) closeModal();
     });
     document.addEventListener('keydown', (e) => {
+      if (calmKey(e)) return;
       if (e.key === 'Escape' && closeMenu()) return;
       if (e.key === 'Escape' && decor && $('modal').hidden) return endDecorate();
       if (e.key === 'Escape' && !$('modal').hidden && state.named) closeModal();
@@ -789,6 +792,103 @@
         openPhoto(photoView + (e.key === 'ArrowRight' ? 1 : -1));
       }
     });
+  }
+
+  // ---- Screensaver: hide the screen's UI ------------------------------------------------------
+  // Press H and everything but the time and sound control at the top right fades away, so it
+  // looks like a screensaver and the camera follows the cat. Any other key, or a click or tap,
+  // brings it all back. After a while with no input, a small hint says the shortcut exists.
+
+  const IDLE_HINT_MS = 20000; // how long you must sit idle before the hint appears
+  const HINT_SHOW_MS = 12000; // and how long it stays
+  let calm = false;
+  let lastActive = performance.now();
+  let hintOn = false;
+  let hintShownThisSpell = false;
+  let hintTimer = 0;
+  let swallowClickUntil = 0;
+  const hasKeyboard = () => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+  // Anything on screen that should not be interrupted by a screensaver.
+  const calmBlocked = () => !state.named || introActive || !!play || !!decor || !!panel || modalOpen;
+
+  function showCalmHint(on) {
+    if (on === hintOn) return;
+    hintOn = on;
+    $('calmHint').hidden = !on;
+    clearTimeout(hintTimer);
+    if (on) hintTimer = setTimeout(() => showCalmHint(false), HINT_SHOW_MS);
+  }
+
+  function setCalm(on) {
+    if (on === calm || (on && calmBlocked())) return;
+    calm = on;
+    document.body.classList.toggle('calm', on);
+    showCalmHint(false);
+    if (on) {
+      closeFab();
+      closeMenu();
+      scene.followCat(); // a screensaver follows the cat
+    }
+    updateFollowBtn();
+  }
+
+  // Called for every key press. Returns true when it used the key.
+  function calmKey(e) {
+    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return false;
+    if (calm) {
+      if (!e.repeat) setCalm(false);
+      e.preventDefault();
+      return true;
+    }
+    const t = e.target;
+    const typing = t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]');
+    if ((e.key === 'h' || e.key === 'H') && !e.ctrlKey && !e.metaKey && !e.altKey && !typing && !e.repeat && !calmBlocked()) {
+      e.preventDefault();
+      setCalm(true);
+      return true;
+    }
+    return false;
+  }
+
+  function bindCalm() {
+    const touch = () => {
+      lastActive = performance.now();
+      hintShownThisSpell = false;
+      if (hintOn) showCalmHint(false);
+    };
+    for (const type of ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(type, touch, { passive: true });
+    // A click or tap while the UI is hidden only brings it back; it never reaches the room. The
+    // top-right time and sound control keeps working, since it stays on screen.
+    document.addEventListener(
+      'pointerdown',
+      (e) => {
+        if (!calm || (e.target.closest && e.target.closest('.right'))) return;
+        e.stopPropagation();
+        e.preventDefault();
+        swallowClickUntil = performance.now() + 500;
+        setCalm(false);
+      },
+      true
+    );
+    document.addEventListener(
+      'click',
+      (e) => {
+        if (performance.now() < swallowClickUntil && !(e.target.closest && e.target.closest('.right'))) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      },
+      true
+    );
+  }
+
+  // Once a second: offer the shortcut when you've been looking at the room without touching it.
+  function calmTick() {
+    if (calm || hintOn || hintShownThisSpell || calmBlocked() || !hasKeyboard()) return;
+    if (performance.now() - lastActive < IDLE_HINT_MS) return;
+    hintShownThisSpell = true;
+    showCalmHint(true);
   }
 
   // Once you've used something, its dotted guide ring stops showing.
@@ -2902,6 +3002,7 @@
       return;
     }
     modalOpen = true;
+    if (calm) setCalm(false);
     modalLocked = !!locked;
     modalGuard = (opts && opts.guard) || null;
     modalOnClose = (opts && opts.onClose) || null;

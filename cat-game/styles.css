@@ -4414,3 +4414,76 @@ body.decorating #scene {
     animation: none;
   }
 }
+
+/* ---- Screensaver: press H to hide everything but the time and sound control ------------------- */
+
+.namecard,
+.meters,
+.follow-btn {
+  transition: opacity 0.5s ease;
+}
+body.calm .namecard,
+body.calm .meters,
+body.calm .status,
+body.calm .fab,
+body.calm .follow-btn,
+body.calm .toast,
+body.calm .thing-menu,
+body.calm .calm-hint {
+  opacity: 0;
+  pointer-events: none;
+}
+body.calm .nudge,
+body.calm .ck-tip,
+body.calm .piece-flash {
+  display: none;
+}
+body.calm,
+body.calm * {
+  cursor: none !important;
+}
+body.calm .right,
+body.calm .right * {
+  cursor: pointer !important;
+}
+.calm-hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 62px);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px 6px 8px;
+  font-size: 14px;
+  font-weight: 800;
+  background: rgba(252, 244, 236, 0.95);
+  border: var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  transform: translateX(-50%);
+  animation: calm-hint-in 0.5s ease-out;
+  pointer-events: none;
+}
+.calm-hint[hidden] {
+  display: none;
+}
+.calm-hint kbd {
+  min-width: 30px;
+  padding: 2px 9px 4px;
+  font: inherit;
+  font-weight: 900;
+  text-align: center;
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 8px;
+  box-shadow: 0 3px 0 var(--ink);
+}
+@keyframes calm-hint-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .calm-hint {
+    animation: none;
+  }
+}
