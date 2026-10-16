@@ -88,6 +88,26 @@
     return res;
   }
 
+  // Another way to earn coins: look after the cat three ways in one day (feed, play, tidy up)
+  // and there is a bonus of cat coins. Checked from the screen's clock; paid once a day.
+  const CARE_COINS = 2;
+  function dailyGoals(s, t) {
+    G.State.ensureDay(s, t);
+    const d = s.daily;
+    const fed = d.feed > 0;
+    const played = d.play > 0;
+    const tidy = !!d.careBonus;
+    return { fed, played, tidy, done: fed && played && tidy, paid: !!d.goalsPaid, coins: CARE_COINS };
+  }
+
+  function payDailyGoals(s, t) {
+    const g = dailyGoals(s, t);
+    if (!g.done || g.paid) return 0;
+    s.daily.goalsPaid = true;
+    G.State.log(s, { t, type: 'careDone' });
+    return addCoins(s, CARE_COINS);
+  }
+
   // +2 for every day you spend together, visited or not. Called by the
   // simulation as it crosses midnight.
   function passiveDay(s, t) {
@@ -120,5 +140,5 @@
     return best;
   }
 
-  G.Progression = { level, progress, addBond, addCoins, loseBond, dailyVisit, LEVEL_COINS, STREAK_COINS, passiveDay, isUnlocked, bump, favorite, CAPS };
+  G.Progression = { level, progress, addBond, addCoins, loseBond, dailyVisit, dailyGoals, payDailyGoals, CARE_COINS, LEVEL_COINS, STREAK_COINS, passiveDay, isUnlocked, bump, favorite, CAPS };
 })(globalThis.CatGame = globalThis.CatGame || {});

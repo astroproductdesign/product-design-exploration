@@ -42,6 +42,7 @@
     call: I('<path d="M3.5 4.5h17v11H10l-5 4v-4H3.5z" fill="#fffdf6"/><path d="M8.5 10h.01M12 10h.01M15.5 10h.01" stroke-width="2.8"/>'),
     room: I('<path d="M4 20v-6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v6" fill="#e2b078"/><path d="M2.5 15.5h3v4.5M21.5 15.5h-3v4.5M6.5 11V8a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3"/>'),
     photo: I('<rect x="2.5" y="7" width="19" height="13.5" rx="3" fill="#9fd9cf"/><path d="M8 7l1.8-3h4.4L16 7"/><circle cx="12" cy="13.6" r="3.6" fill="#fffdf6"/>'),
+    shop: I('<path d="M5 8h14l-1.2 11.5a1.5 1.5 0 0 1-1.5 1.3H7.7a1.5 1.5 0 0 1-1.5-1.3z" fill="#f4accc"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/><path d="M9.5 13.5c1 1.2 4 1.2 5 0"/>'),
     updates: I('<path d="M12 3l2.2 5.6L20 11l-5.8 2.4L12 19l-2.2-5.6L4 11l5.8-2.4z" fill="#ecbc44"/><path d="M19 3.5v3M17.5 5h3" stroke-width="1.8"/>'),
     palette: I('<path d="M12 3a9 9 0 1 0 0 18c1.6 0 2-1.2 1.4-2.2-.7-1.2 0-2.6 1.5-2.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z" fill="#fffdf6"/><circle cx="7.5" cy="11" r="1.2" fill="#d44c34"/><circle cx="10" cy="7.2" r="1.2" fill="#ecbc44"/><circle cx="14.5" cy="7.2" r="1.2" fill="#8cac64"/>'),
     ball: I('<circle cx="12" cy="12" r="9" fill="#fffdf6"/><path d="M4 8.5c4 1 12 1 16 0M4 15.5c4-1 12-1 16 0"/>'),
@@ -200,6 +201,13 @@
     G.Notes.today(state, t); // the day's note goes up, read or not
     trackWorld(t);
     flushAchievements();
+    const care = G.Progression.payDailyGoals(state, t);
+    if (care) {
+      sound('chime');
+      toast(`Daily care done: fed, played, and tidied. +${care} cat coins!`, 4500);
+      updateHUD();
+      save(true);
+    }
     checkWeather();
     if (state.named && !introActive && !panel && !modalOpen && !decor && !play && !wcfg().asked && !wcfg().place && performance.now() > 12000) openWeatherAsk();
     scene.renderRoom(false, t);
@@ -536,6 +544,7 @@
     const btns = [
       ['call', 'Call', callCat],
       ['room', 'Room', openRoom],
+      ['shop', 'Shop', () => openRoom({ tab: 'shop' })],
       ['photo', 'Photo', takePhoto],
       ['updates', 'Updates', () => showUpdates(false)],
     ];
@@ -1078,7 +1087,7 @@
     setHot.clear();
     const slots = state.room.slots;
     const empty = slots.findIndex((x) => !x);
-    decor = { sel: empty >= 0 ? empty : 0, tab: o.tab || 'items', piece: o.flash || null };
+    decor = { sel: empty >= 0 ? empty : 0, tab: o.tab || 'items', piece: o.flash || null, shopPiece: null };
     document.body.classList.add('decorating');
     $('toolbar').hidden = true;
     $('decorbar').hidden = false;
@@ -1098,6 +1107,8 @@
     scene.setDecorate(false);
     updateFollowBtn();
   }
+
+  const SKINNABLE = ['chair', 'desk', 'rug', 'lamp', 'curtains', 'clock']; // the pieces that have gachapon colours
 
   function wonSkins() {
     return state.gacha ? state.gacha.owned.filter((id) => id.startsWith('skin:')).length : 0;
@@ -1130,7 +1141,7 @@
         const won = G2.skinsFor(state, pc.id);
         const cur = G2.skinOf(state, pc.id);
         const dots = [''].concat(won).slice(0, 6).map((c) => `<i class="pdot ${c === cur ? 'on' : ''}" style="--c:${G.RoomArt.skinSwatch(pc.id, c)}"></i>`).join('');
-        return `<button class="pcard ${won.length ? '' : 'empty'}" data-pick="${pc.id}" aria-label="${esc(pc.name)}: ${won.length} of ${all.length} colours won"><span class="dcard-ico">${G.RoomArt.skinIcon(pc.id, cur)}</span><b>${esc(pc.name)}</b><span class="pdots">${dots}</span><small>${won.length} of ${all.length} colours</small></button>`;
+        return `<button class="pcard ${won.length ? '' : 'empty'}" data-pick="${pc.id}" aria-label="${esc(pc.name)}: ${won.length} of ${all.length} colours won"><span class="dcard-ico">${pieceIcon(pc.id, cur)}</span><b>${esc(pc.name)}</b><span class="pdots">${dots}</span><small>${won.length} of ${all.length} colours</small></button>`;
       }).join('');
     } else {
       const all = allOf(piece.id);
@@ -1149,10 +1160,79 @@
     scene.clearSpots();
   }
 
+  // A piece as it looks now (its shop look, in its colour), for the cards.
+  function pieceIcon(piece, colour) {
+    const st = G.Shop.styleOf(state, piece);
+    return st ? G.RoomArt.styleIcon(piece, st, colour) : G.RoomArt.skinIcon(piece, colour);
+  }
+
+  // The Shop tab: first the furniture that can change look, then that piece's looks to buy.
+  function drawShop() {
+    const Sh = G.Shop;
+    const tray = $('decorTray');
+    const keep = tray.scrollLeft;
+    const goals = G.Progression.dailyGoals(state, now());
+    const mark = (ok) => (ok ? '✓' : '○');
+    const piece = decor.shopPiece && Sh.BY_ID[decor.shopPiece];
+    tray.classList.remove('wrap');
+    if (!piece) {
+      decor.shopPiece = null;
+      $('decorHint').innerHTML = `<b>Shop</b> · you have <b>${state.coins || 0}</b> cat coin${state.coins === 1 ? '' : 's'}. New looks swap in place; the cat still uses them. Earn coins from daily check-ins, trophies, and new treasures. Daily care bonus: ${mark(goals.fed)} fed ${mark(goals.played)} played ${mark(goals.tidy)} tidied = +${goals.coins} coins.`;
+      tray.innerHTML = Sh.PIECES.map((pc) => {
+        const st = Sh.styleOf(state, pc.id);
+        const have = pc.styles.filter((x) => Sh.owns(state, pc.id, x.id)).length;
+        const wearing = st ? pc.styles.find((x) => x.id === st).name : pc.base;
+        return `<button class="pcard shop" data-shop-piece="${pc.id}" aria-label="${esc(pc.name)}: ${have} of ${pc.styles.length} looks owned"><span class="dcard-ico">${pieceIcon(pc.id, G.Gacha.skinOf(state, pc.id))}</span><b>${esc(pc.name)}</b><small>${esc(wearing)}</small><small class="own">${have} of ${pc.styles.length} owned</small></button>`;
+      }).join('');
+    } else {
+      const colour = G.Gacha.skinOf(state, piece.id);
+      const cur = Sh.styleOf(state, piece.id);
+      $('decorHint').innerHTML = `<b>${esc(piece.name)}</b> · you have <b>${state.coins || 0}</b> coin${state.coins === 1 ? '' : 's'}. Buy a look to put it in the room; ${SKINNABLE.includes(piece.id) ? 'colours you win in the gachapon repaint every look' : 'you keep it for good and can switch any time'}.`;
+      const coin = `<i class="cn">${ICONS.coin}</i>`;
+      const card = (id, name, price) => {
+        const own = id === '' || Sh.owns(state, piece.id, id);
+        const wearing = cur === id;
+        let btn;
+        if (wearing) btn = '<span class="sbtn cur">In use</span>';
+        else if (own) btn = `<button class="sbtn own" data-shop-use="${id}">Use it</button>`;
+        else if ((state.coins || 0) >= price) btn = `<button class="sbtn buy" data-shop-buy="${id}">Buy ${coin} ${price}</button>`;
+        else btn = `<span class="sbtn dim" aria-label="${price} coins, you need ${price - (state.coins || 0)} more">Buy ${coin} ${price}</span>`;
+        return `<div class="shopcard ${wearing ? 'on' : ''}"><span class="dcard-ico">${G.RoomArt.styleIcon(piece.id, id, colour)}</span><b>${esc(name)}</b>${btn}</div>`;
+      };
+      tray.innerHTML =
+        `<button class="shopcard back" data-shop-back="1" aria-label="Back to all furniture"><i class="swatch back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>All furniture</b></button>` +
+        card('', piece.base, 0) +
+        piece.styles.map((x, i) => card(x.id, x.name, Sh.TIERS[piece.size][i])).join('');
+    }
+    tray.scrollLeft = keep;
+    scene.clearSpots();
+  }
+
+  // Buy a look (and put it on), or put on one you own, and point at it in the room.
+  function shopAct(piece, style, buying) {
+    const Sh = G.Shop;
+    if (buying) {
+      const r = Sh.buy(state, piece, style);
+      if (!r.ok) return toast(r.need ? `You need ${r.need} more cat coin${r.need > 1 ? 's' : ''} for that.` : 'You already have that one.');
+      sound('chime');
+      toast(`New look: ${r.name}.`, 2400);
+    } else {
+      if (!Sh.use(state, piece, style)) return;
+      sound('pop');
+    }
+    refreshRoom();
+    updateHUD();
+    save(true);
+    drawDecor();
+    scene.flashPiece(piece);
+  }
+
   function drawDecor() {
     if (!decor) return;
+    $('decorTabs').hidden = decor.tab === 'shop'; // the shop is its own screen, not a Room tab
     drawTabs();
     if (decor.tab === 'colours') return drawColours();
+    if (decor.tab === 'shop') return drawShop();
     const C = G.Catalog;
     const slots = state.room.slots;
     const sel = decor.sel;
@@ -1348,6 +1428,26 @@
       }
       if (c.hasAttribute('data-locked')) return toast('You win new colours from the gachapon machine by the TV.');
       chooseSkin(c.getAttribute('data-piece'), c.getAttribute('data-colour'));
+    });
+    $('decorTray').addEventListener('click', (e) => {
+      if (!decor || decor.tab !== 'shop') return;
+      const t = e.target.closest('[data-shop-piece], [data-shop-back], [data-shop-buy], [data-shop-use]');
+      if (!t) return;
+      G.Sound.unlock();
+      if (t.hasAttribute('data-shop-piece')) {
+        sound('pop');
+        decor.shopPiece = t.getAttribute('data-shop-piece');
+        $('decorTray').scrollLeft = 0;
+        drawDecor();
+        return scene.flashPiece(decor.shopPiece);
+      }
+      if (t.hasAttribute('data-shop-back')) {
+        sound('pop');
+        decor.shopPiece = null;
+        return drawDecor();
+      }
+      if (t.hasAttribute('data-shop-buy')) return shopAct(decor.shopPiece, t.getAttribute('data-shop-buy'), true);
+      shopAct(decor.shopPiece, t.getAttribute('data-shop-use'), false);
     });
     $('decorTray').addEventListener('pointerdown', (e) => {
       const c = e.target.closest('.dcard');

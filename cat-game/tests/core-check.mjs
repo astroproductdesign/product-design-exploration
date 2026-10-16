@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
-const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'achievements', 'weather', 'sim', 'interactions', 'gacha', 'journal', 'notes', 'updates'];
+const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'achievements', 'weather', 'sim', 'interactions', 'gacha', 'shop', 'journal', 'notes', 'updates'];
 const ctx = vm.createContext({ console, Math, Date, JSON });
 for (const f of files) vm.runInContext(readFileSync(path.join(dir, '../js/core', f + '.js'), 'utf8'), ctx, { filename: f });
 const G = ctx.CatGame;
@@ -949,6 +949,85 @@ test("what's new: shown once to saves that haven't seen it, never to a new adopt
   assert.ok(!U.pending(s), 'gone once seen');
   s.flags.updatesSeen = U.VERSION - 1;
   assert.ok(U.pending(s), 'a newer release shows it again');
+});
+
+test('shop: buy a look with coins, keep it, switch back to the original', () => {
+  const Sh = G.Shop;
+  const s = fresh();
+  s.coins = 30;
+  assert.equal(Sh.styleOf(s, 'chair'), '', 'starts with the original');
+  const cheap = Sh.find('chair', 'garden');
+  assert.equal(cheap.price, Sh.TIERS.L[0]);
+  assert.equal(Sh.find('laptop', 'slim').price, Sh.TIERS.S[0], 'small pieces are cheaper');
+  const r = Sh.buy(s, 'chair', 'garden');
+  assert.ok(r.ok);
+  assert.equal(s.coins, 30 - cheap.price);
+  assert.equal(Sh.styleOf(s, 'chair'), 'garden', 'bought looks go on straight away');
+  assert.equal(Sh.buy(s, 'chair', 'garden').ok, false, 'no buying twice');
+  assert.equal(s.coins, 30 - cheap.price, 'and no second charge');
+  assert.equal(Sh.use(s, 'chair', ''), true);
+  assert.equal(Sh.styleOf(s, 'chair'), '', 'back to the original');
+  assert.equal(Sh.use(s, 'chair', 'garden'), true, 'owned looks can be put back on');
+  assert.equal(Sh.use(s, 'chair', 'egg'), false, 'but not ones you have not bought');
+  const poor = fresh();
+  poor.coins = 3;
+  const no = Sh.buy(poor, 'chair', 'sofa');
+  assert.ok(!no.ok && no.need > 0);
+  assert.equal(poor.coins, 3, 'nothing is taken when you cannot afford it');
+  assert.equal(Sh.buy(s, 'chair', 'nope').ok, false);
+  assert.equal(Sh.buy(s, 'nope', 'garden').ok, false);
+  // every piece has three looks, cheapest first
+  for (const p of Sh.PIECES) {
+    assert.equal(p.styles.length, 3, p.id + ' has three looks');
+    assert.ok(p.styles.every((x) => x.id && x.name && x.tag));
+  }
+  assert.equal(Sh.PIECES.length, 10);
+  // old saves have no shop yet and get an empty one
+  const old = fresh();
+  delete old.shop;
+  assert.deepEqual(JSON.parse(JSON.stringify(G.State.migrate(old).shop)), { owned: [], using: {} });
+  // looks follow the colour a piece is painted in, so the two never fight: both live in the save
+  G.Gacha.setSkin(s, 'chair', ''); // no colour won: still fine
+  assert.equal(Sh.styleOf(s, 'chair'), 'garden');
+});
+
+test('shop: every look in the catalogue has a drawing', () => {
+  const ctx2 = vm.createContext({ console, Math, Date, JSON });
+  const nop = () => '';
+  ctx2.CatGame = { RoomArt: { draw: { K: {}, S: nop, R: nop, E: nop, L: nop, mix: (a) => a } } };
+  vm.runInContext(readFileSync(path.join(dir, '../js/ui/shopArt.js'), 'utf8'), ctx2, { filename: 'shopArt' });
+  const A = ctx2.CatGame.ShopArt;
+  for (const p of G.Shop.PIECES) for (const x of p.styles) assert.equal(typeof A[p.id][x.id], 'function', p.id + '/' + x.id + ' is drawn');
+});
+
+test('more ways to earn coins: new treasures, the real coin, and daily care', () => {
+  const s = fresh();
+  s.room.gifts = [{ id: 'leaf' }, { id: 'leaf' }, { id: 'goldBell' }, { id: 'coin' }, { id: 'coin' }];
+  const c0 = s.coins;
+  const a = G.Interactions.collectGift(s, t0, 0);
+  assert.equal(a.coins, 1, 'a new common treasure pays a coin');
+  const b = G.Interactions.collectGift(s, t0, 0);
+  assert.equal(b.coins, 0, 'the same treasure again pays nothing');
+  const bell = G.Interactions.collectGift(s, t0, 0);
+  assert.equal(bell.coins, 4, 'a legendary one pays more');
+  const coin1 = G.Interactions.collectGift(s, t0, 0);
+  assert.equal(coin1.coins, 3, 'a new rare treasure (2) plus the coin itself (1)');
+  const coin2 = G.Interactions.collectGift(s, t0, 0);
+  assert.equal(coin2.coins, 1, 'a 50 sen coin is worth a coin every time');
+  assert.equal(s.coins, c0 + 1 + 4 + 3 + 1);
+  // daily care: fed, played with, and tidied up, in one day
+  const d = fresh();
+  assert.equal(G.Progression.payDailyGoals(d, t0), 0, 'nothing done yet');
+  G.Interactions.feed(d, t0, 'kibble');
+  d.daily.play = 1;
+  assert.equal(G.Progression.payDailyGoals(d, t0), 0, 'two of three');
+  d.room.litter.clumps.push('pee');
+  G.Interactions.scoop(d, t0 + MIN);
+  const before = d.coins;
+  assert.equal(G.Progression.payDailyGoals(d, t0 + MIN), G.Progression.CARE_COINS, 'all three: the bonus');
+  assert.equal(d.coins, before + G.Progression.CARE_COINS);
+  assert.equal(G.Progression.payDailyGoals(d, t0 + 2 * MIN), 0, 'once a day');
+  assert.equal(G.Progression.payDailyGoals(d, t0 + DAY + MIN), 0, 'a new day starts again from nothing');
 });
 
 console.log(`\n${passed} checks passed`);

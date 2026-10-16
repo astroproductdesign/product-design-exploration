@@ -32,6 +32,7 @@
       counts: {}, // how many times things have happened (see achievements.js)
       coins: 5, // cat coins for the gachapon (enough for one spin to start with)
       gacha: { owned: [], spins: 0 },
+      shop: { owned: [], using: {} }, // furniture looks bought with coins (see shop.js)
       achievements: {}, // id -> when it was unlocked
       achQueue: [], // unlocked but not yet announced
       achClaimed: {}, // id -> when the reward was collected (unlocked ones not in here are waiting)

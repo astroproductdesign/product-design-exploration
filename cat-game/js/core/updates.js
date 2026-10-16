@@ -5,10 +5,27 @@
 (function (G) {
   'use strict';
 
-  const VERSION = 2;
+  const VERSION = 3;
 
   // icon: a key into the icons in app.js; tone: the tile colour (a CSS colour variable name)
   const RELEASES = [
+    {
+      v: 3,
+      date: '15–16 Oct',
+      since: '14 Oct',
+      name: 'Furniture shop and trophy rewards',
+      title: 'The shop is open',
+      summary: 'A furniture shop, more ways to earn coins, claimable trophy rewards, and a tidier diary.',
+      items: [
+        { icon: 'shop', tone: 'pink', title: 'Furniture shop', text: 'Buy new looks for the chair, dining table, laptop, TV desk, rug, litter box, lamp, curtains, clock, and bowls. Open it from the paw menu.' },
+        { icon: 'palette', tone: 'mint', title: 'Colours repaint every look', text: 'A colour you win in the gachapon repaints whichever look a piece is wearing.' },
+        { icon: 'coin', tone: 'gold', title: 'More ways to earn coins', text: 'New treasures from your cat pay coins, the 50 sen coin pays every time, and feeding, playing with, and tidying up in one day earns a daily care bonus.' },
+        { icon: 'trophy', tone: 'gold', title: 'Claim your trophy rewards', text: 'Rewards now wait for you on the Trophies page. Tap Claim, or Claim all, to collect the coins and hearts.' },
+        { icon: 'trophy', tone: 'sage', title: 'Trophy filters and ticks', text: 'Filter by All, In progress, or Completed. Finished trophies get a tick.' },
+        { icon: 'book', tone: 'paper', title: 'A tidier diary', text: "Today's page opens first with earlier days listed below. The diary keeps the last 7 days, and you can save the pages you love." },
+      ],
+      also: "Also new: the wall note shows only today's note, and Updates now lists every release.",
+    },
     {
       v: 2,
       date: '12–14 Oct',

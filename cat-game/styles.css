@@ -2411,6 +2411,9 @@ body.no-anim *::before {
 .decor-head .btn {
   flex: none;
 }
+.decor-tabs[hidden] {
+  display: none;
+}
 .decor-tabs {
   display: flex;
   gap: 6px;
@@ -3847,4 +3850,123 @@ body.decorating #scene {
 .d-earlier {
   margin: 14px 0 2px;
   font-size: 15px;
+}
+
+/* The Shop tab: furniture first, then the looks for one piece */
+.pcard.shop small {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.15;
+}
+.pcard.shop small.own {
+  font-weight: 800;
+}
+.pcard.shop .dcard-ico {
+  height: 54px;
+}
+.shopcard {
+  flex: none;
+  width: 134px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: var(--line);
+  border-radius: 16px;
+}
+.shopcard.on {
+  background: #fff3c4;
+  box-shadow: var(--shadow);
+}
+.shopcard .dcard-ico {
+  width: 100%;
+  height: 62px;
+  background: var(--paper-2);
+  border: 2px solid var(--ink);
+  border-radius: 11px;
+}
+.shopcard .dcard-ico svg {
+  max-height: 56px;
+}
+.shopcard b {
+  font-size: 12.5px;
+  line-height: 1.15;
+  text-align: center;
+  min-height: 29px;
+  display: flex;
+  align-items: center;
+}
+.shopcard.back {
+  width: 86px;
+  justify-content: center;
+  background: transparent;
+  border-style: dashed;
+  cursor: pointer;
+}
+.shopcard.back b {
+  min-height: 0;
+}
+.shopcard.back .swatch {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--paper-2);
+}
+.shopcard.back .swatch svg {
+  width: 20px;
+  height: 20px;
+}
+.sbtn {
+  width: 100%;
+  padding: 4px 6px;
+  font: inherit;
+  font-weight: 900;
+  font-size: 13px;
+  text-align: center;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+}
+.sbtn .cn {
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  margin: 0 1px;
+  vertical-align: -3.5px;
+}
+.sbtn .cn svg {
+  width: 100%;
+  height: 100%;
+}
+.sbtn.buy {
+  color: #fff;
+  background: var(--cta);
+  box-shadow: 0 2px 0 var(--ink);
+  cursor: pointer;
+}
+.sbtn.buy:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+.sbtn.own {
+  cursor: pointer;
+}
+.sbtn.own:hover {
+  background: #fff;
+}
+.sbtn.cur {
+  background: var(--sage);
+}
+.sbtn.dim {
+  color: rgba(27, 23, 20, 0.55);
+  background: transparent;
+  border-style: dashed;
 }

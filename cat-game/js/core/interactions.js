@@ -456,12 +456,18 @@
     const g = s.room.gifts[index];
     if (!g) return null;
     s.room.gifts.splice(index, 1);
+    const first = !s.treasures[g.id];
     s.treasures[g.id] = (s.treasures[g.id] || 0) + 1;
     const info = G.Catalog.GIFTS[g.id];
+    // Coins: a new kind of treasure pays (more for rare ones), and the real coin is worth keeping.
+    let coins = first ? { common: 1, rare: 2, legendary: 4 }[info.rarity] || 1 : 0;
+    if (g.id === 'coin') coins += 1;
+    if (coins) G.Progression.addCoins(s, coins);
     const res = G.Progression.addBond(s, info.rarity === 'legendary' ? 10 : info.rarity === 'rare' ? 4 : 2, t);
     G.State.log(s, { t, type: 'collected', item: g.id, live: true });
     const tag = info.rarity === 'common' ? '' : info.rarity === 'rare' ? ' ✨ Rare!' : ' 🌟 Super rare!';
-    return withBond({ ok: true, rarity: info.rarity, toast: `You got ${info.name} from {name}.${tag} Added to your treasures.` }, res);
+    const pay = coins ? ` +${coins} cat coin${coins > 1 ? 's' : ''}.` : '';
+    return withBond({ ok: true, rarity: info.rarity, coins, toast: `You got ${info.name} from {name}.${tag} Added to your treasures.${pay}` }, res);
   }
 
   G.Interactions = { moodOf, MOOD_LABEL, feed, treat, pet, scoop, cleanVomit, invite, setLights, startPlay, tempt, pounce, endPlay, fetchChance, launchDecision, call, validateName, rename, pickUpCup, collectGift };

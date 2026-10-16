@@ -91,12 +91,29 @@
     chair: { x: 798, y: 282, w: 156, h: 214 },
     lamp: { x: 1090, y: 86, w: 86, h: 60 },
     desk: { x: 56, y: 316, w: 212, h: 156 },
+    table: { x: 1016, y: 336, w: 224, h: 162 },
+    laptop: { x: 1112, y: 284, w: 84, h: 66 },
+    litter: { x: 1064, y: 414, w: 126, h: 84 },
+    bowls: { x: 386, y: 510, w: 124, h: 52 },
   };
 
   // The colours a piece is drawn in right now.
   const paint = (state, piece) => {
     const v = state && G.Gacha ? G.Gacha.skinOf(state, piece) : '';
     return SKINS[piece][v] || SKINS[piece].base;
+  };
+
+  // Shop looks (see shopArt.js): which one a piece wears, the colour palette it is painted in
+  // (null when it still has its original colour), and its drawing (null for the original look).
+  const styleOf = (state, piece) => (state && G.Shop ? G.Shop.styleOf(state, piece) : '');
+  const skinPal = (state, piece) => {
+    const v = state && G.Gacha ? G.Gacha.skinOf(state, piece) : '';
+    return v && SKINS[piece] ? SKINS[piece][v] : null;
+  };
+  const look = (piece, style) => (style && G.ShopArt && G.ShopArt[piece] && G.ShopArt[piece][style]) || null;
+  const alt = (state, piece) => {
+    const f = look(piece, styleOf(state, piece));
+    return f ? f(skinPal(state, piece)) : null;
   };
 
   // The room is wide, so a wide screen is filled instead of showing empty wall. Each piece of
@@ -324,18 +341,21 @@
       if (p.dots)
         for (let r = 0; r < 12; r++)
           for (let c = 0; c < 3; c++) dots += `<circle cx="${x + (11 + c * 22 + (r % 2) * 11) * m}" cy="${66 + r * 28}" r="4.5" fill="${p.dots}"/>`;
-      return `<g class="cur ${flip ? 'cur-r' : 'cur-l'}">${S(d, p.fill, 3)}${dots}${L(`M ${x + 22 * m} 60 L ${x + 22 * m} 396 M ${x + 44 * m} 60 L ${x + 44 * m} 396`, p.fold, 3)}</g>`;
+      return `<g class="cur ${flip ? 'cur-r' : 'cur-l'}">${S(d, p.fill, 3)}${dots}${p.deco ? p.deco(x, m) : ''}${L(`M ${x + 22 * m} 60 L ${x + 22 * m} 396 M ${x + 44 * m} 60 L ${x + 44 * m} 396`, p.fold, 3)}</g>`;
     };
     return (
       panel(264, false) +
       panel(596, true) +
-      `<rect x="250" y="38" width="360" height="9" rx="4.5" fill="${K.woodDark}" stroke="${K.line}" stroke-width="3.5"/>` +
-      `<circle cx="250" cy="42" r="8" fill="${K.woodDark}" stroke="${K.line}" stroke-width="3.5"/><circle cx="610" cy="42" r="8" fill="${K.woodDark}" stroke="${K.line}" stroke-width="3.5"/>`
+      `<rect x="250" y="38" width="360" height="9" rx="4.5" fill="${p.rod || K.woodDark}" stroke="${K.line}" stroke-width="3.5"/>` +
+      (p.finial
+        ? p.finial(250) + p.finial(610)
+        : `<circle cx="250" cy="42" r="8" fill="${K.woodDark}" stroke="${K.line}" stroke-width="3.5"/><circle cx="610" cy="42" r="8" fill="${K.woodDark}" stroke="${K.line}" stroke-width="3.5"/>`)
     );
   }
 
   // The clock face at (0, 0). The room's one has ids so the hands can turn; a menu icon doesn't.
-  function clockFace(p, icon) {
+  function clockFace(p, icon, lookFn) {
+    if (lookFn) return lookFn(p, icon);
     p = p || SKINS.clock.base;
     return (
       E(0, 0, 34, 34, p.face, 3.5) +
@@ -350,8 +370,9 @@
     );
   }
 
-  function wallClock(p) {
-    return `<g transform="translate(${722 + DX.clock} 128)">${clockFace(p)}</g>`;
+  function wallClock(state) {
+    const f = look('clock', styleOf(state, 'clock'));
+    return `<g transform="translate(${722 + DX.clock} 128)">${f ? clockFace(skinPal(state, 'clock'), false, f) : clockFace(paint(state, 'clock'))}</g>`;
   }
 
   function portrait() {
@@ -366,21 +387,21 @@
     );
   }
 
-  function lamp(p) {
+  function lamp(p, shade) {
     p = p || SKINS.lamp.base;
     return (
       `<g class="lamp act" data-act="lamp" role="button" tabindex="0" aria-label="Lamp: switch the lights on or off" style="cursor:pointer">` +
       `<rect x="800" y="40" width="100" height="112" rx="10" fill="none" pointer-events="all"/>` +
       L('M 850 0 L 850 96', K.line, 2.5) +
-      S('M 818 132 Q 818 96 850 96 Q 882 96 882 132 Z', p.shade, 3) +
-      R(814, 129, 72, 7, p.rim, 3, 2.5) +
+      (shade || S('M 818 132 Q 818 96 850 96 Q 882 96 882 132 Z', p.shade, 3) + R(814, 129, 72, 7, p.rim, 3, 2.5)) +
       `<ellipse id="bulb" cx="850" cy="138" rx="10" ry="5" fill="#fff4c8" opacity=".3"/>` +
       `</g>`
     );
   }
 
-  function rugArt(p) {
+  function rugArt(p, other) {
     p = p || SKINS.rug.base;
+    if (other) return other;
     return E(470, 546, 168, 40, p.fill, 3) + `<ellipse cx="470" cy="546" rx="140" ry="29" fill="none" stroke="${p.ring}" stroke-width="5" stroke-dasharray="14 10" stroke-linecap="round"/>`;
   }
 
@@ -408,14 +429,15 @@
     }
     s += `<rect x="${X0}" y="${FLOOR - 8}" width="${XW}" height="10" fill="${K.base}" stroke="${K.line}" stroke-width="4"/>`;
     // rug (terracotta oval, woven rings)
-    s += at(DX.mid, rugArt(paint(state, 'rug')));
+    s += at(DX.mid, rugArt(paint(state, 'rug'), alt(state, 'rug')));
     // morning sunbeam from the window
     s += `<path id="sunbeam" d="M 360 420 L 520 420 L 640 600 L 380 600 Z" fill="#fff6d2" opacity="0" transform="translate(${DX.mid} 0)"/>`;
     s += at(DX.mid, `<g class="item act" data-act="window" data-spot="sill" style="cursor:pointer">${windowArt()}</g>`);
-    s += at(DX.mid, curtains(paint(state, 'curtains')));
-    s += wallClock(paint(state, 'clock'));
+    const curLook = look('curtains', styleOf(state, 'curtains'));
+    s += at(DX.mid, curtains(curLook ? curLook(skinPal(state, 'curtains')) : paint(state, 'curtains')));
+    s += wallClock(state);
     s += portrait();
-    s += at(DX.right, lamp(paint(state, 'lamp')));
+    s += at(DX.right, lamp(paint(state, 'lamp'), alt(state, 'lamp')));
     return s;
   }
 
@@ -435,7 +457,7 @@
     );
   }
 
-  function desk(p) {
+  function desk(p, body) {
     return (
       // TV: tap it to change the channel (the scene fills #tv-show).
       `<g class="tv act" data-act="tv" style="cursor:pointer">` +
@@ -447,14 +469,15 @@
       // power button: tap it to switch the TV off (tap the screen of an off TV to switch it on)
       `<g class="tv-power act" data-act="tvpower" role="button" tabindex="0" aria-label="TV power"><circle cx="72" cy="297" r="17" fill="none" pointer-events="all"/><circle id="tv-led" cx="72" cy="299.5" r="2.8" fill="#6fd16f" stroke="${K.line}" stroke-width="1"/></g>` +
       `</g>` +
-      deskBody(p)
+      (body || deskBody(p))
     );
   }
 
   // The green camping chair: black frame, olive canvas, wooden armrests.
-  function chair(p) {
+  function chair(p, other) {
     p = p || SKINS.chair.base;
     const fr = K.line;
+    if (other) return `<g>${other}</g>`;
     return (
       `<g>` +
       L('M 596 300 Q 640 286 686 300', fr, 7) +
@@ -476,15 +499,25 @@
     );
   }
 
+  // The table's legs and top, and the laptop on it, apart so the shop can change each.
+  function tableBody(other) {
+    return (
+      other ||
+      R(762, 360, 12, 134, K.woodDark, 2, 3) + R(918, 360, 12, 134, K.woodDark, 2, 3) + R(776, 360, 140, 18, K.wood, 2, 2.5) + R(742, 344, 208, 18, K.woodLight, 5, 3)
+    );
+  }
+
+  function laptopArt(other) {
+    return (
+      other ||
+      S('M 840 342 L 900 342 L 906 336 L 846 336 Z', '#c9ced4', 2.5) +
+      S('M 846 336 L 838 292 L 892 292 L 900 336 Z', '#dfe3e8', 2.5) +
+      `<circle cx="869" cy="314" r="5" fill="#f5f6f8" stroke="#b7bdc4" stroke-width="1.5"/>`
+    );
+  }
+
   function table(state) {
-    let s = '';
-    s += R(762, 360, 12, 134, K.woodDark, 2, 3) + R(918, 360, 12, 134, K.woodDark, 2, 3);
-    s += R(776, 360, 140, 18, K.wood, 2, 2.5);
-    s += R(742, 344, 208, 18, K.woodLight, 5, 3);
-    // laptop
-    s += S('M 840 342 L 900 342 L 906 336 L 846 336 Z', '#c9ced4', 2.5);
-    s += S('M 846 336 L 838 292 L 892 292 L 900 336 Z', '#dfe3e8', 2.5);
-    s += `<circle cx="869" cy="314" r="5" fill="#f5f6f8" stroke="#b7bdc4" stroke-width="1.5"/>`;
+    let s = tableBody(alt(state, 'table')) + laptopArt(alt(state, 'laptop'));
     if (!state.room.cupOnFloor) s += mug(924, 343, 0);
     return s;
   }
@@ -510,9 +543,11 @@
     const L = state.room.litter;
     const SAND = '#f3e3bb';
     const MINT = '#8fd3c6';
+    const shop = look('litter', styleOf(state, 'litter'));
+    const parts = shop ? shop(x, y) : null;
     let back =
       `<g class="litter act" data-act="litter" style="cursor:pointer">` +
-      S(`M ${x - 56} ${y - 36} L ${x - 50} ${y - 52} L ${x + 50} ${y - 52} L ${x + 56} ${y - 36} Z`, '#6fb8a9', 3) +
+      (parts ? parts.back : S(`M ${x - 56} ${y - 36} L ${x - 50} ${y - 52} L ${x + 50} ${y - 52} L ${x + 56} ${y - 36} Z`, '#6fb8a9', 3)) +
       S(`M ${x - 49} ${y - 38} L ${x - 44} ${y - 49} L ${x + 44} ${y - 49} L ${x + 49} ${y - 38} Z`, SAND, 2.5);
     L.clumps.forEach((kind, i) => {
       const [dx, dy] = CLUMP_AT[i % CLUMP_AT.length];
@@ -529,11 +564,13 @@
     back += `</g>`;
     const front =
       `<g class="litter act" data-act="litter" style="cursor:pointer">` +
-      R(x - 56, y - 36, 112, 36, MINT, 6, 3) +
+      (parts
+        ? parts.front
+        : R(x - 56, y - 36, 112, 36, MINT, 6, 3) +
       `<rect x="${x - 56}" y="${y - 36}" width="112" height="9" rx="5" fill="#b6e6dc" stroke="${K.line}" stroke-width="${ow(3)}"/>` +
       // a little paw print
       `<ellipse cx="${x}" cy="${y - 12}" rx="7" ry="5.5" fill="#fcfcfc" stroke="${K.line}" stroke-width="1.8"/>` +
-      [-8, -3, 3, 8].map((dx) => `<circle cx="${x + dx}" cy="${y - 21 + Math.abs(dx) * 0.35}" r="2.4" fill="#fcfcfc" stroke="${K.line}" stroke-width="1.4"/>`).join('') +
+      [-8, -3, 3, 8].map((dx) => `<circle cx="${x + dx}" cy="${y - 21 + Math.abs(dx) * 0.35}" r="2.4" fill="#fcfcfc" stroke="${K.line}" stroke-width="1.4"/>`).join('')) +
       `</g>`;
     // An accident on the floor next to it.
     let mess = '';
@@ -688,23 +725,29 @@
   function bowls(state) {
     const f = G.Catalog.FOODS[state.bowl.food];
     const p = state.bowl.portions;
+    const shop = look('bowls', styleOf(state, 'bowls'));
+    const v = shop ? shop() : null;
     let s = `<g class="bowl act" data-act="bowl" role="button" tabindex="0" aria-label="Food bowl: feed or give a treat" style="cursor:pointer">`;
     // a generous invisible target around both bowls
     s += `<rect x="246" y="514" width="122" height="46" rx="14" fill="none" pointer-events="all"/>`;
-    s += `<rect x="256" y="532" width="104" height="22" rx="8" fill="#f6c9cf" stroke="${K.line}" stroke-width="2.5"/>`;
-    s += L('M 266 543 L 350 543', '#fff', 2, 'stroke-dasharray="4 6"');
+    if (v) s += v.mat + v.underFood + v.underWater;
+    else {
+      s += `<rect x="256" y="532" width="104" height="22" rx="8" fill="#f6c9cf" stroke="${K.line}" stroke-width="2.5"/>`;
+      s += L('M 266 543 L 350 543', '#fff', 2, 'stroke-dasharray="4 6"');
+    }
     // food bowl
     if (p > 0) {
       const h = p >= 3 ? 9 : p === 2 ? 7 : 5;
       s += `<ellipse cx="284" cy="532" rx="17" ry="${h}" fill="${f.color}" stroke="${K.line}" stroke-width="2"/>`;
       if (state.bowl.food === 'kibble') s += `<g fill="#a86d36">${[[-8, -2], [-2, -4], [5, -2], [10, 0], [-4, 1], [2, 1]].map(([dx, dy]) => `<circle cx="${284 + dx}" cy="${532 + dy}" r="2"/>`).join('')}</g>`;
     }
-    s += S('M 262 532 Q 264 548 284 548 Q 304 548 306 532 Z', K.red, 2.6);
+    s += v ? v.food : S('M 262 532 Q 264 548 284 548 Q 304 548 306 532 Z', K.red, 2.6);
     s += `<ellipse cx="284" cy="532" rx="22" ry="5" fill="none" stroke="${K.line}" stroke-width="2.6"/>`;
-    s += `<path d="M 278 540 Q 284 544 290 540" stroke="#fff" stroke-width="2" fill="none"/>`;
+    s += v ? v.foodMark : `<path d="M 278 540 Q 284 544 290 540" stroke="#fff" stroke-width="2" fill="none"/>`;
     // water
-    s += S('M 314 536 Q 316 550 334 550 Q 352 550 354 536 Z', '#7fb4d9', 2.6);
-    s += `<ellipse cx="334" cy="536" rx="20" ry="5" fill="#bfe2f5" stroke="${K.line}" stroke-width="2.6"/>`;
+    s += v ? v.water : S('M 314 536 Q 316 550 334 550 Q 352 550 354 536 Z', '#7fb4d9', 2.6);
+    s += `<ellipse cx="334" cy="536" rx="20" ry="5" fill="${v ? v.waterTop : '#bfe2f5'}" stroke="${K.line}" stroke-width="2.6"/>`;
+    if (v && v.top) s += v.top;
     // An empty bowl pulses a little ring: this is where food comes from.
     if (p <= 0 && guide(state, 'bowl')) s += `<ellipse class="nudge" cx="308" cy="540" rx="68" ry="24" fill="none" stroke="#ff8a00" stroke-width="4" stroke-dasharray="8 7"/>`;
     return s + `</g>`;
@@ -1123,9 +1166,9 @@
   function midLayer(state, seasons, opts) {
     const out = [];
     out.push({ z: 299, svg: noteBoard(!!(opts && opts.noteFresh) && guide(state, 'note'), opts && opts.noteText) });
-    out.push({ z: 460, svg: at(DX.tv, desk(paint(state, 'desk'))) });
+    out.push({ z: 460, svg: at(DX.tv, desk(paint(state, 'desk'), alt(state, 'desk'))) });
     out.push({ z: 463, svg: gachaMachine(!!(opts && opts.canSpin) && guide(state, 'gacha')) });
-    out.push({ z: 480, svg: at(DX.chair, `<g class="item act" data-act="chair" data-spot="chair" style="cursor:pointer">${chair(paint(state, 'chair'))}</g>`) });
+    out.push({ z: 480, svg: at(DX.chair, `<g class="item act" data-act="chair" data-spot="chair" style="cursor:pointer">${chair(paint(state, 'chair'), alt(state, 'chair'))}</g>`) });
     out.push({ z: 494, svg: at(DX.right, table(state)) });
     out.push({ z: 530, svg: at(DX.basket, bowls(state)) });
     out.push({ z: 500, svg: at(DX.basket, toyBasket()) });
@@ -1188,6 +1231,48 @@
         return `<svg viewBox="32 316 212 152">${deskBody(p)}</svg>`;
     }
     return '';
+  }
+
+  // Any piece in any shop look (style '' is the original) and colour, for the shop's cards.
+  const ICON_VB = {
+    chair: '556 276 166 216', table: '734 286 224 212', laptop: '830 284 84 66', desk: '32 316 212 152', rug: '290 496 360 100',
+    litter: '772 410 146 90', lamp: '806 70 88 76', curtains: '236 26 388 400', clock: '-58 -58 116 116', bowls: '246 506 122 60',
+  };
+  function styleIcon(piece, style, colour) {
+    const pal = colour && SKINS[piece] ? SKINS[piece][colour] || null : null;
+    const base = (SKINS[piece] && SKINS[piece].base) || null;
+    const f = look(piece, style);
+    let body = '';
+    switch (piece) {
+      case 'chair': body = chair(pal || base, f ? f(pal) : null); break;
+      case 'table': body = tableBody(f ? f() : null); break;
+      case 'laptop': body = laptopArt(f ? f() : null); break;
+      case 'desk': body = f ? f(pal) : deskBody(pal || base); break;
+      case 'rug': body = rugArt(pal || base, f ? f(pal) : null); break;
+      case 'lamp': body = lamp(pal || base, f ? f(pal) : null).replace(' id="bulb"', ''); break;
+      case 'curtains': body = curtains(f ? f(pal) : pal || base); break;
+      case 'clock': body = clockFace(f ? pal : pal || base, true, f); break;
+      case 'litter': {
+        const x = 845;
+        const y = 490;
+        const parts = f ? f(x, y) : null;
+        body =
+          (parts ? parts.back : S(`M ${x - 56} ${y - 36} L ${x - 50} ${y - 52} L ${x + 50} ${y - 52} L ${x + 56} ${y - 36} Z`, '#6fb8a9', 3)) +
+          S(`M ${x - 49} ${y - 38} L ${x - 44} ${y - 49} L ${x + 44} ${y - 49} L ${x + 49} ${y - 38} Z`, '#f3e3bb', 2.5) +
+          (parts ? parts.front : R(x - 56, y - 36, 112, 36, K.mint, 6, 3) + `<rect x="${x - 56}" y="${y - 36}" width="112" height="9" rx="5" fill="#b6e6dc" stroke="${K.line}" stroke-width="${ow(3)}"/>` + E(x, y - 12, 7, 5.5, '#fcfcfc', 1.8));
+        break;
+      }
+      case 'bowls': {
+        const v = f ? f() : null;
+        body = v
+          ? v.mat + v.underFood + v.underWater + v.food + `<ellipse cx="284" cy="532" rx="22" ry="5" fill="none" stroke="${K.line}" stroke-width="2.6"/>` + v.foodMark + v.water + `<ellipse cx="334" cy="536" rx="20" ry="5" fill="${v.waterTop}" stroke="${K.line}" stroke-width="2.6"/>` + (v.top || '')
+          : `<rect x="256" y="532" width="104" height="22" rx="8" fill="#f6c9cf" stroke="${K.line}" stroke-width="2.5"/>` + S('M 262 532 Q 264 548 284 548 Q 304 548 306 532 Z', K.red, 2.6) + `<ellipse cx="284" cy="532" rx="22" ry="5" fill="none" stroke="${K.line}" stroke-width="2.6"/>` + S('M 314 536 Q 316 550 334 550 Q 352 550 354 536 Z', '#7fb4d9', 2.6) + `<ellipse cx="334" cy="536" rx="20" ry="5" fill="#bfe2f5" stroke="${K.line}" stroke-width="2.6"/>`;
+        break;
+      }
+      default:
+        return '';
+    }
+    return `<svg viewBox="${ICON_VB[piece]}">${body}</svg>`;
   }
 
   function giftIcon(id) {
@@ -1264,5 +1349,5 @@
 
   const TV = { CHANNELS, show: tvShow, static: tvStatic, off: tvOff };
 
-  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, SKINS, skinIcon, skinSwatch, PIECE_BOX, mixHex, weatherArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
+  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, SKINS, skinIcon, styleIcon, skinSwatch, PIECE_BOX, draw: { K, S, R, E, L, mix: mixHex }, mixHex, weatherArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
 })(globalThis.CatGame = globalThis.CatGame || {});
