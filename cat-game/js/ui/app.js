@@ -2891,9 +2891,11 @@
   let modalOpen = false;
   let modalLocked = false;
   let modalGuard = null;
+  let modalOnClose = null;
 
   // replace: swap content of the open modal (menus that re-render)
-  // opts: { cls: an extra class for the card, guard: a function that returns true while it must stay open }
+  // opts: { cls: an extra class for the card, guard: a function that returns true while it must stay open,
+  //         own: the card brings its own close button, onClose: called when the card closes }
   function openModal(html, onOpen, replace, locked, opts) {
     if (modalOpen && !replace) {
       modalQueue.push([html, onOpen, locked, opts]);
@@ -2902,10 +2904,11 @@
     modalOpen = true;
     modalLocked = !!locked;
     modalGuard = (opts && opts.guard) || null;
+    modalOnClose = (opts && opts.onClose) || null;
     const box = $('modalBox');
     box.className = 'modal' + (opts && opts.cls ? ' ' + opts.cls : '');
     // Every card closes with the X in its top right corner (not the naming card, which must be filled in).
-    box.innerHTML = (locked || modalGuard ? '' : `<button class="modal-x" data-close aria-label="Close">${ICONS.close}</button>`) + html;
+    box.innerHTML = (locked || (opts && opts.own) ? '' : `<button class="modal-x" data-close aria-label="Close">${ICONS.close}</button>`) + html;
     $('modal').hidden = false;
     if (onOpen) onOpen(box);
   }
@@ -2914,7 +2917,9 @@
     // The naming card stays open until the cat has a name.
     if (modalLocked && !(state && state.named)) return;
     if (modalGuard && modalGuard()) return; // e.g. the check-in stays until you have checked in
+    const done = modalOnClose;
     modalGuard = null;
+    modalOnClose = null;
     modalLocked = false;
     modalOpen = false;
     photoView = -1;
@@ -2923,6 +2928,7 @@
     $('modalBox').className = 'modal';
     const next = modalQueue.shift();
     if (next) openModal(next[0], next[1], false, next[2], next[3]);
+    if (done) done();
   }
 
   G.App = { boot, get state() { return state; }, timeTravel };

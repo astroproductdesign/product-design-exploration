@@ -1,8 +1,8 @@
-// The daily check-in: tap the laptop on the table and a laptop window opens with a stamp card in
+// The daily check-in: tap the laptop on the table and a browser window opens with a stamp card in
 // the middle. Tap today's circle and the cat's paw pops up from below and stamps it, leaving a
 // rough, slanted paw print with the date underneath. Five stamps (on any days) fill a card, and
 // the fifth pays a coin bonus. The rules live in Progression (checkIn); this file is the screen.
-// The window can't be closed until you have checked in.
+// The window is a simple browser window with an X to close it (it only waits while the paw is mid-stamp).
 (function (G) {
   'use strict';
 
@@ -140,21 +140,21 @@
     };
   }
 
-  function keysHtml() {
-    return [14, 13, 12].map((n, r) => `<div class="ck-keyrow" style="padding:0 ${r * 9}px">${'<i></i>'.repeat(n)}</div>`).join('');
-  }
-
   function windowHtml(view) {
     const t = texts(view);
     const name = api.esc(api.state().cat.name);
+    const X = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="#1b1714" stroke-width="3.6" stroke-linecap="round" fill="none"/></svg>';
+    const paw = `<svg viewBox="0 0 64 64" aria-hidden="true"><g fill="#ff5c86">${PAW}</g></svg>`;
     return (
-      `<div class="ck-laptop"><div class="ck-lid"><div class="ck-bezel"><i class="ck-cam"></i><div class="ck-screen"><div class="ck-app">` +
-      `<div class="ck-titlebar"><span class="ck-dots"><i></i><i></i><i></i></span><span>Daily check-in</span><span>purrfriend</span></div>` +
+      `<div class="ck-browser">` +
+      `<div class="ck-chrome"><div class="ck-tabrow"><span class="ck-dots"><i></i><i></i><i></i></span><span class="ck-tab">${paw}Daily check-in</span>` +
+      `<button type="button" class="ck-x" data-close aria-label="Close">${X}</button></div>` +
+      `<div class="ck-addr"><span class="ck-url">purrfriend.cat/<b>check-in</b></span></div></div>` +
       `<div class="ck-body"><div class="ck-head"><div class="ck-portrait" id="ckPortrait">${portrait(view.done)}</div><div><h2>Check in with ${name}</h2><p id="ckSub">${t.sub}</p></div></div>` +
       `<div class="ck-card" id="ckCard"><div class="ck-cardtitle"><span>My Purrfriend stamp card</span><b id="ckNo">Card ${cardNo(view)}</b></div><div class="ck-slots" id="ckSlots">${slotsHtml(view, 0)}</div></div>` +
       `<p class="ck-status" id="ckStatus" aria-live="polite">${t.status}</p>` +
       `<button class="btn primary ck-done" id="ckDone" ${view.done ? '' : 'hidden'}>Done</button>` +
-      `</div></div></div></div></div><div class="ck-hinge"></div><div class="ck-base" aria-hidden="true"><div class="ck-keys">${keysHtml()}</div></div></div>`
+      `</div></div>`
     );
   }
 
@@ -322,16 +322,20 @@
         box.querySelector('#ckSlots').addEventListener('click', (e) => {
           if (e.target.closest('#ckToday')) stamp();
         });
-        box.querySelector('#ckDone').addEventListener('click', () => {
-          if (!doneToday || busy) return;
-          const res = pending;
-          api.closeModal();
-          if (res && res.levelUp) setTimeout(() => api.celebrate(res), 300);
-        });
+        box.querySelector('#ckDone').addEventListener('click', () => api.closeModal());
       },
       false,
       false,
-      { cls: 'ck-modal', guard: () => !doneToday || busy } // no way out until you have checked in
+      {
+        cls: 'ck-modal',
+        own: true, // the window has its own X
+        guard: () => busy, // stay put only while the paw is mid-stamp
+        onClose: () => {
+          const res = pending;
+          pending = null;
+          if (res && res.levelUp) setTimeout(() => api.celebrate(res), 300);
+        },
+      }
     );
   }
 

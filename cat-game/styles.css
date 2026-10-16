@@ -373,6 +373,8 @@ button {
 /* ---- Paw button: Call, Room and Photo live behind it ---------------------------------- */
 
 .fab {
+  /* the menu's box is tall even when it is closed, so only its buttons take taps */
+  pointer-events: none;
   position: absolute;
   z-index: 6;
   right: max(12px, env(safe-area-inset-right));
@@ -384,6 +386,10 @@ button {
 }
 .fab[hidden] {
   display: none;
+}
+.fab-main,
+.fab.open .fab-list {
+  pointer-events: auto;
 }
 .fab-main {
   width: 62px;
@@ -3982,7 +3988,7 @@ body.decorating #scene {
 .modal.ck-modal {
   width: min(500px, 100%);
   max-height: calc(100dvh - 16px);
-  padding: 0 14px 0;
+  padding: 0 14px 8px;
   background: none;
   border: 0;
   box-shadow: none;
@@ -3998,61 +4004,29 @@ body.decorating #scene {
   from { transform: scale(0.94) translateY(10px); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
-.ck-laptop {
+.ck-browser {
   position: relative;
-  padding: 4px 0 0;
-}
-.ck-lid {
-  padding: 10px;
-  background: #dfe3e8;
-  border: 3.5px solid var(--ink);
-  border-radius: 22px 22px 6px 6px;
-  box-shadow: 0 4px 0 rgba(27, 23, 20, 0.85);
-}
-.ck-bezel {
-  position: relative;
-  padding: 16px 9px 10px;
-  background: #3a3a40;
-  border: 2.5px solid var(--ink);
-  border-radius: 14px 14px 4px 4px;
-}
-.ck-cam {
-  position: absolute;
-  top: 5px;
-  left: 50%;
-  width: 6px;
-  height: 6px;
-  margin-left: -3px;
-  border-radius: 50%;
-  background: var(--mint);
-  border: 1.5px solid var(--ink);
-}
-.ck-screen {
-  padding: 8px;
-  background: #cfe6e0;
-  border: 2px solid var(--ink);
-  border-radius: 6px;
-}
-.ck-app {
+  margin-top: 6px;
   background: var(--paper);
-  border: 3px solid var(--ink);
-  border-radius: 12px;
+  border: 3.5px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 0 6px 0 rgba(27, 23, 20, 0.85);
   overflow: hidden;
 }
-.ck-titlebar {
+.ck-chrome {
+  background: var(--paper-2);
+  border-bottom: 3px solid var(--ink);
+}
+.ck-tabrow {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 30px;
-  padding: 0 10px;
-  background: var(--paper-2);
-  border-bottom: 3px solid var(--ink);
-  font-size: 12.5px;
-  font-weight: 900;
+  padding: 8px 8px 0 12px;
 }
 .ck-dots {
   display: flex;
   gap: 5px;
+  flex: none;
 }
 .ck-dots i {
   width: 11px;
@@ -4063,75 +4037,77 @@ body.decorating #scene {
 .ck-dots i:nth-child(1) { background: #ff6f91; }
 .ck-dots i:nth-child(2) { background: var(--gold); }
 .ck-dots i:nth-child(3) { background: var(--mint); }
-.ck-titlebar > span:last-child {
+.ck-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 12px 6px;
+  font-size: 12.5px;
+  font-weight: 900;
+  white-space: nowrap;
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  margin-bottom: -3px;
+}
+.ck-tab svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.ck-x {
   margin-left: auto;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 4px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.ck-x svg {
+  width: 14px;
+  height: 14px;
+}
+.ck-x:hover {
+  background: #fff;
+}
+.ck-x:active {
+  transform: translateY(1px);
+}
+.ck-addr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--paper);
+  border-top: 3px solid var(--ink);
+}
+.ck-url {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 12px;
+  font-size: 12.5px;
   font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--ink-soft);
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+}
+.ck-url b {
+  color: var(--ink);
 }
 .ck-body {
-  padding: 12px;
-}
-.ck-hinge {
-  position: relative;
-  z-index: 1;
-  height: 10px;
-  margin: 0 -6px;
-  background: #c9ced4;
-  border: 3px solid var(--ink);
-  border-top: 0;
-  border-radius: 0 0 10px 10px;
-}
-.ck-hinge::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 70px;
-  height: 5px;
-  margin-left: -35px;
-  background: #aeb4bc;
-  border: 2px solid var(--ink);
-  border-top: 0;
-  border-radius: 0 0 6px 6px;
-}
-.ck-base {
-  position: relative;
-  height: 64px;
-  margin: 0 -22px;
-  padding: 14px 30px 0;
-  overflow: hidden;
-  background: #c9ced4;
-  border: 3.5px solid var(--ink);
-  border-top: 0;
-  border-bottom: 0;
-  border-radius: 0 0 4px 4px;
-}
-.ck-base::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 18px;
-  background: linear-gradient(to bottom, rgba(60, 40, 28, 0), rgba(60, 40, 28, 0.42));
-  pointer-events: none;
-}
-.ck-keys {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.ck-keyrow {
-  display: flex;
-  gap: 4px;
-}
-.ck-keyrow i {
-  flex: 1;
-  height: 16px;
-  background: #f5f6f8;
-  border: 2px solid var(--ink);
-  border-radius: 4px;
-  box-shadow: 0 2px 0 #aeb4bc;
+  padding: 14px 14px 14px;
 }
 .ck-head {
   display: flex;
@@ -4421,11 +4397,7 @@ body.decorating #scene {
   .modal.ck-modal {
     padding: 0 6px;
   }
-  .ck-lid { padding: 7px; }
-  .ck-bezel { padding: 14px 6px 8px; }
-  .ck-screen { padding: 5px; }
-  .ck-body { padding: 10px 8px; }
-  .ck-base { margin: 0 -12px; padding: 12px 18px 0; }
+  .ck-body { padding: 12px 10px; }
   .ck-head h2 { font-size: 18px; }
   .ck-portrait { width: 50px; height: 50px; }
   .ck-slots { gap: 5px; }
