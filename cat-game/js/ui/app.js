@@ -442,18 +442,16 @@
   }
 
   // Announce the achievements that have just unlocked, a little after whatever caused them.
+  // The reward waits on the Trophies page until the player comes to claim it.
   let achBusy = false;
   function flushAchievements() {
     if (achBusy || !state.achQueue || !state.achQueue.length) return;
-    const got = G.Achievements.claim(state, now());
-    const list = got.list;
+    const list = G.Achievements.take(state);
     if (!list.length) return;
     achBusy = true;
-    if (got.levelUp) setTimeout(() => celebrate(got), 2400 + list.length * 4600);
     list.forEach((d, i) =>
       setTimeout(() => {
-        const rw = G.Achievements.rewardOf(d);
-        toast(`${d.icon} Achievement unlocked: ${d.name}  (+${rw.bond} ♥, +${rw.coins} coin${rw.coins > 1 ? 's' : ''})`, 4200);
+        toast(`${d.icon} Achievement unlocked: ${d.name}. Claim your reward in the diary.`, 4200);
         sound('chime');
         scene.renderRoom(true, now()); // the diary shelf starts glowing
         if (i === list.length - 1) setTimeout(() => (achBusy = false), 4400);
@@ -1558,23 +1556,60 @@
     return `<article class="diary"><h3>${e.today ? 'Today (so far)' : esc(G.Clock.formatDay(e.day))}</h3><p>${esc(e.open)}</p>${e.lines.map((l) => `<p>${esc(l)}</p>`).join('')}<p class="sign">${close}${renamed}</p></article>`;
   }
 
-  // The trophy page: unlocked first, then what's closest, then the secrets.
+  // The trophy page: a filter (all, in progress, completed), rewards waiting to be claimed first,
+  // then what's closest, then the secrets.
+  let trophyFilter = 'all';
+  const TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const rewardText = (d) => {
+    const rw = G.Achievements.rewardOf(d);
+    return `+${rw.coins} coin${rw.coins > 1 ? 's' : ''}, +${rw.bond} ♥`;
+  };
+
   function trophiesHtml() {
     const t = now();
     const all = G.Achievements.list(state, t);
     const sum = G.Achievements.summary(state);
-    const done = all.filter((x) => x.done).sort((a, b) => b.at - a.at);
+    const waiting = all.filter((x) => x.done && !x.claimed).sort((a, b) => b.at - a.at);
+    const done = all.filter((x) => x.done && x.claimed).sort((a, b) => b.at - a.at);
     const todo = all.filter((x) => !x.done && !x.def.secret).sort((a, b) => b.cur / b.goal - a.cur / a.goal);
     const secret = all.filter((x) => !x.done && x.def.secret);
     const card = (x) => {
       if (!x.done && x.def.secret) return `<div class="trophy secret"><span class="ti">❓</span><div><b>???</b><p>A secret. Keep being a weird human.</p></div></div>`;
       const pct = Math.round((x.cur / x.goal) * 100);
-      const foot = x.done ? `<small>Unlocked ${esc(G.Clock.formatDay(G.Clock.dayKey(x.at)))}</small>` : `<span class="tbar"><i style="width:${pct}%"></i></span><small>${x.cur} / ${x.goal}</small>`;
-      return `<div class="trophy ${x.done ? 'done' : ''}"><span class="ti">${x.def.icon}</span><div><b>${esc(x.def.name)}</b><p>${esc(x.def.desc)}</p>${foot}</div></div>`;
+      let foot;
+      if (x.done && !x.claimed) foot = `<button class="t-claim" data-claim="${x.def.id}">Claim <span>${esc(rewardText(x.def))}</span></button>`;
+      else if (x.done) foot = `<small>Unlocked ${esc(G.Clock.formatDay(G.Clock.dayKey(x.at)))}</small>`;
+      else foot = `<span class="tbar"><i style="width:${pct}%"></i></span><small>${x.cur} / ${x.goal}</small>`;
+      const mark = x.done ? `<i class="t-tick ${x.claimed ? '' : 'new'}" aria-label="Completed">${TICK}</i>` : '';
+      return `<div class="trophy ${x.done ? 'done' : ''} ${x.done && !x.claimed ? 'waiting' : ''}"><span class="ti">${x.def.icon}</span><div><b>${esc(x.def.name)}</b><p>${esc(x.def.desc)}</p>${foot}</div>${mark}</div>`;
     };
+    const filters = [['all', 'All', all.length], ['todo', 'In progress', todo.length + secret.length], ['done', 'Completed', sum.done]];
+    const shown = trophyFilter === 'done' ? [...waiting, ...done] : trophyFilter === 'todo' ? [...todo, ...secret] : [...waiting, ...done, ...todo, ...secret];
+    const banner = waiting.length
+      ? `<div class="t-banner"><span><b>${waiting.length}</b> reward${waiting.length > 1 ? 's' : ''} waiting for you</span><button class="btn primary" id="claimAll">Claim all</button></div>`
+      : '';
     return `<p class="small"><b>${sum.done}</b> of ${sum.total} unlocked. Nobody asked for any of these, and yet.</p>
       <span class="tbar big"><i style="width:${Math.round((sum.done / sum.total) * 100)}%"></i></span>
-      <div class="trophies">${[...done, ...todo, ...secret].map(card).join('')}</div>`;
+      ${banner}
+      <div class="d-shelves t-filters" role="tablist">${filters.map(([k, l, n]) => `<button role="tab" aria-selected="${trophyFilter === k}" data-filter="${k}">${l}<i>${n}</i></button>`).join('')}</div>
+      <div class="trophies">${shown.length ? shown.map(card).join('') : '<p class="empty">Nothing here yet.</p>'}</div>`;
+  }
+
+  // Collect the rewards for one trophy (or every waiting one) and redraw the page where it was.
+  function claimTrophies(ids) {
+    const r = G.Achievements.claim(state, now(), ids);
+    if (!r.list.length) return;
+    sound('chime');
+    toast(`Claimed: +${r.coins} coin${r.coins === 1 ? '' : 's'}, +${r.bond} ♥`, 2600);
+    updateHUD();
+    scene.renderRoom(true, now()); // the diary shelf stops glowing once nothing is waiting
+    save(true);
+    const keep = $('modalBox').querySelector('.book');
+    const top = keep ? keep.scrollTop : 0;
+    openBook('trophies', true);
+    const book = $('modalBox').querySelector('.book');
+    if (book) book.scrollTop = top;
+    if (r.levelUp) celebrate(r);
   }
 
   // The diary has two shelves: "This week" (the last seven days, written automatically) and "Saved"
@@ -1595,7 +1630,7 @@
       return `<li><button class="d-row ${e.today ? 'now' : ''}" data-day="${e.day}"><span class="d-tile"><small>${esc(wd)}</small><b>${d}</b><small>${esc(mon)}</small></span><span class="d-text"><b>${esc(full)}</b><span>${esc(peek)}</span></span>${e.saved ? `<span class="d-mark" aria-label="Saved">${BOOKMARK(true)}</span>` : ''}<svg class="d-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></li>`;
     };
     if (!days.length)
-      return `<p class="empty">${shelf === 'saved' ? `Nothing saved yet. Open a page and tap <b>Save</b> to keep it for good. Pages you don't save are tucked away after a week.` : 'No pages yet.'}</p>`;
+      return `<p class="empty">${shelf === 'saved' ? `Nothing saved yet. Open a page and tap <b>Save</b> to keep it for good. Pages you don't save are tucked away after a week.` : 'Earlier days will show up here as the week goes on.'}</p>`;
     return `<ul class="d-rows">${days.map(row).join('')}</ul>`;
   }
 
@@ -1612,6 +1647,7 @@
   function openBook(tab, keepView) {
     photoView = -1;
     if (tab === 'diary' && !keepView) diaryView = { shelf: 'week', day: null };
+    if (tab === 'trophies' && !keepView) trophyFilter = 'all';
     const tabs = [
       ['diary', 'Diary'],
       ['album', 'Album'],
@@ -1634,7 +1670,9 @@
           `<div class="d-shelves" role="tablist">${shelves.map(([k, l, n]) => `<button role="tab" aria-selected="${diaryView.shelf === k}" data-shelf="${k}">${l}<i>${n}</i></button>`).join('')}</div>` +
           (diaryView.shelf === 'saved'
             ? diaryList('saved', saved)
-            : `<p class="small muted d-note">The last ${G.Journal.WEEK_DAYS} days. Save the pages you love to keep them for good.</p>` + diaryList('week', week));
+            : diaryCard(todayE) +
+              `<h3 class="d-earlier">Earlier this week</h3><p class="small muted d-note">Tap a day to read it. Save the pages you love to keep them for good.</p>` +
+              diaryList('week', week.filter((e) => !e.today)));
       }
     } else if (tab === 'album') {
       body = album.length
@@ -1653,11 +1691,6 @@
         `</div>`;
     } else if (tab === 'trophies') {
       body = trophiesHtml();
-      if (state.achUnseen) {
-        state.achUnseen = 0;
-        save(true);
-        scene.renderRoom(true, now());
-      }
     } else {
       const lv = G.Progression.level(state);
       body = G.Catalog.LEVELS.map((pts, i) => {
@@ -1671,11 +1704,21 @@
     }
     const sitter = tab === 'diary' && !G.Sim.isSleeping(state) && Math.random() < 0.3;
     openModal(
-      `<div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${k === tab ? 'on' : ''}" data-tab="${k}">${l}${k === 'trophies' && state.achUnseen ? ' <i class="tab-dot"></i>' : ''}</button>`).join('')}</div>
+      `<div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${k === tab ? 'on' : ''}" data-tab="${k}">${l}${k === 'trophies' && G.Achievements.unclaimed(state).length ? ' <i class="tab-dot"></i>' : ''}</button>`).join('')}</div>
        <div class="book">${body}</div>
        ${sitter ? `<button class="sitter" id="sitter" aria-label="Shoo the cat off the diary"><svg viewBox="-80 -120 170 130">${G.CatArt.render('loaf', 'sitter')}</svg><span>${esc(state.cat.name)} is sitting on your diary. Tap to shoo.</span></button>` : ''}`,
       (box) => {
         box.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => openBook(b.getAttribute('data-tab'))));
+        box.querySelectorAll('[data-filter]').forEach((b) =>
+          b.addEventListener('click', () => {
+            sound('pop');
+            trophyFilter = b.getAttribute('data-filter');
+            openBook('trophies', true);
+          })
+        );
+        box.querySelectorAll('[data-claim]').forEach((b) => b.addEventListener('click', () => claimTrophies([b.getAttribute('data-claim')])));
+        const claimAll = box.querySelector('#claimAll');
+        if (claimAll) claimAll.addEventListener('click', () => claimTrophies());
         box.querySelectorAll('[data-shelf]').forEach((b) =>
           b.addEventListener('click', () => {
             sound('pop');

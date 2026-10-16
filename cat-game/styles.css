@@ -2934,6 +2934,7 @@ body.decorating #scene {
   gap: 8px;
 }
 .trophy {
+  position: relative;
   display: grid;
   grid-template-columns: 46px 1fr;
   gap: 10px;
@@ -3769,4 +3770,81 @@ body.decorating #scene {
   font-weight: 700;
   color: var(--ink-soft);
   text-align: right;
+}
+
+/* Trophies: filter, a tick on finished ones, and rewards waiting to be claimed */
+.t-filters button {
+  font-size: 13px;
+  padding: 6px 6px;
+  gap: 6px;
+}
+.t-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 8px 8px 8px 14px;
+  background: #fff3c4;
+  border: 2.5px dashed var(--ink);
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 14px;
+}
+.t-banner .btn {
+  flex: none;
+  padding: 6px 14px;
+}
+.trophy.done {
+  padding-right: 48px;
+}
+.t-tick {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  background: var(--sage);
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+}
+.t-tick svg {
+  width: 16px;
+  height: 16px;
+}
+.t-tick.new {
+  background: var(--gold);
+}
+.trophy.waiting {
+  background: #fff0a8;
+  border-color: var(--ink);
+}
+.t-claim {
+  margin-top: 2px;
+  padding: 5px 14px;
+  font: inherit;
+  font-weight: 900;
+  font-size: 14px;
+  color: #fff;
+  background: var(--cta);
+  border: var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.t-claim span {
+  margin-left: 4px;
+  font-weight: 800;
+  font-size: 12.5px;
+}
+.t-claim:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+.d-earlier {
+  margin: 14px 0 2px;
+  font-size: 15px;
 }

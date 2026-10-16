@@ -667,7 +667,7 @@
 
   // A small wall shelf with your diary on it. Tap it to open the diary.
   function diaryShelf(state) {
-    const unread = (state.unseenUnlocks && state.unseenUnlocks.length > 0) || state.achUnseen > 0;
+    const unread = (state.unseenUnlocks && state.unseenUnlocks.length > 0) || (G.Achievements ? G.Achievements.unclaimed(state).length > 0 : false);
     let g = `<g class="diary act" data-act="diary" role="button" tabindex="0" aria-label="Diary" style="cursor:pointer">`;
     g += `<rect x="744" y="196" width="118" height="68" rx="10" fill="none" pointer-events="all"/>`;
     g += S('M 764 256 L 764 270 L 774 256 Z M 842 256 L 842 270 L 832 256 Z', K.woodDark, 2.4);

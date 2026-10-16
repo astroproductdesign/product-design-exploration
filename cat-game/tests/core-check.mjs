@@ -625,7 +625,7 @@ test('achievements: silly goals, counted from what happens, announced once', () 
   const told = A.take(s);
   assert.ok(told.some((d) => d.id === 'scoop10'));
   assert.equal(A.take(s).length, 0, 'not announced twice');
-  assert.ok(s.achUnseen >= 1);
+  assert.ok(A.unclaimed(s).some((d) => d.id === 'scoop10'), 'still waiting to be claimed after the announcement');
   // other things people do
   G.Interactions.pet(s, t0 + 20 * MIN, 'belly', 0);
   for (let i = 0; i < 12; i++) G.Interactions.treat(s, t0 + (30 + i) * MIN);
@@ -709,15 +709,38 @@ test('bond: a gentler curve, roomier daily limits, streaks, and coins', () => {
   k.room.litter.clumps.push('pee');
   G.Interactions.scoop(k, t0 + MIN);
   assert.equal(k.stats.bond, kb + 1, 'only the first one');
-  // achievements pay bond and coins when they are claimed
+  // achievements pay bond and coins only when they are claimed
   const a = fresh();
   G.Achievements.bump(a, 'photo', 5, t0);
   const ab = a.stats.bond;
   const ac = a.coins;
-  const cl = G.Achievements.claim(a, t0);
-  assert.ok(cl.list.some((d) => d.id === 'photo5'));
-  assert.ok(a.stats.bond >= ab + 2 && a.coins >= ac + 1);
-  assert.equal(G.Achievements.claim(a, t0).list.length, 0, 'claimed once');
+  assert.ok(G.Achievements.unclaimed(a).some((d) => d.id === 'photo5'), 'unlocked and waiting');
+  assert.equal(a.coins, ac, 'nothing is paid on unlock');
+  assert.equal(a.stats.bond, ab);
+  assert.ok(G.Achievements.take(a).some((d) => d.id === 'photo5'), 'announced');
+  assert.equal(a.coins, ac, 'announcing pays nothing either');
+  const cl = G.Achievements.claim(a, t0, ['photo5']);
+  assert.deepEqual([...cl.list.map((d) => d.id)], ['photo5']);
+  assert.ok(a.stats.bond >= ab + 2 && a.coins >= ac + 1, 'paid when claimed');
+  assert.equal(G.Achievements.claim(a, t0, ['photo5']).list.length, 0, 'claimed once');
+  assert.ok(!G.Achievements.unclaimed(a).some((d) => d.id === 'photo5'));
+  // claiming everything waiting
+  const c2 = fresh();
+  G.Achievements.bump(c2, 'photo', 5, t0);
+  G.Achievements.bump(c2, 'scoop', 10, t0);
+  const waiting = G.Achievements.unclaimed(c2).length;
+  assert.ok(waiting >= 2);
+  const all = G.Achievements.claim(c2, t0);
+  assert.equal(all.list.length, waiting);
+  assert.equal(G.Achievements.unclaimed(c2).length, 0);
+  // saves from before claiming existed: what was already announced counts as claimed
+  const old = fresh();
+  old.achievements = { photo5: t0, scoop10: t0, treat10: t0 };
+  old.achQueue = ['treat10'];
+  delete old.achClaimed;
+  const m = G.State.migrate(old);
+  assert.deepEqual([...Object.keys(m.achClaimed).sort()], ['photo5', 'scoop10']);
+  assert.deepEqual([...G.Achievements.unclaimed(m).map((d) => d.id)], ['treat10'], 'the unannounced one is still waiting');
 });
 
 test('gachapon: costs coins, gives new things, duplicates pay some back', () => {

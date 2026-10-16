@@ -34,7 +34,7 @@
       gacha: { owned: [], spins: 0 },
       achievements: {}, // id -> when it was unlocked
       achQueue: [], // unlocked but not yet announced
-      achUnseen: 0, // unlocked since the trophies page was last opened
+      achClaimed: {}, // id -> when the reward was collected (unlocked ones not in here are waiting)
       treasures: {},
       settings: { muted: false, timeOffset: 0, seasonPreview: null, lights: 'on', lightsAt: 0, tv: 'on', weather: { place: null, asked: false, preview: null, last: null } },
     };
@@ -44,6 +44,12 @@
   function migrate(s) {
     if (!s || typeof s !== 'object') return null;
     const fresh = createState(s.createdAt || Date.now(), (s.cat && s.cat.name) || G.Profile.defaultName);
+    // Before rewards had to be claimed they were paid on unlock, so everything already announced is claimed.
+    if (s.achClaimed === undefined && s.achievements) {
+      const waiting = new Set(s.achQueue || []);
+      s.achClaimed = {};
+      for (const [id, at] of Object.entries(s.achievements)) if (!waiting.has(id)) s.achClaimed[id] = at;
+    }
     for (const k of Object.keys(fresh)) if (s[k] === undefined) s[k] = fresh[k];
     for (const k of ['stats', 'room', 'favorites', 'flags', 'settings', 'daily', 'bowl']) {
       for (const kk of Object.keys(fresh[k])) if (s[k][kk] === undefined) s[k][kk] = fresh[k][kk];

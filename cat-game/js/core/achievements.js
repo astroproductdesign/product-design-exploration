@@ -155,7 +155,6 @@
         if (progress(s, when, d) >= d.goal) {
           s.achievements[d.id] = when;
           s.achQueue.push(d.id);
-          s.achUnseen = (s.achUnseen || 0) + 1;
           fresh.push(d);
           again = true; // the "unlock N achievements" ones may now be done
         }
@@ -228,26 +227,33 @@
   }
 
   // What an achievement is worth: a little bond and a cat coin (more for the big "meta" ones).
+  // It is paid when the player claims it on the Trophies page, not when it unlocks.
   const rewardOf = (d) => (d.id.startsWith('meta') ? { bond: 5, coins: 3 } : { bond: 2, coins: 1 });
 
-  // Announce-and-reward: takes the unlocked ones, adds their bond and coins. Returns the list and
-  // anything the bond did (a level-up, unlocks), so the screen can celebrate it.
-  function claim(s, t) {
-    const list = [];
-    const out = { list, bond: 0, coins: 0, levelUp: null, unlocked: [] };
-    let guard = 0;
-    while ((s.achQueue || []).length && guard++ < 20) {
-      for (const d of take(s)) {
-        const rw = rewardOf(d);
-        list.push(d);
-        out.bond += rw.bond;
-        out.coins += G.Progression.addCoins(s, rw.coins);
-        const res = G.Progression.addBond(s, rw.bond, t); // may unlock more (bond levels)
-        if (res.levelUp) out.levelUp = res.levelUp;
-        if (res.unlocked) out.unlocked.push(...res.unlocked);
-        if (res.coins) out.coins += res.coins;
-      }
+  // Unlocked, but the reward hasn't been collected yet.
+  function unclaimed(s) {
+    const got = s.achClaimed || {};
+    return DEFS.filter((d) => (s.achievements || {})[d.id] && !got[d.id]);
+  }
+
+  // Collect the rewards for these achievements (all of the waiting ones by default). Returns the
+  // totals and anything the bond did (a level-up, unlocks), so the screen can celebrate it.
+  function claim(s, t, ids) {
+    if (!s.achClaimed) s.achClaimed = {};
+    const out = { list: [], bond: 0, coins: 0, levelUp: null, unlocked: [] };
+    for (const d of unclaimed(s)) {
+      if (ids && !ids.includes(d.id)) continue;
+      const rw = rewardOf(d);
+      s.achClaimed[d.id] = t;
+      out.list.push(d);
+      out.bond += rw.bond;
+      out.coins += G.Progression.addCoins(s, rw.coins);
+      const res = G.Progression.addBond(s, rw.bond, t); // may unlock more (bond levels)
+      if (res.levelUp) out.levelUp = res.levelUp;
+      if (res.unlocked) out.unlocked.push(...res.unlocked);
+      if (res.coins) out.coins += res.coins;
     }
+    if (out.list.length) evaluate(s, t); // the bond may have unlocked more
     return out;
   }
 
@@ -256,7 +262,7 @@
     return DEFS.map((d) => {
       const at = (s.achievements || {})[d.id] || 0;
       const cur = Math.min(d.goal, progress(s, t, d));
-      return { def: d, cur, goal: d.goal, done: !!at, at };
+      return { def: d, cur, goal: d.goal, done: !!at, at, claimed: !!(s.achClaimed || {})[d.id] };
     });
   }
 
@@ -264,5 +270,5 @@
     return { done: Object.keys(s.achievements || {}).length, total: DEFS.length };
   }
 
-  G.Achievements = { DEFS, BY_ID, count, bump, mark, onEvent, evaluate, take, claim, rewardOf, list, summary };
+  G.Achievements = { DEFS, BY_ID, count, bump, mark, onEvent, evaluate, take, unclaimed, claim, rewardOf, list, summary };
 })(globalThis.CatGame = globalThis.CatGame || {});
