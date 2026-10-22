@@ -104,6 +104,18 @@ button {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  /* the face, name and mood sit on a tinted patch so they read as a button (it opens the profile) */
+  padding: 2px 12px 2px 2px;
+  border-radius: 16px;
+  background: rgba(143, 211, 198, 0.45);
+  transition: background 0.15s;
+}
+.nc-row:hover {
+  background: rgba(143, 211, 198, 0.7);
+}
+.namecard:focus-visible .nc-row {
+  outline: 3px solid var(--ink);
+  outline-offset: 1px;
 }
 .nc-bond {
   display: flex;
@@ -1496,6 +1508,7 @@ input:focus {
   }
   .nc-row {
     gap: 7px;
+    padding: 2px 10px 2px 2px;
   }
   .mood-face {
     width: 34px;
@@ -1515,7 +1528,7 @@ input:focus {
   .meters {
     position: static;
     transform: none;
-    gap: 6px;
+    gap: 5px;
     margin-top: 4px;
     padding: 6px 0 0 4px;
     border-radius: 0;
@@ -1526,8 +1539,8 @@ input:focus {
     --c: var(--sage);
     position: relative;
     flex: none;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     gap: 0;
     padding: 0;
     justify-content: center;
@@ -1549,16 +1562,20 @@ input:focus {
   .meters .nc-bond::before {
     content: '';
     position: absolute;
-    inset: 3.5px;
+    inset: 3px;
     border-radius: 50%;
     background: #fbf1e4;
-    border: 2px solid var(--ink);
+    border: 1.5px solid var(--ink);
   }
+  /* the icon sits dead centre in the ring */
   .meter .ico,
   .meters .nc-bond .ico {
-    position: relative;
-    width: 14px;
-    height: 14px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 19px;
+    height: 19px;
+    transform: translate(-50%, -50%);
   }
   .meter i,
   .meters .bond-track {
