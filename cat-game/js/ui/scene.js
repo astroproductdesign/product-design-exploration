@@ -93,7 +93,7 @@
     if (!force && sig === this.roomSig) return;
     // The background holds the framed photo of the cat and the wall, rug, curtains, clock and
     // lamp, so a new look or a new colour from the gachapon redraws it too.
-    const coatSig = JSON.stringify([s.cat.coat || null, s.room.skins || null, s.shop || null]);
+    const coatSig = JSON.stringify([s.cat.coat || null, s.room.skins || null, s.shop || null, A.wallPhotoRev()]);
     const seasonChanged = seasons.join() !== this.seasons.join() || !this.back.childNodes.length || coatSig !== this.coatSig;
     this.roomSig = sig;
     this.seasons = seasons;

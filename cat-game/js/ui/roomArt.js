@@ -375,14 +375,22 @@
     return `<g transform="translate(${722 + DX.clock} 128)">${f ? clockFace(skinPal(state, 'clock'), false, f) : clockFace(paint(state, 'clock'))}</g>`;
   }
 
+  // The player's own photo of their cat, if they have hung one (a data URL, already cropped to the frame).
+  let wallPhoto = null;
+  let wallPhotoRev = 0;
+  function setWallPhoto(url) {
+    wallPhoto = url || null;
+    wallPhotoRev++;
+  }
+
   function portrait() {
-    // A framed photo of the cat on the wall.
+    // A framed picture of the cat on the wall: the real photo if there is one, else the cartoon.
     return (
       `<g class="portrait act" data-act="portrait" role="button" tabindex="0" aria-label="Profile and settings" style="cursor:pointer" transform="translate(${118 + DX.tv} 140)">` +
       `<rect x="-40" y="-48" width="80" height="96" rx="4" fill="${K.woodLight}" stroke="${K.line}" stroke-width="3"/>` +
       `<rect x="-30" y="-38" width="60" height="76" fill="#cfe6e0" stroke="${K.line}" stroke-width="2"/>` +
       `<clipPath id="portrait-clip"><rect x="-30" y="-38" width="60" height="76"/></clipPath>` +
-      `<g clip-path="url(#portrait-clip)"><g transform="translate(0 38) scale(0.5)">${G.CatArt.render('sit', 'portrait')}</g></g>` +
+      `<g clip-path="url(#portrait-clip)">${wallPhoto ? `<image href="${wallPhoto}" x="-30" y="-38" width="60" height="76" preserveAspectRatio="xMidYMid slice"/>` : `<g transform="translate(0 38) scale(0.5)">${G.CatArt.render('sit', 'portrait')}</g>`}</g>` +
       `</g>`
     );
   }
@@ -1364,5 +1372,5 @@
 
   const TV = { CHANNELS, show: tvShow, static: tvStatic, off: tvOff };
 
-  G.RoomArt = { W, H, FLOOR, SPOTS, SLOTS, TV, SKINS, skinIcon, styleIcon, skinSwatch, PIECE_BOX, draw: { K, S, R, E, L, mix: mixHex }, mixHex, weatherArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
+  G.RoomArt = { setWallPhoto, wallPhotoRev: () => wallPhotoRev, W, H, FLOOR, SPOTS, SLOTS, TV, SKINS, skinIcon, styleIcon, skinSwatch, PIECE_BOX, draw: { K, S, R, E, L, mix: mixHex }, mixHex, weatherArt, spotPos, scaleAt, background, midLayer, decorBack, overlay, applyLighting, updateClock, itemIcon, giftIcon };
 })(globalThis.CatGame = globalThis.CatGame || {});

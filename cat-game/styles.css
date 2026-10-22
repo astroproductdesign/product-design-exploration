@@ -4487,3 +4487,105 @@ body.calm .right * {
     animation: none;
   }
 }
+
+/* ---- The wall photo: upload row, the crop window, and the photo on the name card / away card ------ */
+
+.mood-face.photo {
+  width: 46px;
+  height: 46px;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  overflow: hidden;
+}
+.mood-face img,
+.portrait img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.wp-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+.wp-row .small {
+  margin: 0 0 8px;
+}
+.wp-row .row {
+  gap: 8px;
+}
+.wp-thumb {
+  flex: none;
+  width: 72px;
+  height: 91px;
+  display: grid;
+  place-items: center;
+  padding: 5px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  background: var(--wood-light, #d39a64);
+  border: var(--line);
+  border-radius: 6px;
+}
+.wp-thumb img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border: 2px solid var(--ink);
+}
+.wp-pick {
+  cursor: pointer;
+}
+.wpcrop {
+  text-align: center;
+}
+.wpcrop .small {
+  margin: 0 auto 12px;
+  max-width: 340px;
+}
+.wp-stage {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background: #d39a64;
+  border: var(--line);
+  border-radius: 14px;
+}
+.wp-frame {
+  position: relative;
+  width: 240px;
+  height: 304px;
+  overflow: hidden;
+  background: #cfe6e0;
+  border: 4px solid var(--ink);
+  border-radius: 4px;
+  cursor: grab;
+  touch-action: none;
+}
+.wp-frame:active {
+  cursor: grabbing;
+}
+.wp-frame img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.wp-zoom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px auto 4px;
+  max-width: 300px;
+  font-weight: 800;
+}
+.wp-zoom input {
+  flex: 1;
+}

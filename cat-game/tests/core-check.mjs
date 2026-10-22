@@ -1070,4 +1070,36 @@ test('daily check-in: five stamps on any days, the fifth pays the bonus, then a 
   assert.deepEqual(JSON.parse(JSON.stringify(G.State.migrate(old).checkin)), { stamps: [], last: '', cards: 0, total: 0 });
 });
 
+test('wall photo: kept apart from the save, only real images, and it goes when you start over', () => {
+  const mem = {};
+  let full = false;
+  const fake = {
+    getItem: (k) => (k in mem ? mem[k] : null),
+    setItem: (k, v) => {
+      if (full) throw new Error('QuotaExceededError');
+      mem[k] = String(v);
+    },
+    removeItem: (k) => delete mem[k],
+  };
+  const c2 = vm.createContext({ console, Math, Date, JSON, localStorage: fake });
+  vm.runInContext(readFileSync(path.join(dir, '../js/core/storage.js'), 'utf8'), c2, { filename: 'storage' });
+  const St = c2.CatGame.Storage;
+  assert.equal(St.loadPortrait(), null, 'no photo to begin with');
+  const url = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+  assert.equal(St.savePortrait(url), true);
+  assert.equal(St.loadPortrait(), url);
+  assert.ok(!('catgame.save.v1' in mem) && !('catgame.album.v1' in mem), 'kept under its own key, not in the save or the album');
+  mem['catgame.portrait.v1'] = 'https://example.com/tracker.png';
+  assert.equal(St.loadPortrait(), null, 'anything that is not an inline image is ignored');
+  assert.equal(St.savePortrait(url), true);
+  assert.equal(St.savePortrait(null), true, 'taking it down');
+  assert.equal(St.loadPortrait(), null);
+  full = true;
+  assert.equal(St.savePortrait(url), false, 'a full browser says so instead of failing quietly');
+  full = false;
+  St.savePortrait(url);
+  St.clear();
+  assert.equal(St.loadPortrait(), null, 'starting a new game takes the photo down too');
+});
+
 console.log(`\n${passed} checks passed`);

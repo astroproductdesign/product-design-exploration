@@ -17,6 +17,7 @@
   let gesture = null; // a touch that began on the room (a tap, or a drag to look around)
   const petTimes = [];
   let play = null; // { toy, joined, stats }
+  let wallPhoto = null; // the player's real photo of their cat, hung on the wall (a data URL), or null
   const modalQueue = [];
   let toastTimer = 0;
   let resetting = false; // set while wiping the save, so nothing writes it back
@@ -65,6 +66,8 @@
 
   function boot() {
     album = G.Storage.loadAlbum();
+    wallPhoto = G.Storage.loadPortrait();
+    G.RoomArt.setWallPhoto(wallPhoto);
     state = G.Storage.load();
     if (!state) state = G.State.createState(Date.now(), G.Profile.defaultName);
     G.CatArt.setCoat(state.cat.coat);
@@ -317,7 +320,8 @@
     if (mood !== lastMood) {
       lastMood = mood;
       const [eyes, mouth] = MOOD_FACE[mood];
-      $('moodFace').innerHTML = `<svg viewBox="-56 -56 112 92">${G.CatArt.renderHead('hud', eyes, mouth)}</svg>`;
+      $('moodFace').classList.toggle('photo', !!wallPhoto);
+      $('moodFace').innerHTML = wallPhoto ? `<img src="${wallPhoto}" alt="">` : `<svg viewBox="-56 -56 112 92">${G.CatArt.renderHead('hud', eyes, mouth)}</svg>`;
     }
     $('moodText').textContent = G.Interactions.MOOD_LABEL[mood];
     setMeter('mFull', st.fullness);
@@ -2355,6 +2359,11 @@
     openModal(
       `<div class="profile"><div class="portrait"><svg viewBox="-80 -150 160 156">${G.CatArt.render('sit', 'profile')}</svg></div>
         <div><h2>${esc(state.cat.name)}</h2><p class="small">Together for ${days} day${days > 1 ? 's' : ''} · Bond Lv ${p.level}</p><p class="small muted">${esc(looksText())}</p><button class="btn small-btn" id="lookBtn">Change look</button></div></div>
+       <h3>Wall photo</h3>
+       <div class="wp-row"><div class="wp-thumb">${wallPhoto ? `<img src="${wallPhoto}" alt="Your photo of ${esc(state.cat.name)}">` : '<span>No photo yet</span>'}</div>
+         <div><p class="small">Hang a real photo of ${esc(state.cat.name)} in the frame on the wall. It also shows on the name card.</p>
+           <div class="row"><label class="btn small-btn wp-pick">${wallPhoto ? 'Change photo' : 'Upload a photo'}<input type="file" accept="image/*" id="wpIn" hidden></label>${wallPhoto ? '<button class="btn small-btn" id="wpRemove">Use the cartoon again</button>' : ''}</div>
+           <p class="error" id="wpErr"></p></div></div>
        <form class="rename" id="renameForm"><label for="renameInput">Name</label><div class="row"><input id="renameInput" maxlength="40" autocomplete="off" value="${esc(state.cat.name)}"><button class="btn primary" type="submit">Rename</button></div><p class="error" id="renameErr"></p></form>
        <h3>Favourites</h3><ul class="favs"><li><b>Nap spot:</b> ${favSpot}</li><li><b>Toy:</b> ${favToy}</li><li><b>Food:</b> ${favFood}</li><li><b>Pets:</b> ${favPet}</li></ul>
        <h3>Quirks</h3><ul class="quirks">${quirks}</ul>
@@ -2370,6 +2379,17 @@
          <div class="row">${[['', 'Auto'], ['none', 'None'], ['cny', 'CNY'], ['raya', 'Raya'], ['christmas', 'Christmas']].map(([k, l]) => `<button class="chip ${String(state.settings.seasonPreview || '') === k ? 'on' : ''}" data-season="${k}">${l}</button>`).join('')}</div>
        </details>`,
       (box) => {
+        box.querySelector('#wpIn').addEventListener('change', (e) => {
+          const f = e.target.files && e.target.files[0];
+          if (f) openWallCrop(f);
+        });
+        const wpRemove = box.querySelector('#wpRemove');
+        if (wpRemove)
+          wpRemove.addEventListener('click', () => {
+            setWallPhoto(null);
+            toast('Back to the cartoon portrait.');
+            openSettings();
+          });
         box.querySelector('#renameForm').addEventListener('submit', (e) => {
           e.preventDefault();
           const prev = state.activity;
@@ -2422,6 +2442,127 @@
       },
       true
     );
+  }
+
+  // ---- The wall photo ----------------------------------------------------------------------------
+
+  // Hang a photo on the wall (a data URL already cropped to the frame), or take it down with null.
+  // Returns false when the browser has no room to keep it.
+  function setWallPhoto(url) {
+    if (!G.Storage.savePortrait(url)) return false;
+    wallPhoto = url || null;
+    G.RoomArt.setWallPhoto(wallPhoto);
+    lastMood = ''; // redraw the face on the name card
+    scene.renderRoom(true, now());
+    updateHUD();
+    return true;
+  }
+
+  // Pick the part of the photo that hangs on the wall: drag it around and zoom, with the frame's shape.
+  function openWallCrop(file) {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      openSettings();
+      const e = $('modalBox').querySelector('#wpErr');
+      if (e) e.textContent = "Couldn't read that photo. Try a JPG or PNG.";
+    };
+    img.onload = () => {
+      const FW = 240; // the frame's shape, 60 x 76 like the one on the wall
+      const FH = 304;
+      const OW = 300; // what is kept
+      const OH = 380;
+      const base = Math.max(FW / img.width, FH / img.height);
+      let zoom = 1;
+      let ox = (FW - img.width * base) / 2;
+      let oy = (FH - img.height * base) / 2;
+      const sc = () => base * zoom;
+      const clamp = () => {
+        ox = Math.min(0, Math.max(FW - img.width * sc(), ox));
+        oy = Math.min(0, Math.max(FH - img.height * sc(), oy));
+      };
+      openModal(
+        `<div class="wpcrop"><h2>Hang it on the wall</h2>
+          <p class="small">Drag the photo to move it, and zoom with the slider. The frame shows what will hang on the wall.</p>
+          <div class="wp-stage"><div class="wp-frame" id="wpFrame" tabindex="0" aria-label="Photo position. Drag it, or use the arrow keys."><img id="wpImg" src="${url}" alt="" draggable="false"></div></div>
+          <label class="wp-zoom"><span>Zoom</span><input type="range" id="wpZoom" min="1" max="3" step="0.01" value="1"></label>
+          <p class="error" id="wpErr"></p>
+          <div class="row center"><button class="btn" id="wpCancel">Cancel</button><button class="btn primary" id="wpSave">Hang it up</button></div></div>`,
+        (box) => {
+          const frame = box.querySelector('#wpFrame');
+          const pic = box.querySelector('#wpImg');
+          const draw = () => {
+            clamp();
+            pic.style.width = img.width * sc() + 'px';
+            pic.style.height = img.height * sc() + 'px';
+            pic.style.transform = `translate(${ox}px, ${oy}px)`;
+          };
+          const setZoom = (z) => {
+            const cx = (FW / 2 - ox) / sc(); // keep the middle of the frame where it is
+            const cy = (FH / 2 - oy) / sc();
+            zoom = Math.min(3, Math.max(1, z));
+            ox = FW / 2 - cx * sc();
+            oy = FH / 2 - cy * sc();
+            box.querySelector('#wpZoom').value = zoom;
+            draw();
+          };
+          let drag = null;
+          frame.addEventListener('pointerdown', (e) => {
+            drag = { x: e.clientX, y: e.clientY, ox, oy };
+            frame.setPointerCapture(e.pointerId);
+          });
+          frame.addEventListener('pointermove', (e) => {
+            if (!drag) return;
+            ox = drag.ox + (e.clientX - drag.x);
+            oy = drag.oy + (e.clientY - drag.y);
+            draw();
+          });
+          const stop = () => (drag = null);
+          frame.addEventListener('pointerup', stop);
+          frame.addEventListener('pointercancel', stop);
+          frame.addEventListener(
+            'wheel',
+            (e) => {
+              e.preventDefault();
+              setZoom(zoom - e.deltaY * 0.002);
+            },
+            { passive: false }
+          );
+          frame.addEventListener('keydown', (e) => {
+            const step = { ArrowLeft: [10, 0], ArrowRight: [-10, 0], ArrowUp: [0, 10], ArrowDown: [0, -10] }[e.key];
+            if (!step) return;
+            e.preventDefault();
+            ox += step[0];
+            oy += step[1];
+            draw();
+          });
+          box.querySelector('#wpZoom').addEventListener('input', (e) => setZoom(Number(e.target.value)));
+          box.querySelector('#wpCancel').addEventListener('click', () => {
+            URL.revokeObjectURL(url);
+            openSettings();
+          });
+          box.querySelector('#wpSave').addEventListener('click', () => {
+            const c = document.createElement('canvas');
+            c.width = OW;
+            c.height = OH;
+            const g = c.getContext('2d');
+            g.drawImage(img, -ox / sc(), -oy / sc(), FW / sc(), FH / sc(), 0, 0, OW, OH);
+            if (!setWallPhoto(c.toDataURL('image/jpeg', 0.86))) {
+              box.querySelector('#wpErr').textContent = "There isn't room to keep the photo. Delete some album photos and try again.";
+              return;
+            }
+            URL.revokeObjectURL(url);
+            sound('chime');
+            toast(`Hung on the wall! Say hi to ${state.cat.name}.`);
+            openSettings();
+          });
+          draw();
+        },
+        true
+      );
+    };
+    img.src = url;
   }
 
   function confirmReset() {
@@ -2918,7 +3059,7 @@
       content: '{name} seems content.',
     }[mood];
     openModal(
-      `<div class="away"><div class="portrait"><svg viewBox="-56 -56 112 92">${G.CatArt.renderHead('away', 'happy')}</svg></div>
+      `<div class="away"><div class="portrait">${wallPhoto ? `<img src="${wallPhoto}" alt="">` : `<svg viewBox="-56 -56 112 92">${G.CatArt.renderHead('away', 'happy')}</svg>`}</div>
        <h2>While you were away…</h2><p class="small">${esc(G.Clock.formatDuration(sum.duration))} · ${esc(state.cat.name)}…</p>
        <ul class="away-list">${sum.lines.map((l) => `<li><span>${l.icon}</span>${esc(nm(l.text))}</li>`).join('')}</ul>
        ${gifts ? `<p class="gift-note">🎁 There ${gifts > 1 ? `are ${gifts} gifts` : 'is a gift'} on the floor. Tap to collect!</p>` : ''}
