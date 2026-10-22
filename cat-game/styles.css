@@ -71,6 +71,10 @@ button {
 .topbar > * {
   pointer-events: auto;
 }
+/* Groups the name card and the meters into one card on a phone; on a wide screen it isn't drawn. */
+.catcard {
+  display: contents;
+}
 .namecard,
 .meters,
 .right {
@@ -368,6 +372,20 @@ button {
 }
 .status:empty {
   display: none;
+}
+.status.gone {
+  opacity: 0;
+}
+.status > span {
+  display: inline-block;
+}
+/* A caption too long for one line on a phone: hold, slide to the end, hold. */
+.status.slide > span {
+  animation: captionSlide 6s ease-in-out 0.8s forwards;
+}
+@keyframes captionSlide {
+  0%, 12% { transform: translateX(0); }
+  70%, 100% { transform: translateX(calc(var(--over) * -1)); }
 }
 
 /* ---- Paw button: Call, Room and Photo live behind it ---------------------------------- */
@@ -1440,72 +1458,143 @@ input:focus {
 /* ---- Phones ------------------------------------------------------------------------------ */
 
 @media (max-width: 640px) {
+  /* One cat card on the left: face, name and mood, a thin line, then the bond level and the
+     tummy, energy and happiness as rings. The time on the right, with the coins in their own pill
+     under it. The camera keeps the room below all of it (see Scene.cameraTarget). */
   .topbar {
-    flex-wrap: wrap;
-    row-gap: 6px;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 6px;
     top: max(8px, env(safe-area-inset-top));
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));
   }
-  .namecard {
-    max-width: 64%;
-    order: 1;
-    padding: 3px 14px 6px 4px;
+  .catcard {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 4px 10px 6px 4px;
     border-radius: 20px;
+    background: rgba(252, 244, 236, 0.9);
+    border: var(--line);
+    box-shadow: var(--shadow);
   }
-  .right {
-    order: 2;
-    margin-left: auto;
-    padding: 3px 4px 3px 12px;
+  .catcard .namecard,
+  .catcard .meters {
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+  /* the line between the name and the stats */
+  .catcard .meters {
+    border-top: 2px solid rgba(27, 23, 20, 0.18);
+  }
+  .namecard {
+    max-width: none;
+    padding: 0;
+    border-radius: 14px;
+  }
+  .nc-row {
+    gap: 7px;
+  }
+  .mood-face {
+    width: 34px;
+    height: 30px;
+  }
+  .name-text {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .name-text b {
+    font-size: 16px;
+  }
+  .name-text small {
+    font-size: 12px;
   }
   .meters {
     position: static;
     transform: none;
-    order: 3;
-    flex-basis: 100%;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 5px 12px;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 6px 0 0 4px;
+    border-radius: 0;
   }
-  .meter {
-    flex: 1;
-    width: auto;
+  .meter,
+  .meters .nc-bond {
+    --v: 50;
+    --c: var(--sage);
+    position: relative;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    gap: 0;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+    border: 2.5px solid var(--ink);
+    background: conic-gradient(var(--c) calc(var(--v) * 1%), #fff 0);
   }
-  .meter .ico {
-    width: 24px;
-    height: 24px;
+  .meter.low {
+    --c: var(--gold);
   }
-  .meter i {
-    height: 13px;
+  /* the bond level is a pink ring filling towards the next level, its number on a badge */
+  .meters .nc-bond {
+    --c: var(--pink);
   }
-  .mood-face {
-    width: 42px;
-    height: 38px;
+  .meters .nc-bond:hover {
+    background: conic-gradient(var(--c) calc(var(--v) * 1%), #fff 0);
   }
-  .name-text b {
-    font-size: 17px;
+  .meter::before,
+  .meters .nc-bond::before {
+    content: '';
+    position: absolute;
+    inset: 3.5px;
+    border-radius: 50%;
+    background: #fbf1e4;
+    border: 2px solid var(--ink);
   }
-  .name-text small {
-    font-size: 11.5px;
+  .meter .ico,
+  .meters .nc-bond .ico {
+    position: relative;
+    width: 14px;
+    height: 14px;
   }
-  .nc-bond {
-    font-size: 12.5px;
-    gap: 5px;
-    padding-left: 8px;
+  .meter i,
+  .meters .bond-track {
+    display: none;
   }
-  .nc-bond .ico {
-    width: 17px;
-    height: 17px;
+  .meters .bond-lv {
+    position: absolute;
+    right: -7px;
+    bottom: -6px;
+    font-size: 0;
   }
-  .bond-track {
-    height: 10px;
-    min-width: 44px;
+  .meters .bond-lv b {
+    display: block;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border-radius: 99px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 10.5px;
+    line-height: 16px;
+    text-align: center;
+  }
+  .right {
+    flex: none;
+    padding: 3px 4px 3px 12px;
   }
   .clock b {
     font-size: 15px;
+    white-space: nowrap;
   }
   .clock small {
-    font-size: 11px;
+    font-size: 11.5px;
+    max-width: 104px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .iconbtn {
     width: 36px;
@@ -1550,12 +1639,14 @@ input:focus {
     padding: 7px 14px;
     font-size: 15px;
     border-radius: 18px;
+    white-space: nowrap;
+    overflow: hidden;
   }
   .follow-btn {
     bottom: calc(max(10px, env(safe-area-inset-bottom)) + 62px);
   }
   .toast {
-    top: calc(max(8px, env(safe-area-inset-top)) + 118px);
+    top: calc(max(8px, env(safe-area-inset-top)) + 100px);
     font-size: 14.5px;
     padding: 6px 12px;
     max-width: 92%;
@@ -1575,6 +1666,8 @@ input:focus {
     font-size: 15px;
     padding: 6px 16px;
     bottom: 12px;
+    white-space: nowrap;
+    overflow: hidden;
   }
   .nc-bond {
     display: none;
@@ -1840,6 +1933,19 @@ body.decorating .topbar > * {
 }
 body.touching .topbar {
   opacity: 0.4;
+}
+/* Looking around on a phone: only the room shows until the finger lifts. */
+body.panning .topbar,
+body.panning .status,
+body.panning .fab,
+body.panning .follow-btn,
+body.panning .toast {
+  opacity: 0;
+  pointer-events: none;
+}
+body.panning .topbar > *,
+body.panning .fab * {
+  pointer-events: none;
 }
 .app > .playbar,
 .app > .decorbar {
@@ -3305,15 +3411,30 @@ body.decorating #scene {
   height: 26px;
 }
 @media (max-width: 640px) {
+  /* the coins get their own pill, under the time */
   .m-coins {
-    font-size: 14px;
-    gap: 3px;
-    padding: 1px 2px;
+    position: absolute;
+    right: 0;
+    top: calc(var(--right-h, 47px) + 6px);
+    gap: 4px;
+    padding: 3px 11px 3px 5px;
+    font-size: 15px;
+    background: rgba(252, 244, 236, 0.9);
+    border: var(--line);
+    box-shadow: var(--shadow);
+  }
+  .m-coins:hover {
+    background: rgba(252, 244, 236, 0.9);
   }
   .m-coins .ico,
   .m-coins .ico svg {
     width: 22px;
     height: 22px;
+  }
+}
+@media (max-width: 360px) {
+  .name-text small {
+    display: none;
   }
 }
 
@@ -4417,11 +4538,13 @@ body.decorating #scene {
 
 /* ---- Screensaver: press H to hide everything but the time and sound control ------------------- */
 
+.catcard,
 .namecard,
 .meters,
 .follow-btn {
   transition: opacity 0.5s ease;
 }
+body.calm .catcard,
 body.calm .namecard,
 body.calm .meters,
 body.calm .status,

@@ -7,6 +7,7 @@
   const NS = 'http://www.w3.org/2000/svg';
   const A = G.RoomArt;
   const ROOM_ZOOM_OUT = 1.22; // >1 leaves breathing room above and below the room
+  const CEILING = 36; // the top of the room above the lamp shade and curtains: nothing to tap there
 
   const SLEEP_EYES = new Set(['nap']);
   const DROWSY = new Set(['loaf', 'sunbathe', 'laptop', 'hide', 'knead']);
@@ -29,6 +30,7 @@
     this.hooks = hooks || {};
     this.cv = null; // cat view
     this.cam = { x: 0, y: 0, w: A.W, h: A.H };
+    this.reserve = null; // screen px the app's top bar and paw button take on a phone ({ top, bottom })
     this.focus = null; // camera framing a point (intro, change look)
     this.userPan = null; // x the player dragged the camera to (null: follow the cat)
     this.dragging = false;
@@ -1735,13 +1737,27 @@
     // (under the HUD) and below (over the caption). The wall and floor carry on past the
     // edge of the room, so that margin is never empty.
     const aspect = r.width / r.height;
-    const h = A.H * ROOM_ZOOM_OUT;
-    const w = Math.max(340, Math.min(A.W, h * aspect));
+    let h = A.H * ROOM_ZOOM_OUT;
+    let w = Math.max(340, Math.min(A.W, h * aspect));
+    let y = -(h - A.H) * 0.55;
+    // On a phone the app reserves the top bar and the paw button (screen px): fit the room
+    // between them, shrinking it a little if it has to, so neither covers anything you can tap.
+    // Only the strip of ceiling (the lamp cord and bare wall) may sit under the bar.
+    const res = this.reserve;
+    if (res) {
+      const top = Math.max(0, res.top - r.top);
+      const k = Math.min(r.width / w, r.height / h, (r.height - top - res.bottom) / (A.H - CEILING));
+      if (k > 0) {
+        w = Math.min(A.W, r.width / k);
+        h = r.height / k;
+        y = CEILING - top / k;
+      }
+    }
     const focus = this.play && this.play.joined ? (this.cv.x + this.play.x) / 2 : this.cv.x;
     // On a narrow screen the player can drag the room around; otherwise follow the cat.
     const at = this.userPan != null && !this.play ? this.userPan : focus - w / 2;
     const x = w >= A.W - 1 ? 0 : Math.max(0, Math.min(A.W - w, at));
-    return { x, y: -(h - A.H) * 0.55, w, h };
+    return { x, y, w, h };
   };
 
   // Drag the camera sideways by dx scene units (a drag of the room to the right

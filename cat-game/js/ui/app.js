@@ -15,6 +15,7 @@
   let lastDay = '';
   let petting = null;
   let gesture = null; // a touch that began on the room (a tap, or a drag to look around)
+  let panUi = () => {}; // set once the room's pointer handlers are bound
   const petTimes = [];
   let play = null; // { toy, joined, stats }
   let wallPhoto = null; // the player's real photo of their cat, hung on the wall (a data URL), or null
@@ -110,6 +111,9 @@
     bindInput();
     bindDecor();
     bindCalm();
+    placeBond();
+    PHONE_HUD.addEventListener('change', placeBond);
+    window.addEventListener('resize', reserveHud);
     updateHUD();
     G.CheckIn.init({
       state: () => state,
@@ -329,7 +333,9 @@
     setMeter('mHappy', st.happiness);
     const p = G.Progression.progress(state);
     $('bondLv').textContent = p.level;
-    $('bondFill').style.width = (p.max ? 100 : Math.round((p.into / p.need) * 100)) + '%';
+    const bondPct = p.max ? 100 : Math.round((p.into / p.need) * 100);
+    $('bondFill').style.width = bondPct + '%';
+    $('bondRow').style.setProperty('--v', bondPct);
     $('bondRow').title = p.max ? 'Bond: best friends! See what you unlocked' : `Bond Lv ${p.level}: ${Math.floor(p.into)}/${p.need} to the next level. See what you can unlock`;
     $('clockTime').textContent = G.Clock.formatTime(t);
     const seasons = scene ? scene.seasons : [];
@@ -350,12 +356,71 @@
     $('muteBtn').setAttribute('aria-label', state.settings.muted ? 'Sound off' : 'Sound on');
     if (tipId) $('meterTip').innerHTML = meterTipHtml(tipId);
     updateFollowBtn();
+    reserveHud();
   }
 
-  // The line under the room always says what the cat is doing.
+  // On a phone the top bar takes two rows, so the camera keeps the room below it (and above
+  // the paw button): the bar never sits over the cat or anything you can tap.
+  function reserveHud() {
+    if (!scene) return;
+    if (!PHONE_HUD.matches) {
+      scene.reserve = null;
+      return;
+    }
+    // the coins pill hangs under the time pill
+    const bar = document.querySelector('.topbar');
+    bar.style.setProperty('--right-h', document.querySelector('.topbar .right').offsetHeight + 'px');
+    const paw = document.querySelector('.fab-main');
+    scene.reserve = {
+      top: Math.max(bar.getBoundingClientRect().bottom, $('coinRow').getBoundingClientRect().bottom) + 6,
+      bottom: paw ? window.innerHeight - paw.getBoundingClientRect().top + 4 : 0,
+    };
+  }
+
+  // On a phone the bond level joins the meters as a ring, under the name; on a wide screen
+  // it goes back under the name inside the name card.
+  const PHONE_HUD = window.matchMedia('(max-width: 640px)');
+  function placeBond() {
+    const bond = $('bondRow');
+    if (PHONE_HUD.matches) document.querySelector('.topbar .meters').prepend(bond);
+    else $('nameBtn').append(bond);
+  }
+
+  // The line under the room says what the cat is doing. It fades after a few seconds
+  // and comes back when the cat does something new.
+  const CAPTION_MS = 6000;
+  let captionTimer = 0;
   function setCaption(text) {
     const el = $('status');
-    if (el.textContent !== text) el.textContent = text;
+    if (el.dataset.text === text) return;
+    el.dataset.text = text;
+    el.innerHTML = '<span></span>';
+    el.firstChild.textContent = text;
+    el.classList.remove('gone');
+    const slides = fitCaption(el);
+    clearTimeout(captionTimer);
+    captionTimer = setTimeout(() => el.classList.add('gone'), slides ? CAPTION_MS + 2500 : CAPTION_MS);
+  }
+
+  // On a phone the caption stays on one line: shrink the type a little and, if it still doesn't fit,
+  // let the line slide along so every word gets read. Returns true when it slides.
+  function fitCaption(el) {
+    el.style.fontSize = '';
+    el.classList.remove('slide');
+    if (!isPhone()) return false;
+    const line = el.firstChild;
+    const cs = getComputedStyle(el);
+    const room = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    let px = parseFloat(cs.fontSize);
+    while (line.offsetWidth > room && px > 12) {
+      px -= 0.5;
+      el.style.fontSize = px + 'px';
+    }
+    const over = line.offsetWidth - room;
+    if (over <= 0) return false;
+    el.style.setProperty('--over', over + 'px');
+    el.classList.add('slide');
+    return true;
   }
 
   // Hover (or tap) a meter to read its exact level. Energy also says how long until it is full.
@@ -440,8 +505,11 @@
 
   function setMeter(id, v) {
     const b = $(id);
+    const m = b.closest('.meter');
     b.style.width = Math.round(v) + '%';
     b.classList.toggle('low', v < 25);
+    m.style.setProperty('--v', Math.round(v)); // a phone draws the level as a ring
+    m.classList.toggle('low', v < 25);
   }
 
   // ---- Feedback ------------------------------------------------------------------------------
@@ -720,6 +788,7 @@
         if (!gesture.moved && Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 8) {
           gesture.moved = true;
           scene.dragging = true;
+          if (isPhone()) panUi(true);
         }
         if (gesture.moved) {
           scene.panBy((e.clientX - gesture.lastX) * (scene.cam.w / svg.getBoundingClientRect().width));
@@ -752,7 +821,8 @@
         const g = gesture;
         gesture = null;
         scene.dragging = false;
-        if (!g.moved) tapRoom(g.target, g.hadMenu);
+        if (g.moved) panUi(false);
+        else tapRoom(g.target, g.hadMenu);
       }
       if (e.pointerType !== 'mouse') setTimeout(() => setHot(null), 280);
     };
@@ -768,6 +838,13 @@
       }
     });
     const touching = (on) => document.body.classList.toggle('touching', on);
+    // On a phone, looking around the room clears the screen so only the room shows.
+    let panTimer = 0;
+    panUi = (on) => {
+      clearTimeout(panTimer);
+      if (on) document.body.classList.add('panning');
+      else panTimer = setTimeout(() => document.body.classList.remove('panning'), 700);
+    };
     svg.addEventListener('pointerdown', () => touching(true));
     document.addEventListener('pointerup', () => touching(false));
     document.addEventListener('pointercancel', () => touching(false));
@@ -778,6 +855,7 @@
       petting = null;
       gesture = null;
       scene.dragging = false;
+      panUi(false);
     });
     $('followBtn').addEventListener('click', () => {
       scene.followCat();
@@ -965,6 +1043,11 @@
   }
 
   // The "Follow cat" button shows while the player has dragged the camera away.
+  // The phone layout: a narrow screen, or a short one held sideways.
+  function isPhone() {
+    return window.matchMedia('(max-width: 640px), (max-height: 520px) and (orientation: landscape)').matches;
+  }
+
   function updateFollowBtn() {
     const b = $('followBtn');
     if (!b) return;
@@ -2362,7 +2445,7 @@
        <h3>Wall photo</h3>
        <div class="wp-row"><div class="wp-thumb">${wallPhoto ? `<img src="${wallPhoto}" alt="Your photo of ${esc(state.cat.name)}">` : '<span>No photo yet</span>'}</div>
          <div><p class="small">Hang a real photo of ${esc(state.cat.name)} in the frame on the wall. It also shows on the name card.</p>
-           <div class="row"><label class="btn small-btn wp-pick">${wallPhoto ? 'Change photo' : 'Upload a photo'}<input type="file" accept="image/*" id="wpIn" hidden></label>${wallPhoto ? '<button class="btn small-btn" id="wpRemove">Use the cartoon again</button>' : ''}</div>
+           <div class="row"><label class="btn small-btn wp-pick">${wallPhoto ? 'Change photo' : 'Upload a photo'}<input type="file" accept="image/*" id="wpIn" hidden></label>${wallPhoto ? '<button class="btn small-btn danger" id="wpRemove">Remove photo</button>' : ''}</div>
            <p class="error" id="wpErr"></p></div></div>
        <form class="rename" id="renameForm"><label for="renameInput">Name</label><div class="row"><input id="renameInput" maxlength="40" autocomplete="off" value="${esc(state.cat.name)}"><button class="btn primary" type="submit">Rename</button></div><p class="error" id="renameErr"></p></form>
        <h3>Favourites</h3><ul class="favs"><li><b>Nap spot:</b> ${favSpot}</li><li><b>Toy:</b> ${favToy}</li><li><b>Food:</b> ${favFood}</li><li><b>Pets:</b> ${favPet}</li></ul>
@@ -2385,11 +2468,7 @@
         });
         const wpRemove = box.querySelector('#wpRemove');
         if (wpRemove)
-          wpRemove.addEventListener('click', () => {
-            setWallPhoto(null);
-            toast('Back to the cartoon portrait.');
-            openSettings();
-          });
+          wpRemove.addEventListener('click', confirmRemovePhoto);
         box.querySelector('#renameForm').addEventListener('submit', (e) => {
           e.preventDefault();
           const prev = state.activity;
@@ -2563,6 +2642,23 @@
       );
     };
     img.src = url;
+  }
+
+  function confirmRemovePhoto() {
+    openModal(
+      `<div class="naming"><h2>Remove this photo?</h2>
+        <p>${esc(state.cat.name)}'s photo will come down from the wall and the cartoon portrait goes back up.</p>
+        <div class="row center"><button class="btn" id="keepPhoto">Keep it</button><button class="btn danger" id="dropPhoto">Remove photo</button></div></div>`,
+      (box) => {
+        box.querySelector('#keepPhoto').addEventListener('click', openSettings);
+        box.querySelector('#dropPhoto').addEventListener('click', () => {
+          setWallPhoto(null);
+          closeModal();
+          toast('Photo removed. Back to the cartoon portrait.');
+        });
+      },
+      true
+    );
   }
 
   function confirmReset() {
