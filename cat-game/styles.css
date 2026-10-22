@@ -922,38 +922,308 @@ input:focus {
   margin-left: 4px;
 }
 
-.profile {
+/* ---- Profile and settings: the cat, About, then Settings --------------------------------- */
+
+.pf-hero {
   display: flex;
-  gap: 16px;
   align-items: center;
+  gap: 14px;
+  padding-right: 40px; /* clear of the close button */
 }
-.profile .portrait {
+.pf-avatar {
+  width: 92px;
+  height: 90px;
   margin: 0;
   flex: none;
 }
-.rename {
-  margin-top: 12px;
+.pf-who {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
-.rename label {
+.modal .pf-who h2 {
+  margin: 0;
+  padding-right: 0;
+  overflow-wrap: anywhere;
+}
+.pf-rename input {
+  width: 100%;
+  font: inherit;
+  font-size: 20px;
   font-weight: 900;
-  font-size: 15px;
+  padding: 4px 12px;
+  border: var(--line);
+  border-radius: 14px;
+  background: #fff;
 }
-.favs,
+.pf-meta {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.pf-bond {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.pf-bond .ico {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+}
+.pf-bond .ico svg {
+  width: 100%;
+  height: 100%;
+}
+.pf-bond .bond-track {
+  flex: none;
+  width: 72px;
+  min-width: 0;
+}
+.pf-bond .bond-track i {
+  display: block;
+  height: 100%;
+  background: var(--pink);
+}
+.pf-actions {
+  margin-top: 12px;
+  flex-wrap: nowrap;
+}
+.pf-actions[hidden] {
+  display: none;
+}
+.pf-actions .btn {
+  flex: 1;
+  white-space: nowrap;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.pf-actions .btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+#renameErr:empty {
+  display: none;
+}
+.pf-about {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 6px;
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+}
+.pf-about h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+}
 .quirks {
   margin: 0;
   padding-left: 20px;
   font-weight: 700;
   line-height: 1.5;
 }
-.testing {
-  margin-top: 16px;
-  border: 2.5px dashed var(--ink-soft);
-  border-radius: 14px;
-  padding: 8px 12px;
+.pf-more {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 2px dashed rgba(27, 23, 20, 0.25);
 }
-.testing summary {
+.pf-more[hidden] {
+  display: none;
+}
+.pf-favs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.pf-fav {
+  min-width: 0;
+  padding: 5px 10px;
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+}
+.pf-fav small {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.pf-fav b {
+  font-size: 14px;
   font-weight: 900;
+}
+.pf-looks {
+  margin: 0;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.pf-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 4px 3px;
+  font: inherit;
+  font-weight: 900;
+  font-size: 14.5px;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-top: 2px dashed rgba(27, 23, 20, 0.25);
   cursor: pointer;
+}
+.pf-more-btn svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s;
+}
+.pf-more-btn.open svg {
+  transform: rotate(180deg);
+}
+.pf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pf-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 12px 7px 7px;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+  cursor: pointer;
+}
+.pf-row:hover {
+  background: #ead8b8;
+}
+.pf-row:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+.pf-row.danger {
+  background: #f6d0c8;
+}
+.pf-row.danger:hover {
+  background: #f0bcb1;
+}
+.pf-tile {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 11px;
+}
+.pf-tile svg {
+  width: 22px;
+  height: 22px;
+}
+.pf-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pf-txt b {
+  font-size: 15.5px;
+  font-weight: 900;
+}
+.pf-txt small {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.pf-go {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: inline-flex;
+}
+.pf-go svg {
+  width: 100%;
+  height: 100%;
+}
+/* the sound switch */
+.pf-switch {
+  position: relative;
+  width: 50px;
+  height: 28px;
+  flex: none;
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 99px;
+  transition: background 0.15s;
+}
+.pf-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 19px;
+  height: 19px;
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  transition: left 0.15s;
+}
+.pf-switch.on {
+  background: var(--sage);
+}
+.pf-switch.on::after {
+  left: 23px;
+}
+/* Weather and Testing tools open their own page, with a way back */
+.pf-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 10px;
+  padding: 3px 12px 3px 6px;
+  font: inherit;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.pf-back svg {
+  width: 16px;
+  height: 16px;
+}
+.modal .pf-back + h2 {
+  margin-bottom: 10px;
+}
+.pf-tools .small {
+  margin: 12px 0 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pf-more-btn svg,
+  .pf-switch,
+  .pf-switch::after {
+    transition: none;
+  }
 }
 
 /* book */
@@ -1674,10 +1944,6 @@ input:focus {
   }
   .modal {
     padding: 14px 14px 16px;
-  }
-  .profile {
-    flex-direction: column;
-    text-align: center;
   }
 }
 
@@ -4648,41 +4914,55 @@ body.calm .right * {
   display: block;
   object-fit: cover;
 }
-.wp-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 4px;
-}
-.wp-row .small {
-  margin: 0 0 8px;
-}
-.wp-row .row {
-  gap: 8px;
-}
-.wp-thumb {
-  flex: none;
-  width: 72px;
-  height: 91px;
-  display: grid;
-  place-items: center;
-  padding: 5px;
+/* The wall photo window, opened from the photo in the room */
+.wp-sheet {
   text-align: center;
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--ink-soft);
-  background: var(--wood-light, #d39a64);
-  border: var(--line);
-  border-radius: 6px;
 }
-.wp-thumb img {
+.wp-big {
+  width: 156px;
+  height: 190px;
+  margin: 10px auto 12px;
+  padding: 9px;
+  background: #bc7c4c;
+  border: 4px solid var(--ink);
+  border-radius: 8px;
+}
+.wp-big-in {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--paper-2);
+  border: 3px solid var(--ink);
+  border-radius: 4px;
+}
+.wp-big-in svg {
+  width: 100%;
+}
+.wp-big-in img {
   width: 100%;
   height: 100%;
   display: block;
   object-fit: cover;
-  border: 2px solid var(--ink);
 }
-.wp-pick {
+.wp-sheet .small {
+  margin: 0 auto;
+  max-width: 320px;
+}
+.wp-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 280px;
+  margin: 12px auto 0;
+}
+.wp-actions .btn svg {
+  width: 20px;
+  height: 20px;
+}
+.wp-actions label {
   cursor: pointer;
 }
 .wpcrop {

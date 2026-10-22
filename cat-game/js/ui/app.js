@@ -55,6 +55,13 @@
     sound: I('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="#fffdf6"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/>'),
     book: I('<path d="M3.5 4.5H10a2 2 0 0 1 2 2V20a2 2 0 0 0-2-2H3.5z" fill="#f6c9cf"/><path d="M20.5 4.5H14a2 2 0 0 0-2 2V20a2 2 0 0 1 2-2h6.5z" fill="#fffdf6"/>'),
     settings: I('<circle cx="12" cy="12" r="3.2" fill="#f3c66b"/><path d="M12 2.5v3M12 18.5v3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M2.5 12h3M18.5 12h3M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>'),
+    go: I('<path d="M9 5l7 7-7 7" stroke-width="3"/>'),
+    back: I('<path d="M15 5l-7 7 7 7" stroke-width="3"/>'),
+    chevron: I('<path d="M6 9l6 6 6-6" stroke-width="3"/>'),
+    pencil: I('<path d="M4 20l1-4L16 5l3 3L8 19z" fill="#f8e7a8"/><path d="M14 7l3 3"/>'),
+    brush: I('<path d="M14 4l6 6-7 7-6-6z" fill="#f4accc"/><path d="M7 11c-3 0-4 3-4 6 3 0 6-1 6-4"/>'),
+    wrench: I('<path d="M15 4a4.5 4.5 0 0 0-4.3 5.9L4 16.6 7.4 20l6.7-6.7A4.5 4.5 0 0 0 20 9l-3 1-2-2 1-3z" fill="#d6f0d8"/>'),
+    restart: I('<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>'),
     soundOn: I('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="#fffdf6"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
     soundOff: I('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="#fffdf6"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>'),
     tummy: I('<path d="M3 12c3-5 9-6 13-2l4.5-3.5v11L16 14c-4 4.5-10 3.5-13-2z" fill="#f2a28f"/>'),
@@ -1010,7 +1017,7 @@
     if (target.closest('.gacha')) return void (sound('pop'), learn('gacha'), openGacha());
     if (target.closest('.note')) return void (sound('pop'), learn('note'), openNote());
     if (target.closest('.diary')) return void (sound('pop'), learn('diary'), ach('diaryOpen'), openBook('diary'));
-    if (target.closest('.portrait')) return void (sound('pop'), openSettings());
+    if (target.closest('.portrait')) return void (sound('pop'), openWallPhoto());
     const gift = target.closest('.gift');
     if (gift) return collectGift(Number(gift.getAttribute('data-gift')));
     if (target.closest('.cup')) {
@@ -2354,7 +2361,7 @@
     </div>`;
   }
 
-  // done() runs once the window has a real reading.
+  // done() runs once the window has a real reading (and after "Stop using weather").
   function bindWeatherCard(box, done) {
     const msg = (text, err) => {
       const m = box.querySelector('#wxMsg');
@@ -2405,7 +2412,7 @@
         scene.updateLighting(now(), true);
         updateHUD();
         save(true);
-        openSettings();
+        done();
       });
   }
 
@@ -2425,50 +2432,85 @@
     );
   }
 
-    function openSettings() {
+  // ---- Profile and settings ---------------------------------------------------------------
+  // One window: the cat (portrait or wall photo, name, time together, bond, Edit name and Change
+  // look), About (quirks first; Read more adds the favourites and the look), then Settings.
+  // Weather and Testing tools open their own page; the wall photo lives on the photo in the room.
+
+  function openSettings() {
     const t = now();
     const C = G.Catalog;
     const p = G.Progression.progress(state);
     const days = Math.max(1, Math.round((t - state.createdAt) / G.Clock.DAY));
+    const bondPct = p.max ? 100 : Math.round((p.into / p.need) * 100);
     const fav = (kind, map) => {
       const k = G.Progression.favorite(state, kind);
       return k ? esc(map(k)) : '<i>still deciding…</i>';
     };
-    const favSpot = fav('spots', (k) => (C.ITEMS[k] || C.SPOTS[k] || { label: k }).label);
-    const favToy = fav('toys', (k) => C.TOYS[k].name);
-    const favFood = fav('foods', (k) => C.FOODS[k].name);
-    const favPet = fav('pets', (k) => ({ chin: 'chin scratches', head: 'head pats', back: 'back pets', belly: 'belly rubs (!)', ears: 'ear scratches' })[k]);
+    const favs = [
+      ['Nap spot', fav('spots', (k) => (C.ITEMS[k] || C.SPOTS[k] || { label: k }).label)],
+      ['Toy', fav('toys', (k) => C.TOYS[k].name)],
+      ['Food', fav('foods', (k) => C.FOODS[k].name)],
+      ['Pets', fav('pets', (k) => ({ chin: 'Chin scratches', head: 'Head pats', back: 'Back pets', belly: 'Belly rubs (!)', ears: 'Ear scratches' })[k])],
+    ];
     const quirks = G.Profile.quirks.filter((q) => q.on).map((q) => `<li>${esc(q.text)}</li>`).join('');
+    const name = esc(state.cat.name);
+    const w = wcfg();
+    const wxText = w.place
+      ? esc(w.place.name || 'Your place') + (w.last ? ` · ${esc(G.Weather.LABEL[w.last.kind])}${w.last.temp !== null ? `, ${w.last.temp}°C` : ''}` : '')
+      : 'Off: show the real sky in the window';
+    const row = (id, ico, title, sub, end, cls) =>
+      `<button type="button" class="pf-row ${cls || ''}" id="${id}"><span class="pf-tile">${ICONS[ico]}</span><span class="pf-txt"><b>${title}</b><small>${sub}</small></span>${end || `<span class="pf-go">${ICONS.go}</span>`}</button>`;
     openModal(
-      `<div class="profile"><div class="portrait"><svg viewBox="-80 -150 160 156">${G.CatArt.render('sit', 'profile')}</svg></div>
-        <div><h2>${esc(state.cat.name)}</h2><p class="small">Together for ${days} day${days > 1 ? 's' : ''} · Bond Lv ${p.level}</p><p class="small muted">${esc(looksText())}</p><button class="btn small-btn" id="lookBtn">Change look</button></div></div>
-       <h3>Wall photo</h3>
-       <div class="wp-row"><div class="wp-thumb">${wallPhoto ? `<img src="${wallPhoto}" alt="Your photo of ${esc(state.cat.name)}">` : '<span>No photo yet</span>'}</div>
-         <div><p class="small">Hang a real photo of ${esc(state.cat.name)} in the frame on the wall. It also shows on the name card.</p>
-           <div class="row"><label class="btn small-btn wp-pick">${wallPhoto ? 'Change photo' : 'Upload a photo'}<input type="file" accept="image/*" id="wpIn" hidden></label>${wallPhoto ? '<button class="btn small-btn danger" id="wpRemove">Remove photo</button>' : ''}</div>
-           <p class="error" id="wpErr"></p></div></div>
-       <form class="rename" id="renameForm"><label for="renameInput">Name</label><div class="row"><input id="renameInput" maxlength="40" autocomplete="off" value="${esc(state.cat.name)}"><button class="btn primary" type="submit">Rename</button></div><p class="error" id="renameErr"></p></form>
-       <h3>Favourites</h3><ul class="favs"><li><b>Nap spot:</b> ${favSpot}</li><li><b>Toy:</b> ${favToy}</li><li><b>Food:</b> ${favFood}</li><li><b>Pets:</b> ${favPet}</li></ul>
-       <h3>Quirks</h3><ul class="quirks">${quirks}</ul>
-       <h3>Weather</h3>${weatherCardHtml(wcfg().place ? 'The window shows the real weather and the real sunrise and sunset there.' : WX_INTRO)}
-       <h3>Sound</h3><button class="btn" id="soundBtn">${state.settings.muted ? 'Sound is off — turn on' : 'Sound is on — turn off'}</button>
-       <h3>Start over</h3><p class="small">Erase everything and adopt a new cat.</p><button class="btn danger" id="resetBtn">Start a new game</button>
-       <details class="testing"><summary>Testing tools</summary>
-         <p class="small">Pretend time has passed (to see the "while you were away" summary without waiting):</p>
-         <div class="row"><button class="btn" data-skip="1">+1 hour</button><button class="btn" data-skip="6">+6 hours</button><button class="btn" data-skip="24">+1 day</button><button class="btn" id="realTime" ${state.settings.timeOffset ? '' : 'disabled'}>Back to real time</button></div>
-         <p class="small">Weather preview (the window only):</p>
-         <div class="row">${[['', 'Auto'], ...G.Weather.KINDS.map((k) => [k, G.Weather.LABEL[k]])].map(([k, l]) => `<button class="chip ${String(wcfg().preview || '') === k ? 'on' : ''}" data-wx="${k}">${l}</button>`).join('')}</div>
-         <p class="small">Seasonal decor preview:</p>
-         <div class="row">${[['', 'Auto'], ['none', 'None'], ['cny', 'CNY'], ['raya', 'Raya'], ['christmas', 'Christmas']].map(([k, l]) => `<button class="chip ${String(state.settings.seasonPreview || '') === k ? 'on' : ''}" data-season="${k}">${l}</button>`).join('')}</div>
-       </details>`,
+      `<div class="pf">
+        <div class="pf-hero">
+          <div class="portrait pf-avatar">${wallPhoto ? `<img src="${wallPhoto}" alt="Your photo of ${name}">` : `<svg viewBox="-80 -150 160 156">${G.CatArt.render('sit', 'profile')}</svg>`}</div>
+          <div class="pf-who">
+            <h2 id="pfName">${name}</h2>
+            <form class="pf-rename" id="renameForm" hidden><input id="renameInput" maxlength="40" autocomplete="off" value="${name}" aria-label="Name"></form>
+            <span class="pf-meta">Together for ${days} day${days > 1 ? 's' : ''}</span>
+            <span class="pf-bond"><span class="ico">${ICONS.heart}</span>Bond Lv ${p.level}<span class="bond-track"><i style="width:${bondPct}%"></i></span></span>
+          </div>
+        </div>
+        <p class="error" id="renameErr"></p>
+        <div class="row pf-actions" id="pfActions"><button type="button" class="btn" id="editName">${ICONS.pencil}Edit name</button><button type="button" class="btn" id="lookBtn">${ICONS.brush}Change look</button></div>
+        <div class="row pf-actions" id="pfEditing" hidden><button type="submit" class="btn primary" form="renameForm">Save name</button><button type="button" class="btn" id="cancelName">Cancel</button></div>
+
+        <h3>About ${name}</h3>
+        <div class="pf-about">
+          <h4>Quirks</h4><ul class="quirks">${quirks}</ul>
+          <div class="pf-more" id="pfMore" hidden>
+            <h4>Favourites</h4><div class="pf-favs">${favs.map(([k, v]) => `<div class="pf-fav"><small>${k}</small><b>${v}</b></div>`).join('')}</div>
+            <h4>Looks</h4><p class="pf-looks">${esc(looksText())}</p>
+          </div>
+          <button type="button" class="pf-more-btn" id="pfMoreBtn" aria-expanded="false" aria-controls="pfMore"><span>Read more</span>${ICONS.chevron}</button>
+        </div>
+
+        <h3>Settings</h3>
+        <div class="pf-list">
+          ${row('pfWeather', 'cloud', 'Weather', wxText)}
+          ${row('pfSound', 'soundOn', 'Sound', state.settings.muted ? 'Off' : 'On', `<span class="pf-switch ${state.settings.muted ? '' : 'on'}" aria-hidden="true"></span>`)}
+          ${row('pfTesting', 'wrench', 'Testing tools', 'Skip time, preview weather and seasons')}
+          ${row('resetBtn', 'restart', 'Start over', 'Erase everything and adopt a new cat', '', 'danger')}
+        </div>
+      </div>`,
       (box) => {
-        box.querySelector('#wpIn').addEventListener('change', (e) => {
-          const f = e.target.files && e.target.files[0];
-          if (f) openWallCrop(f);
-        });
-        const wpRemove = box.querySelector('#wpRemove');
-        if (wpRemove)
-          wpRemove.addEventListener('click', confirmRemovePhoto);
+        // Edit name: the name turns into a text field, the buttons into Save and Cancel.
+        const editing = (on) => {
+          box.querySelector('#pfName').hidden = on;
+          box.querySelector('#renameForm').hidden = !on;
+          box.querySelector('#pfActions').hidden = on;
+          box.querySelector('#pfEditing').hidden = !on;
+          box.querySelector('#renameErr').textContent = '';
+          if (on) {
+            const input = box.querySelector('#renameInput');
+            input.value = state.cat.name;
+            input.focus();
+            input.select();
+          }
+        };
+        box.querySelector('#editName').addEventListener('click', () => editing(true));
+        box.querySelector('#cancelName').addEventListener('click', () => editing(false));
         box.querySelector('#renameForm').addEventListener('submit', (e) => {
           e.preventDefault();
           const prev = state.activity;
@@ -2480,10 +2522,61 @@
           closeModal();
           if (!r.same) apply(r, prev);
         });
-        box.querySelector('#soundBtn').addEventListener('click', () => {
-          $('muteBtn').click();
-          openSettings();
+        box.querySelector('#lookBtn').addEventListener('click', openLookPanel);
+        const more = box.querySelector('#pfMoreBtn');
+        more.addEventListener('click', () => {
+          const open = box.querySelector('#pfMore').hidden;
+          box.querySelector('#pfMore').hidden = !open;
+          more.setAttribute('aria-expanded', String(open));
+          more.classList.toggle('open', open);
+          more.querySelector('span').textContent = open ? 'Show less' : 'Read more';
         });
+        box.querySelector('#pfWeather').addEventListener('click', openWeatherPage);
+        const snd = box.querySelector('#pfSound');
+        snd.setAttribute('role', 'switch');
+        const showSound = () => {
+          snd.setAttribute('aria-checked', String(!state.settings.muted));
+          snd.querySelector('small').textContent = state.settings.muted ? 'Off' : 'On';
+          snd.querySelector('.pf-switch').classList.toggle('on', !state.settings.muted);
+        };
+        showSound();
+        snd.addEventListener('click', () => {
+          $('muteBtn').click();
+          showSound();
+        });
+        box.querySelector('#pfTesting').addEventListener('click', openTestingPage);
+        box.querySelector('#resetBtn').addEventListener('click', confirmReset);
+      },
+      true
+    );
+  }
+
+  const backToProfile = `<button type="button" class="pf-back" id="pfBack">${ICONS.back}Back</button>`;
+
+  function openWeatherPage() {
+    openModal(
+      `${backToProfile}<h2>Weather</h2>${weatherCardHtml(wcfg().place ? 'The window shows the real weather and the real sunrise and sunset there.' : WX_INTRO)}`,
+      (box) => {
+        box.querySelector('#pfBack').addEventListener('click', openSettings);
+        bindWeatherCard(box, openWeatherPage);
+      },
+      true
+    );
+  }
+
+  function openTestingPage() {
+    openModal(
+      `${backToProfile}<h2>Testing tools</h2>
+       <div class="pf-tools">
+         <p class="small">Pretend time has passed (to see the "while you were away" summary without waiting):</p>
+         <div class="row"><button class="btn" data-skip="1">+1 hour</button><button class="btn" data-skip="6">+6 hours</button><button class="btn" data-skip="24">+1 day</button><button class="btn" id="realTime" ${state.settings.timeOffset ? '' : 'disabled'}>Back to real time</button></div>
+         <p class="small">Weather preview (the window only):</p>
+         <div class="row">${[['', 'Auto'], ...G.Weather.KINDS.map((k) => [k, G.Weather.LABEL[k]])].map(([k, l]) => `<button class="chip ${String(wcfg().preview || '') === k ? 'on' : ''}" data-wx="${k}">${l}</button>`).join('')}</div>
+         <p class="small">Seasonal decor preview:</p>
+         <div class="row">${[['', 'Auto'], ['none', 'None'], ['cny', 'CNY'], ['raya', 'Raya'], ['christmas', 'Christmas']].map(([k, l]) => `<button class="chip ${String(state.settings.seasonPreview || '') === k ? 'on' : ''}" data-season="${k}">${l}</button>`).join('')}</div>
+       </div>`,
+      (box) => {
+        box.querySelector('#pfBack').addEventListener('click', openSettings);
         box.querySelectorAll('[data-skip]').forEach((b) => b.addEventListener('click', () => timeTravel(Number(b.getAttribute('data-skip')) * G.Clock.HOUR)));
         box.querySelector('#realTime').addEventListener('click', () => {
           // Going backwards isn't possible for the simulation; it simply waits until real time catches up.
@@ -2498,14 +2591,13 @@
           save(true);
           toast('Back to real time.');
         });
-        bindWeatherCard(box, () => openSettings());
         box.querySelectorAll('[data-wx]').forEach((b) =>
           b.addEventListener('click', () => {
             wcfg().preview = b.getAttribute('data-wx') || null;
             scene.updateLighting(now(), true);
             updateHUD();
             save(true);
-            openSettings();
+            openTestingPage();
           })
         );
         box.querySelectorAll('[data-season]').forEach((b) =>
@@ -2513,11 +2605,9 @@
             state.settings.seasonPreview = b.getAttribute('data-season') || null;
             scene.renderRoom(true, now());
             save(true);
-            openSettings();
+            openTestingPage();
           })
         );
-        box.querySelector('#lookBtn').addEventListener('click', openLookPanel);
-        box.querySelector('#resetBtn').addEventListener('click', confirmReset);
       },
       true
     );
@@ -2537,13 +2627,35 @@
     return true;
   }
 
+  // Tapping the photo on the wall: upload or change it, or take it down.
+  function openWallPhoto() {
+    const name = esc(state.cat.name);
+    openModal(
+      `<div class="wp-sheet"><h2>Wall photo</h2>
+        <div class="wp-big"><div class="wp-big-in">${wallPhoto ? `<img src="${wallPhoto}" alt="Your photo of ${name}">` : `<svg viewBox="-80 -150 160 156">${G.CatArt.render('sit', 'wpbig')}</svg>`}</div></div>
+        <p class="small">${wallPhoto ? `Your photo of ${name} is on the wall, on the name card and in the profile.` : `Hang a real photo of ${name} in this frame. It also shows on the name card and in the profile.`}</p>
+        <p class="error" id="wpErr"></p>
+        <div class="wp-actions"><label class="btn primary">${ICONS.photo}${wallPhoto ? 'Change photo' : 'Upload a photo'}<input type="file" accept="image/*" id="wpIn" hidden></label>${wallPhoto ? '<button type="button" class="btn danger" id="wpRemove">Remove photo</button>' : ''}</div>
+      </div>`,
+      (box) => {
+        box.querySelector('#wpIn').addEventListener('change', (e) => {
+          const f = e.target.files && e.target.files[0];
+          if (f) openWallCrop(f);
+        });
+        const rm = box.querySelector('#wpRemove');
+        if (rm) rm.addEventListener('click', confirmRemovePhoto);
+      },
+      true
+    );
+  }
+
   // Pick the part of the photo that hangs on the wall: drag it around and zoom, with the frame's shape.
   function openWallCrop(file) {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      openSettings();
+      openWallPhoto();
       const e = $('modalBox').querySelector('#wpErr');
       if (e) e.textContent = "Couldn't read that photo. Try a JPG or PNG.";
     };
@@ -2619,7 +2731,7 @@
           box.querySelector('#wpZoom').addEventListener('input', (e) => setZoom(Number(e.target.value)));
           box.querySelector('#wpCancel').addEventListener('click', () => {
             URL.revokeObjectURL(url);
-            openSettings();
+            openWallPhoto();
           });
           box.querySelector('#wpSave').addEventListener('click', () => {
             const c = document.createElement('canvas');
@@ -2634,7 +2746,7 @@
             URL.revokeObjectURL(url);
             sound('chime');
             toast(`Hung on the wall! Say hi to ${state.cat.name}.`);
-            openSettings();
+            closeModal();
           });
           draw();
         },
@@ -2650,7 +2762,7 @@
         <p>${esc(state.cat.name)}'s photo will come down from the wall and the cartoon portrait goes back up.</p>
         <div class="row center"><button class="btn" id="keepPhoto">Keep it</button><button class="btn danger" id="dropPhoto">Remove photo</button></div></div>`,
       (box) => {
-        box.querySelector('#keepPhoto').addEventListener('click', openSettings);
+        box.querySelector('#keepPhoto').addEventListener('click', openWallPhoto);
         box.querySelector('#dropPhoto').addEventListener('click', () => {
           setWallPhoto(null);
           closeModal();

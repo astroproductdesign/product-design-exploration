@@ -386,7 +386,7 @@
   function portrait() {
     // A framed picture of the cat on the wall: the real photo if there is one, else the cartoon.
     return (
-      `<g class="portrait act" data-act="portrait" role="button" tabindex="0" aria-label="Profile and settings" style="cursor:pointer" transform="translate(${118 + DX.tv} 140)">` +
+      `<g class="portrait act" data-act="portrait" role="button" tabindex="0" aria-label="Wall photo" style="cursor:pointer" transform="translate(${118 + DX.tv} 140)">` +
       `<rect x="-40" y="-48" width="80" height="96" rx="4" fill="${K.woodLight}" stroke="${K.line}" stroke-width="3"/>` +
       `<rect x="-30" y="-38" width="60" height="76" fill="#cfe6e0" stroke="${K.line}" stroke-width="2"/>` +
       `<clipPath id="portrait-clip"><rect x="-30" y="-38" width="60" height="76"/></clipPath>` +
