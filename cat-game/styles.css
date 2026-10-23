@@ -1176,6 +1176,7 @@ input:focus {
 }
 .pf-switch::after {
   content: '';
+  box-sizing: border-box; /* pseudo-elements don't inherit the global border-box */
   position: absolute;
   top: 2px;
   left: 2px;
@@ -1190,7 +1191,7 @@ input:focus {
   background: var(--sage);
 }
 .pf-switch.on::after {
-  left: 23px;
+  left: 24px;
 }
 /* Weather and Testing tools open their own page, with a way back */
 .pf-back {
