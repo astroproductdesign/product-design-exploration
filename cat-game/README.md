@@ -62,6 +62,22 @@ Random little scenes the cat plays out by itself (each one also goes in the diar
 
 The dotted orange rings that point things out (an empty bowl, a dirty litter box, a puddle, the diary, the wall note, the gachapon) only show until you've used that thing once. Gifts and knocked-over cups show up on the floor; tap them. Bond mostly goes up and it unlocks new food, toys and furniture. Each bit of bond floats up as a little "+1 ♥" by the bond bar. Bond comes from your daily check-in (+5), the days you spend together (+2), petting (20 a day), feeding and treats (8 a day), play (20 a day), invites (4 a day), care (4 a day, and +1 extra for the first scoop or clean-up each day), reading the day's note (+1), achievements (+2, or +5 for the big ones, once you claim them) and gifts. The levels need 25, 60, 110, 180, 270, 390, 540, 740 and 1000 points. A grumpy cat can take a little back, but never below the start of your current level, so nothing you've unlocked is lost.
 
+### Promo codes
+
+Players enter a code in **Settings → Promo code**, or from the **Have a code?** card at the end of the shop. A code can give **cat coins**, **free gachapon spins** (used before coins, shown as "Free spin (n left)") and **shop looks** (a look the player already owns is paid as its price in coins instead). Several rewards can come in one code and are paid together.
+
+How a code is checked, in order: tidy the text (capitals only, spaces and dashes ignored) → empty? → in a break? → a real code? → started? → ended? → already used on this device? → pay out and save together. A wrong code counts as a try; after **5 wrong tries in a row** entry locks for **5 minutes** (a countdown that survives reloads). "Not active yet" and "ended" don't count as wrong tries. If the browser can't save, nothing is paid and the code isn't used up. Used codes and the try count live in their own storage key (`catgame.promo.v1`) and **survive Start over**, so a restart can't claim a code again. Dates use the real clock, so Testing tools' "skip time" can't open or extend a code.
+
+There is no server, so a code works **once per device**. It can't be limited to "the first 100 people", and a leaked code can be used once on every device. Use an end date and modest rewards.
+
+**To add a code**, add a line to `CODES` in `js/core/promo.js`:
+
+1. Get its hash: open the game, then in the browser console run `CatGame.Promo.hash('SPRING-24')`.
+2. Add `{ h: '<that hash>', from: '2026-10-01', to: '2026-12-31', rewards: [{ coins: 50 }, { spins: 2 }, { look: 'rug:flower' }] }`. Look ids are `piece:style` from `js/core/shop.js`.
+3. Publish the game. To end a code early, change its `to` date or remove the line.
+
+Only the hash is stored, so the code can't just be read from the file. The one code that ships, `WELCOME-PURR` (20 coins and a free spin), is a sample: replace it before you share the game.
+
 ### Testing without waiting
 
 Tap the name card, then **Settings → Testing tools**:
@@ -91,6 +107,7 @@ cat-game/
     clock.js            real-time clock, day phases, lighting (follows the real sunrise and sunset), seasons
     gacha.js            the gachapon: prizes, rarity, spending coins, furniture colours
     shop.js             the shop: the looks for each piece of furniture, prices, buying and switching
+    promo.js            promo codes: the code list, checking a code, once per device, wrong-try lock
     achievements.js     the silly achievements, counted from what happens (State.log) and a few UI counters
     notes.js            the daily wall note: facts, things about your cat, wishes
     updates.js          what's new: the list for the pop-up and the Updates page (add a release, raise VERSION)

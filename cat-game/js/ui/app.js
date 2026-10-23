@@ -10,6 +10,7 @@
   let state;
   let scene;
   let album = [];
+  let promo = null; // used promo codes and wrong tries (kept through Start over)
   let lastSave = 0;
   let lastFrame = 0;
   let lastDay = '';
@@ -56,6 +57,10 @@
     book: I('<path d="M3.5 4.5H10a2 2 0 0 1 2 2V20a2 2 0 0 0-2-2H3.5z" fill="#f6c9cf"/><path d="M20.5 4.5H14a2 2 0 0 0-2 2V20a2 2 0 0 1 2-2h6.5z" fill="#fffdf6"/>'),
     settings: I('<circle cx="12" cy="12" r="3.2" fill="#f3c66b"/><path d="M12 2.5v3M12 18.5v3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M2.5 12h3M18.5 12h3M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>'),
     go: I('<path d="M9 5l7 7-7 7" stroke-width="3"/>'),
+    spin: I('<circle cx="12" cy="10" r="7" fill="#fffdf6"/><path d="M5 10h14"/><rect x="8" y="17" width="8" height="5" rx="1.5" fill="#f4accc"/>'),
+    clock: I('<circle cx="12" cy="12" r="9" fill="#fff"/><path d="M12 7v5l3 2"/>'),
+    warn: I('<circle cx="12" cy="12" r="9" fill="#fbd9d2"/><path d="M12 7v6M12 16.5h.01" stroke-width="2.6"/>'),
+    ticket: I('<path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" fill="#f8e7a8"/><path d="M14 7v10" stroke-dasharray="2 2.4"/>'),
     back: I('<path d="M15 5l-7 7 7 7" stroke-width="3"/>'),
     chevron: I('<path d="M6 9l6 6 6-6" stroke-width="3"/>'),
     pencil: I('<path d="M4 20l1-4L16 5l3 3L8 19z" fill="#f8e7a8"/><path d="M14 7l3 3"/>'),
@@ -74,6 +79,7 @@
 
   function boot() {
     album = G.Storage.loadAlbum();
+    promo = G.Storage.loadPromo();
     wallPhoto = G.Storage.loadPortrait();
     G.RoomArt.setWallPhoto(wallPhoto);
     state = G.Storage.load();
@@ -1391,7 +1397,7 @@
         const have = pc.styles.filter((x) => Sh.owns(state, pc.id, x.id)).length;
         const wearing = st ? pc.styles.find((x) => x.id === st).name : pc.base;
         return `<button class="pcard shop" data-shop-piece="${pc.id}" aria-label="${esc(pc.name)}: ${have} of ${pc.styles.length} looks owned"><span class="dcard-ico">${pieceIcon(pc.id, G.Gacha.skinOf(state, pc.id))}</span><b>${esc(pc.name)}</b><small>${esc(wearing)}</small><small class="own">${have} of ${pc.styles.length} owned</small></button>`;
-      }).join('');
+      }).join('') + `<button class="pcard shop code" data-shop-code="1" aria-label="Have a promo code?"><span class="dcard-ico">${ICONS.ticket}</span><b>Have a code?</b><small>Enter a promo code</small></button>`;
     } else {
       const colour = G.Gacha.skinOf(state, piece.id);
       const cur = Sh.styleOf(state, piece.id);
@@ -1639,7 +1645,7 @@
     });
     $('decorTray').addEventListener('click', (e) => {
       if (!decor || decor.tab !== 'shop') return;
-      const t = e.target.closest('[data-shop-piece], [data-shop-back], [data-shop-buy], [data-shop-use]');
+      const t = e.target.closest('[data-shop-piece], [data-shop-back], [data-shop-buy], [data-shop-use], [data-shop-code]');
       if (!t) return;
       G.Sound.unlock();
       if (t.hasAttribute('data-shop-piece')) {
@@ -1648,6 +1654,10 @@
         $('decorTray').scrollLeft = 0;
         drawDecor();
         return scene.flashPiece(decor.shopPiece);
+      }
+      if (t.hasAttribute('data-shop-code')) {
+        sound('pop');
+        return openPromoPage('shop');
       }
       if (t.hasAttribute('data-shop-back')) {
         sound('pop');
@@ -2159,13 +2169,19 @@
     }).join('')}</div>`;
   }
 
+  // "Spin for 5 coins", or a free spin from a promo code when there is one.
+  function spinLabel() {
+    const free = (state.gacha && state.gacha.freeSpins) || 0;
+    return free ? `Free spin (${free} left)` : `Spin for ${G.Gacha.COST} ${ICONS.coin}`;
+  }
+
   function openGacha() {
     const cost = G.Gacha.COST;
     openModal(
       `<div class="gacha"><h2>Gachapon</h2>
         <div class="g-stage" id="gStage">${gachaSvg()}<div class="g-prize" id="gPrize"></div></div>
         <div class="g-result" id="gResult"><p class="small">Every capsule holds something new for ${esc(state.cat.name)}: an accessory to wear, a toy for the room, or a new colour for the furniture.</p></div>
-        <div class="g-bar"><span class="g-coins">${ICONS.coin}<b id="gCoins">${state.coins || 0}</b> cat coins</span><button class="btn primary" id="gSpin">Spin for ${cost} ${ICONS.coin}</button></div>
+        <div class="g-bar"><span class="g-coins">${ICONS.coin}<b id="gCoins">${state.coins || 0}</b> cat coins</span><button class="btn primary" id="gSpin">${spinLabel()}</button></div>
         <p class="small muted">Earn more coins by visiting every day (streaks pay extra), unlocking achievements and levelling up your bond.</p>
         <details class="g-list" id="gList">${gachaListHtml()}</details></div>`,
       (box) => {
@@ -2246,6 +2262,7 @@
             list.open = open;
             updateHUD();
             btn.disabled = false;
+            btn.innerHTML = spinLabel();
             busy = false;
           }, at[3]);
         });
@@ -2490,6 +2507,7 @@
         <div class="pf-list">
           ${row('pfWeather', 'cloud', 'Weather', wxText)}
           ${row('pfSound', 'soundOn', 'Sound', state.settings.muted ? 'Off' : 'On', `<span class="pf-switch ${state.settings.muted ? '' : 'on'}" aria-hidden="true"></span>`)}
+          ${row('pfPromo', 'ticket', 'Promo code', 'Got a code? Enter it here')}
           ${row('pfTesting', 'wrench', 'Testing tools', 'Skip time, preview weather and seasons')}
           ${row('resetBtn', 'restart', 'Start over', 'Erase everything and adopt a new cat', '', 'danger')}
         </div>
@@ -2544,9 +2562,149 @@
           $('muteBtn').click();
           showSound();
         });
+        box.querySelector('#pfPromo').addEventListener('click', () => openPromoPage('settings'));
         box.querySelector('#pfTesting').addEventListener('click', openTestingPage);
         box.querySelector('#resetBtn').addEventListener('click', confirmReset);
       },
+      true
+    );
+  }
+
+  // ---- Promo code ---------------------------------------------------------------------------------
+  // From Settings (Back returns there) or the shop (Back closes, and the shop is still behind it).
+  // Dates use the real clock, so Testing tools' "skip time" can't open or extend a code.
+
+  const longDay = (key) => new Date(key + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const clockMs = (ms) => {
+    const sec = Math.max(0, Math.ceil(ms / 1000));
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  };
+
+  function promoPersist(wrongOnly) {
+    if (wrongOnly) return G.Storage.savePromo(promo);
+    return G.Storage.save(state) && G.Storage.savePromo(promo);
+  }
+
+  function openPromoPage(from, keep) {
+    const P = G.Promo;
+    const leave = () => (from === 'shop' ? (closeModal(), decor && drawDecor()) : openSettings());
+    openModal(
+      `<button type="button" class="pf-back" id="pfBack">${ICONS.back}Back</button><h2>Promo code</h2>
+       <p class="small muted pc-lead">Type the code we gave you. Capitals and dashes don't matter.</p>
+       <input class="pc-in" id="pcIn" maxlength="${P.MAX_LEN}" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ENTER CODE" aria-label="Promo code" aria-describedby="pcMsg">
+       <p class="pc-msg" id="pcMsg" role="status" aria-live="polite"></p>
+       <button type="button" class="btn primary pc-go" id="pcGo">Redeem</button>
+       <p class="pc-hint" id="pcHint">A code can be used once on this device.</p>`,
+      (box) => {
+        const input = box.querySelector('#pcIn');
+        const go = box.querySelector('#pcGo');
+        const msg = box.querySelector('#pcMsg');
+        const hint = box.querySelector('#pcHint');
+        let busy = false;
+        let timer = 0;
+        const say = (text, kind, ico) => {
+          msg.className = 'pc-msg ' + (kind || '');
+          msg.innerHTML = text ? `${ico ? ICONS[ico] : ''}<span>${esc(text)}</span>` : '';
+          input.classList.toggle('bad', kind === 'err' || kind === 'info');
+        };
+        const sync = () => {
+          const locked = promo.lockUntil > Date.now();
+          input.disabled = locked;
+          go.disabled = locked || !P.normalize(input.value);
+        };
+        // The break after too many wrong tries: a countdown that survives reloads.
+        const tick = () => {
+          clearInterval(timer);
+          const left = promo.lockUntil - Date.now();
+          if (left <= 0 || !box.contains(go)) {
+            if (promo.lockUntil && left <= 0) {
+              promo.lockUntil = 0;
+              promo.wrong = 0;
+              promoPersist(true);
+              say('');
+              hint.textContent = 'A code can be used once on this device.';
+              go.textContent = 'Redeem';
+            }
+            return sync();
+          }
+          say(`Too many tries. You can try again in ${clockMs(left)}.`, 'info', 'clock');
+          go.textContent = `Try again in ${clockMs(left)}`;
+          hint.textContent = 'This is only to stop guessing.';
+          sync();
+          timer = setInterval(tick, 1000);
+        };
+        input.addEventListener('input', () => {
+          const at = input.selectionStart;
+          const clean = input.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, P.MAX_LEN);
+          if (clean !== input.value) input.value = clean;
+          try { input.setSelectionRange(at, at); } catch { /* not every input allows it */ }
+          say('');
+          sync();
+        });
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            go.click();
+          }
+        });
+        box.querySelector('#pfBack').addEventListener('click', () => {
+          clearInterval(timer);
+          leave();
+        });
+        go.addEventListener('click', () => {
+          if (busy || go.disabled) return;
+          busy = true; // a second tap can't pay the reward twice
+          const r = P.redeem(state, promo, input.value, Date.now(), promoPersist);
+          busy = false;
+          if (r.ok) {
+            clearInterval(timer);
+            sound('chime');
+            updateHUD();
+            return showPromoResult(r.rewards, from);
+          }
+          if (r.why === 'locked' || r.locked) return tick();
+          sound('pop');
+          const left = r.left;
+          if (r.why === 'unknown') {
+            say("That code isn't right. Check it for typos.", 'err', 'warn');
+            hint.textContent = `${left} ${left === 1 ? 'try' : 'tries'} left before a short break.`;
+            box.querySelector('.pc-in').classList.remove('shake');
+            void input.offsetWidth;
+            input.classList.add('shake');
+          } else if (r.why === 'early') say(`This code isn't active yet. Try it from ${longDay(r.from)}.`, 'info', 'clock');
+          else if (r.why === 'ended') say(`This code ended on ${longDay(r.to)}.`, 'info', 'clock');
+          else if (r.why === 'used') say(`You used this code on ${new Date(r.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}.`, 'info', 'ticket');
+          else if (r.why === 'save') {
+            say("Couldn't save. Free up some space and try again.", 'err', 'warn');
+            hint.textContent = 'Your code has not been used.';
+          }
+          if (r.why === 'early' || r.why === 'ended' || r.why === 'used') hint.textContent = r.why === 'used' ? 'A code can be used once on this device.' : 'No tries used.';
+          sync();
+        });
+        sync();
+        if (promo.lockUntil > Date.now()) tick();
+        else if (!keep) input.focus();
+      },
+      true
+    );
+  }
+
+  function promoRewardRow(r) {
+    const tile = (svg) => `<span class="pc-tile">${svg}</span>`;
+    if (r.kind === 'coins') return `<div class="pc-reward">${tile(ICONS.coin)}<span><b>${r.coins} cat coins</b><small>Added to your coins</small></span></div>`;
+    if (r.kind === 'spins') return `<div class="pc-reward">${tile(ICONS.spin)}<span><b>${r.spins} free gachapon spin${r.spins > 1 ? 's' : ''}</b><small>Used before coins</small></span></div>`;
+    if (r.kind === 'owned') return `<div class="pc-reward">${tile(ICONS.coin)}<span><b>${r.coins} cat coins</b><small>You already had the ${esc(r.name)}, so here are its coins instead</small></span></div>`;
+    return `<div class="pc-reward">${tile(G.RoomArt.styleIcon(r.piece, r.style, G.Gacha.skinOf(state, r.piece)))}<span><b>${esc(r.name)}</b><small>A new look for the ${esc(r.pieceName.toLowerCase())}, in the shop</small></span></div>`;
+  }
+
+  function showPromoResult(rewards, from) {
+    openModal(
+      `<h2>Code accepted!</h2><div class="pc-list">${rewards.map(promoRewardRow).join('')}</div><button type="button" class="btn primary pc-go" id="pcDone">Lovely</button>`,
+      (box) =>
+        box.querySelector('#pcDone').addEventListener('click', () => {
+          closeModal();
+          if (decor) drawDecor();
+        }),
       true
     );
   }

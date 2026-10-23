@@ -103,8 +103,10 @@
   // One spin. A duplicate gives a couple of coins back. New prizes are a little likelier than repeats.
   function spin(s, t) {
     if (!s.gacha) s.gacha = { owned: [], spins: 0 };
-    if ((s.coins || 0) < COST) return { ok: false, need: COST - (s.coins || 0) };
-    s.coins -= COST;
+    const free = s.gacha.freeSpins || 0; // from promo codes: used before coins
+    if (!free && (s.coins || 0) < COST) return { ok: false, need: COST - (s.coins || 0) };
+    if (free) s.gacha.freeSpins = free - 1;
+    else s.coins -= COST;
     s.gacha.spins += 1;
     const r = R.rng(R.hash(s.seed, 'gacha', s.gacha.spins, t));
     const rarity = R.weighted(r, RARITY);
@@ -116,7 +118,7 @@
     if (dup) s.coins += REFUND;
     else give(s, prize);
     G.State.log(s, { t, type: 'gacha', prize: prize.id, rarity: prize.rarity, dup, live: true });
-    return { ok: true, prize, dup, refund: dup ? REFUND : 0 };
+    return { ok: true, prize, dup, refund: dup ? REFUND : 0, free: !!free };
   }
 
   G.Gacha = { COST, REFUND, PRIZES, BY_ID, RARITY_LABEL, PIECES, owned, canWear, skinsFor, skinOf, setSkin, spin };

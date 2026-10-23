@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
-const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'achievements', 'weather', 'sim', 'interactions', 'gacha', 'shop', 'journal', 'notes', 'updates'];
+const files = ['random', 'clock', 'profile', 'coats', 'photoread', 'catalog', 'state', 'storage', 'progression', 'achievements', 'weather', 'sim', 'interactions', 'gacha', 'shop', 'journal', 'notes', 'promo', 'updates'];
 const ctx = vm.createContext({ console, Math, Date, JSON });
 for (const f of files) vm.runInContext(readFileSync(path.join(dir, '../js/core', f + '.js'), 'utf8'), ctx, { filename: f });
 const G = ctx.CatGame;
@@ -1101,5 +1101,69 @@ test('wall photo: kept apart from the save, only real images, and it goes when y
   St.clear();
   assert.equal(St.loadPortrait(), null, 'starting a new game takes the photo down too');
 });
+
+test('promo codes: tidy text, rewards, once per device, wrong tries, dates, save failure', () => {
+  const P = G.Promo;
+  const day = (y, m, d) => new Date(y, m - 1, d, 12).getTime();
+  const codes = [
+    { h: P.hash('SPRING-24'), from: '2026-10-01', to: '2026-12-31', rewards: [{ coins: 50 }, { spins: 2 }, { look: 'rug:flower' }] },
+    { h: P.hash('LATER'), from: '2027-01-01', to: '2027-01-31', rewards: [{ coins: 5 }] },
+    { h: P.hash('OLD'), from: '2025-01-01', to: '2025-02-01', rewards: [{ coins: 5 }] },
+  ];
+  const now = day(2026, 10, 20);
+  const ok = () => true;
+  const s = fresh();
+  const rec = P.blank();
+  assert.equal(P.redeem(s, rec, '  ', now, ok, codes).why, 'empty');
+  assert.equal(P.normalize(' spring-24 '), 'SPRING24');
+  // dates don't count as wrong tries
+  assert.equal(P.redeem(s, rec, 'later', now, ok, codes).why, 'early');
+  assert.equal(P.redeem(s, rec, 'old', now, ok, codes).why, 'ended');
+  assert.equal(rec.wrong, 0);
+  // pays everything at once, in any spelling
+  const r = P.redeem(s, rec, 'spring 24', now, ok, codes);
+  assert.ok(r.ok);
+  assert.equal(s.coins, 55);
+  assert.equal(s.gacha.freeSpins, 2);
+  assert.ok(G.Shop.owns(s, 'rug', 'flower'));
+  // once only
+  assert.equal(P.redeem(s, rec, 'SPRING-24', now, ok, codes).why, 'used');
+  assert.equal(s.coins, 55);
+  // free spins are used before coins
+  const g = G.Gacha.spin(s, now);
+  assert.ok(g.ok && g.free);
+  assert.equal(s.gacha.freeSpins, 1);
+  assert.equal(s.coins, 55 + g.refund);
+  // an item already owned pays its price in coins
+  const s2 = fresh();
+  s2.shop.owned.push('rug:flower');
+  const rec2 = P.blank();
+  const r2 = P.redeem(s2, rec2, 'spring-24', now, ok, codes);
+  assert.ok(r2.ok && r2.rewards.some((x) => x.kind === 'owned'));
+  assert.equal(s2.coins, 5 + 50 + G.Shop.find('rug', 'flower').price);
+  assert.equal(s2.shop.owned.filter((x) => x === 'rug:flower').length, 1);
+  // five wrong tries lock it for five minutes, then it opens again
+  const s3 = fresh();
+  const rec3 = P.blank();
+  for (let i = 1; i <= 4; i++) assert.equal(P.redeem(s3, rec3, 'nope' + i, now, ok, codes).left, 5 - i);
+  assert.equal(P.redeem(s3, rec3, 'nope5', now, ok, codes).locked, true);
+  assert.equal(P.redeem(s3, rec3, 'SPRING-24', now + 1000, ok, codes).why, 'locked');
+  assert.equal(s3.coins, 5);
+  assert.ok(P.redeem(s3, rec3, 'SPRING-24', now + P.LOCK_MS + 1, ok, codes).ok);
+  assert.equal(rec3.wrong, 0);
+  // a failed save pays nothing and leaves the code unused
+  const s4 = fresh();
+  const rec4 = P.blank();
+  assert.equal(P.redeem(s4, rec4, 'SPRING-24', now, () => false, codes).why, 'save');
+  assert.equal(s4.coins, 5);
+  assert.equal(s4.gacha.freeSpins, undefined);
+  assert.ok(!G.Shop.owns(s4, 'rug', 'flower'));
+  assert.deepEqual(rec4.used, {});
+  assert.ok(P.redeem(s4, rec4, 'SPRING-24', now, ok, codes).ok);
+  // the shipped sample is valid
+  assert.ok(P.CODES.every((c) => /^[0-9a-f]+$/.test(c.h)));
+  assert.ok(P.redeem(fresh(), P.blank(), 'welcome-purr', now, ok).ok);
+});
+
 
 console.log(`\n${passed} checks passed`);

@@ -5014,3 +5014,121 @@ body.calm .right * {
 .wp-zoom input {
   flex: 1;
 }
+
+/* ---- Promo code ------------------------------------------------------------------------------- */
+
+.pc-lead {
+  margin: 6px 0 12px;
+}
+.pc-in {
+  width: 100%;
+  font: inherit;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  color: var(--ink);
+  background: #fff;
+  border: var(--line);
+  border-radius: 14px;
+}
+.pc-in::placeholder {
+  color: #b8a995;
+  letter-spacing: 0.08em;
+}
+.pc-in.bad {
+  border-color: #c4452e;
+  background: #fff4f1;
+}
+.pc-in:disabled {
+  background: #eee3d2;
+  color: var(--ink-soft);
+}
+.pc-in.shake {
+  animation: pcShake 0.35s;
+}
+@keyframes pcShake {
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+.pc-msg {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  min-height: 22px;
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 800;
+}
+.pc-msg.err {
+  color: #a33a26;
+}
+.pc-msg.info {
+  color: var(--ink-soft);
+}
+.pc-msg svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 1px;
+}
+.pc-go {
+  width: 100%;
+  margin-top: 10px;
+}
+.pc-hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.pc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.pc-reward {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 12px 7px 7px;
+  background: var(--paper-2);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+}
+.pc-tile {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.pc-tile svg {
+  width: 26px;
+  height: 26px;
+}
+.pc-reward b {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 900;
+}
+.pc-reward small {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.pc-reward span:last-child {
+  min-width: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-in.shake {
+    animation: none;
+  }
+}

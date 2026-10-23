@@ -7,6 +7,7 @@
   const KEY = 'catgame.save.v1';
   const ALBUM_KEY = 'catgame.album.v1';
   const PORTRAIT_KEY = 'catgame.portrait.v1'; // the real cat photo for the wall (one small cropped JPEG)
+  const PROMO_KEY = 'catgame.promo.v1'; // used promo codes and wrong tries; kept through "Start over" on purpose
 
   function store() {
     try {
@@ -82,6 +83,29 @@
     }
   }
 
+  function loadPromo() {
+    const ls = store();
+    try {
+      const v = ls && JSON.parse(ls.getItem(PROMO_KEY) || 'null');
+      if (v && typeof v === 'object') return { used: v.used && typeof v.used === 'object' ? v.used : {}, wrong: Number(v.wrong) || 0, lockUntil: Number(v.lockUntil) || 0 };
+    } catch {
+      /* fall through */
+    }
+    return { used: {}, wrong: 0, lockUntil: 0 };
+  }
+
+  // Returns false when the browser is out of space.
+  function savePromo(rec) {
+    const ls = store();
+    if (!ls) return false;
+    try {
+      ls.setItem(PROMO_KEY, JSON.stringify(rec));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function clear() {
     const ls = store();
     if (!ls) return;
@@ -94,5 +118,5 @@
     }
   }
 
-  G.Storage = { load, save, loadAlbum, saveAlbum, loadPortrait, savePortrait, clear };
+  G.Storage = { load, save, loadAlbum, saveAlbum, loadPortrait, savePortrait, loadPromo, savePromo, clear };
 })(globalThis.CatGame = globalThis.CatGame || {});
