@@ -18,6 +18,8 @@
     { h: '62d190f7bea47', from: '2026-01-01', to: '2099-12-31', rewards: [{ coins: 20 }, { spins: 1 }] },
     // TEST-1COIN: for trying the flow. 1 coin, once per device.
     { h: 'f9e0ba33599ca', from: '2026-01-01', to: '2026-12-31', rewards: [{ coins: 1 }] },
+    // PURR-YPC6-KZAS: 21 coins, for one person (once per device).
+    { h: '19cd97ab4815f', from: '2026-01-01', to: '2026-12-31', rewards: [{ coins: 21 }] },
   ];
 
   // Capitals only; spaces, dashes and anything else are ignored, so "spring-24" and " SPRING 24 " match.
